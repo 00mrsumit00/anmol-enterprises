@@ -1,0 +1,295 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── USERS ────────────────────────────────────────────────────────────────────
+
+model User {
+  id              String    @id @default(cuid())
+  name            String
+  email           String?   @unique
+  phone           String?   @unique
+  passwordHash    String?
+  role            String    @default("CUSTOMER") // ADMIN, STAFF, CUSTOMER
+  authProvider    String    @default("LOCAL")    // LOCAL, GOOGLE
+  businessName    String?   // for B2B accounts
+  isB2B           Boolean   @default(false)
+  isCreditEnabled Boolean   @default(false)   // for Credit Account option (default disabled)
+  creditLimit     Float     @default(0)   // for Credit Account holders
+  creditUsed      Float     @default(0)
+  phoneVerified   Boolean   @default(false)
+  phoneVerifiedAt DateTime?
+  emailVerified   Boolean   @default(false)
+  emailVerifiedAt DateTime?
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  orders          Order[]
+  addresses       Address[]
+  sessions        Session[]
+  businessProfile BusinessProfile?
+
+  @@map("users")
+}
+
+// ─── OTP PHONE VERIFICATION ──────────────────────────────────────────────────
+
+model OtpVerification {
+  id          String   @id @default(cuid())
+  phone       String?
+  email       String?
+  channel     String   @default("SMS") // SMS, EMAIL
+  otpHash     String   // Never plaintext
+  purpose     String   // SIGNUP, GUEST_CHECKOUT
+  expiresAt   DateTime
+  attempts    Int      @default(0)
+  maxAttempts Int      @default(5)
+  verified    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([phone, purpose])
+  @@index([email, purpose])
+  @@map("otp_verifications")
+}
+
+// ─── CREDIT & FINANCIAL AUDIT LOGS ───────────────────────────────────────────
+
+model CreditAuditLog {
+  id               String   @id @default(cuid())
+  adminId          String
+  adminName        String
+  targetUserId     String
+  businessName     String?
+  action           String   // TOGGLE_CREDIT, VERIFY_BUSINESS, UPDATE_LIMIT
+  oldCreditEnabled Boolean
+  newCreditEnabled Boolean
+  oldCreditLimit   Float
+  newCreditLimit   Float
+  reason           String?
+  createdAt        DateTime @default(now())
+
+  @@map("credit_audit_logs")
+}
+
+// ─── B2B BUSINESS PROFILES ───────────────────────────────────────────────────
+
+model BusinessProfile {
+  id                 String    @id @default(cuid())
+  userId             String    @unique
+  businessName       String
+  businessType       String    // HOTEL, CAFE, RESTAURANT, CATERER, RETAILER, OTHER
+  gstin              String?
+  fssaiNumber        String?
+  monthlyVolumeEst   String?   // e.g. "< 50kg", "50-200kg", "200-500kg", "500kg+"
+  businessAddress    String?
+  verificationStatus String   @default("PENDING") // PENDING, VERIFIED, REJECTED
+  isCreditEnabled    Boolean   @default(false)   // for Credit Account option (default disabled)
+  creditTier         String    @default("BRONZE")   // BRONZE, SILVER, GOLD
+  approvedBy         String?
+  approvedAt         DateTime?
+  documentUrl        String?   // uploaded GST or license proof
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("business_profiles")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+// ─── ADDRESSES ────────────────────────────────────────────────────────────────
+
+model Address {
+  id          String   @id @default(cuid())
+  userId      String
+  label       String   @default("Home")   // Home / Office / Other
+  flatNo      String
+  street      String
+  landmark    String?
+  city        String   @default("Latur")
+  pincode     String
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders      Order[]
+
+  @@map("addresses")
+}
+
+// ─── CATEGORIES ───────────────────────────────────────────────────────────────
+
+model Category {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  slug        String    @unique
+  emoji       String    // e.g. "🍟"
+  sortOrder   Int       @default(0)
+  isActive    Boolean   @default(true)
+
+  products    Product[]
+
+  @@map("categories")
+}
+
+// ─── PRODUCTS ─────────────────────────────────────────────────────────────────
+
+model Product {
+  id            String    @id @default(cuid())
+  name          String
+  slug          String    @unique
+  brand         String    @default("McCain")
+  categoryId    String
+  description   String
+  isVeg         Boolean   @default(true)
+  imageUrl      String
+  galleryImages String[]  @default([])
+  imagePublicId String?   // Cloudinary public_id for deletion
+  isFeatured    Boolean   @default(false)
+  isActive      Boolean   @default(true)
+  sortOrder     Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  category      Category  @relation(fields: [categoryId], references: [id])
+  variants      ProductVariant[]
+  orderItems    OrderItem[]
+
+  @@map("products")
+}
+
+// ─── PRODUCT VARIANTS ─────────────────────────────────────────────────────────
+
+model ProductVariant {
+  id              String        @id @default(cuid())
+  productId       String
+  packagingType   String        // SINGLE, BOX, CARTON
+  unitsInPack     Int           // 1 for SINGLE, 10 for BOX, 50 for CARTON
+  weightGrams     Int           // weight of the pack in grams
+  skuCode         String        @unique
+  retailPrice     Float         // price for B2C / small qty
+  b2bPrice        Float         // price for B2B / bulk orders
+  stockCount      Int           @default(0)
+  minOrderQty     Int           @default(1)
+  isActive        Boolean       @default(true)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  product         Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  orderItems      OrderItem[]
+
+  @@unique([productId, packagingType])
+  @@map("product_variants")
+}
+
+// ─── DRIVERS (Phase 1 dispatch) ───────────────────────────────────────────────
+
+model Driver {
+  id              String   @id @default(cuid())
+  name            String
+  phone           String   @unique
+  vehicleNumber   String
+  vehicleType     String   @default("Van")
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+
+  assignments     Order[]
+
+  @@map("drivers")
+}
+
+// ─── ORDERS ───────────────────────────────────────────────────────────────────
+
+model Order {
+  id                String         @id @default(cuid())
+  orderNumber       String         @unique // e.g. ORD-2025-00472
+  userId            String?        // null for guest orders
+  businessName      String?        // for B2B
+  guestName         String?
+  guestPhone        String?
+  addressId         String?
+  deliveryAddress   String         // flattened snapshot of address at order time
+  deliveryCity      String         @default("Latur")
+  deliveryPincode   String
+  deliverySlot      String         // MORNING, EVENING
+  deliveryDate      DateTime       // date of requested delivery
+  driverId          String?        // assigned driver (Phase 1 dispatch)
+  status            String         @default("PENDING") // PENDING, CONFIRMED, PACKING, PACKED, ASSIGNED, OUT_FOR_DELIVERY, DELIVERED, CANCELLED
+  paymentMethod     String         // CASH_ON_DELIVERY, UPI, CARD, CREDIT_ACCOUNT
+  paymentStatus     String         @default("PENDING") // PENDING, PAID, FAILED, CREDIT_PENDING
+  razorpayOrderId   String?
+  subtotal          Float
+  deliveryFee       Float          @default(0)
+  coldHandlingFee   Float          @default(10)
+  discountAmount    Float          @default(0)
+  totalAmount       Float
+  notes             String?
+  packedAt          DateTime?
+  dispatchedAt      DateTime?
+  deliveredAt       DateTime?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  user              User?          @relation(fields: [userId], references: [id])
+  address           Address?       @relation(fields: [addressId], references: [id])
+  driver            Driver?        @relation(fields: [driverId], references: [id])
+  items             OrderItem[]
+  statusHistory     OrderStatusLog[]
+
+  @@map("orders")
+}
+
+// ─── ORDER ITEMS ──────────────────────────────────────────────────────────────
+
+model OrderItem {
+  id              String         @id @default(cuid())
+  orderId         String
+  productId       String
+  variantId       String
+  productName     String         // snapshot
+  variantSku      String         // snapshot
+  packagingType   String         // snapshot
+  weightGrams     Int            // snapshot
+  quantity        Int
+  unitPrice       Float          // price at time of order
+  lineTotal       Float
+
+  order           Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product         Product        @relation(fields: [productId], references: [id])
+  variant         ProductVariant @relation(fields: [variantId], references: [id])
+
+  @@map("order_items")
+}
+
+// ─── ORDER STATUS LOG (audit trail) ──────────────────────────────────────────
+
+model OrderStatusLog {
+  id         String      @id @default(cuid())
+  orderId    String
+  fromStatus String?
+  toStatus   String
+  changedBy  String?     // admin user id or "system"
+  note       String?
+  createdAt  DateTime    @default(now())
+
+  order      Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("order_status_logs")
+}

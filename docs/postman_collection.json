@@ -1,0 +1,298 @@
+{
+  "info": {
+    "name": "Anmol Frozen Express API",
+    "description": "API collection for B2B Frozen Food Quick-Commerce PWA - Latur, Maharashtra",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Register User",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Anmol Admin\",\n  \"phone\": \"9422070000\",\n  \"password\": \"{{ADMIN_PASSWORD}}\",\n  \"isB2B\": true,\n  \"businessName\": \"Anmol Enterprises Latur\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/auth/register",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "auth", "register"]
+            }
+          }
+        },
+        {
+          "name": "Login User",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"9422070000\",\n  \"password\": \"{{ADMIN_PASSWORD}}\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/auth/login",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Current User Details",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:3000/api/auth/me",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "auth", "me"]
+            }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "http://localhost:3000/api/auth/logout",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "auth", "logout"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Products & Categories",
+      "item": [
+        {
+          "name": "Get Categories",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:3000/api/categories",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "categories"]
+            }
+          }
+        },
+        {
+          "name": "Get Products Catalog",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:3000/api/products",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "products"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Orders Management",
+      "item": [
+        {
+          "name": "Create Order",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"deliveryAddress\": \"Shop 12, Ganj Golai Market, Latur\",\n  \"deliveryCity\": \"Latur\",\n  \"deliveryPincode\": \"413512\",\n  \"deliverySlot\": \"MORNING\",\n  \"deliveryDate\": \"2026-06-15T00:00:00.000Z\",\n  \"paymentMethod\": \"CASH_ON_DELIVERY\",\n  \"items\": [\n    {\n      \"productId\": \"replace-with-product-id\",\n      \"variantId\": \"replace-with-variant-id\",\n      \"quantity\": 2\n    }\n  ],\n  \"notes\": \"Deliver in early hours\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/orders",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "orders"]
+            }
+          }
+        },
+        {
+          "name": "Get Customer Orders",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:3000/api/orders",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "orders"]
+            }
+          }
+        },
+        {
+          "name": "Get All Dispatch Orders (Admin)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:3000/api/orders/all",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "orders", "all"]
+            }
+          }
+        },
+        {
+          "name": "Get Order Detail",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:3000/api/orders/replace-with-order-id",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "orders", "replace-with-order-id"]
+            }
+          }
+        },
+        {
+          "name": "Update Order Status (Admin)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"PACKED\",\n  \"note\": \"Packed in freezer crates\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/orders/replace-with-order-id/status",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "orders", "replace-with-order-id", "status"]
+            }
+          }
+        },
+        {
+          "name": "Assign Driver (Admin)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"driverId\": \"replace-with-driver-id\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/orders/replace-with-order-id/assign",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "orders", "replace-with-order-id", "assign"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Drivers Management",
+      "item": [
+        {
+          "name": "Get Drivers List",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:3000/api/drivers",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "drivers"]
+            }
+          }
+        },
+        {
+          "name": "Register Driver Agent",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Ramesh Yadav\",\n  \"phone\": \"9876543210\",\n  \"vehicleNumber\": \"MH-24-AG-7500\",\n  \"vehicleType\": \"Van\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/drivers",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "drivers"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Inventory Controls",
+      "item": [
+        {
+          "name": "Quick Edit Variant Stock",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"variantId\": \"replace-with-variant-id\",\n  \"stockCount\": 120\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/inventory/quick-edit",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "inventory", "quick-edit"]
+            }
+          }
+        },
+        {
+          "name": "Bulk Add Stock",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"packagingType\": \"BOX\",\n  \"addAmount\": 50\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/inventory/bulk-add",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "inventory", "bulk-add"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

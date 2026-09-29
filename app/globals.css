@@ -2,26 +2,148 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Design Tokens — Custom Properties */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+  --color-brand-orange: #FF6B00;
+  --color-brand-orange-dk: #E05C00;
+  --color-brand-orange-lt: #FFF3E6;
+  --color-brand-yellow: #FFD600;
+  --color-ice-blue: #E8F4FD;
+  --color-ice-blue-dk: #B3D9F5;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-charcoal: #1A1A2E;
+  --color-charcoal-soft: #16213E;
+  --color-warm-white: #FAFAF8;
+  --color-white: #FFFFFF;
+
+  --color-success: #00A67E;
+  --color-danger: #E53935;
+  --color-info: #1B6CA8;
+  --color-warning: #F59E0B;
+
+  --background: var(--color-warm-white);
+  --foreground: var(--color-charcoal);
 }
 
 body {
   color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--background);
+  font-family: var(--font-dm-sans), sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  margin: 0;
+  padding: 0;
 }
 
+/* Utilities */
 @layer utilities {
-  .text-balance {
-    text-wrap: balance;
+  /* Hide scrollbar for Chrome, Safari and Opera */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
   }
+  /* Hide scrollbar for IE, Edge and Firefox */
+  .no-scrollbar {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+  }
+}
+
+/* Custom Micro-interactions */
+.tap-scale {
+  transition: transform 0.2s ease;
+}
+.tap-scale:active {
+  transform: scale(0.96);
+}
+
+/* Slide up drawer animation */
+.drawer-slide-up {
+  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+/* Fade in backdrop animation */
+.fade-in {
+  animation: fadeIn 0.2s ease-out forwards;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Pulsing effect for active timeline states */
+.pulse-glow {
+  box-shadow: 0 0 0 0 rgba(255, 107, 0, 0.7);
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(255, 107, 0, 0.7);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 8px rgba(255, 107, 0, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(255, 107, 0, 0);
+  }
+}
+
+/* Print Invoice Styling */
+@media print {
+  body {
+    background-color: #ffffff;
+    color: #000000;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+  @page {
+    margin: 1.5cm;
+  }
+}
+
+/* Marquee scrolling animation */
+@keyframes marquee {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-33.333%); }
+}
+
+/* Hide scrollbar utility */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Slide-in animation for top-right toast */
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(30px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+.animate-slide-in-right {
+  animation: slideInRight 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }

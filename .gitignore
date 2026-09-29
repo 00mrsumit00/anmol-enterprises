@@ -25,7 +25,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# local env files
+# local env files — ALL .env files are secret, never commit them
+.env
+.env.*
 .env*.local
 
 # vercel
