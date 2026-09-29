@@ -3,6 +3,8 @@ import { cookies } from 'next/headers'
 import { prisma } from '@/lib/prisma'
 import { verifyToken } from '@/lib/auth'
 
+export const dynamic = 'force-dynamic'
+
 async function getAuthUserId() {
   const cookieStore = cookies()
   const token = cookieStore.get('token')?.value

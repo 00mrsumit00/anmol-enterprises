@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react'
+import React, { Suspense } from 'react'
 import Navbar from '@/components/storefront/Navbar'
 import BottomNav from '@/components/storefront/BottomNav'
 import CartDrawer from '@/components/storefront/CartDrawer'
@@ -14,7 +14,9 @@ export default function StorefrontLayout({
   return (
     <div className="flex flex-col min-h-screen">
       {/* Sticky Top Header */}
-      <Navbar />
+      <Suspense fallback={<header className="sticky top-0 z-[100] w-full bg-white h-16 shadow-xs border-b border-gray-100" />}>
+        <Navbar />
+      </Suspense>
 
       {/* Main Storefront Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-6 pb-24 md:pb-12">

@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Poppins, DM_Sans, Baloo_2 } from 'next/font/google'
 import { Providers } from '@/components/Providers'
 import './globals.css'
@@ -24,6 +24,14 @@ const baloo2 = Baloo_2({
   display: 'swap',
 })
 
+export const viewport: Viewport = {
+  themeColor: '#0c831f',
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+}
+
 export const metadata: Metadata = {
   title: 'Anmol Enterprises — Authorized McCain Foods Regional Distributor, Latur',
   description: 'Wholesale and retail McCain frozen snacks delivered directly to your home, restaurant, hotel or cafe in Latur. Fresh & frozen cold chain delivery.',
@@ -32,8 +40,6 @@ export const metadata: Metadata = {
     icon: '/images/logo.png',
     apple: '/images/logo.png',
   },
-  themeColor: '#0c831f',
-  viewport: 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no',
 }
 
 export default function RootLayout({

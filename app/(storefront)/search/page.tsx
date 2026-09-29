@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft, Search, Mic, X } from 'lucide-react'
@@ -8,7 +8,7 @@ import ProductGrid from '@/components/storefront/ProductGrid'
 import CategoryChipRail, { CATEGORY_CHIPS, CategoryChip } from '@/components/storefront/CategoryChipRail'
 import FilterBar, { SortOption, PriceFilter, TypeFilter } from '@/components/storefront/FilterBar'
 
-export default function SearchPage() {
+function SearchPageContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const query = searchParams.get('q') || ''
@@ -205,5 +205,13 @@ export default function SearchPage() {
       </section>
 
     </div>
+  )
+}
+
+export default function SearchPage() {
+  return (
+    <Suspense fallback={<div className="min-h-[400px] flex items-center justify-center"><div className="w-8 h-8 border-4 border-[#0c831f] border-t-transparent rounded-full animate-spin" /></div>}>
+      <SearchPageContent />
+    </Suspense>
   )
 }

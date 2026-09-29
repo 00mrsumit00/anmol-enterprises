@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { 
@@ -22,7 +22,7 @@ const PLACEHOLDERS = [
   'Search "mini samosa"'
 ]
 
-export default function Navbar() {
+function NavbarContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const pathname = usePathname()
@@ -438,5 +438,13 @@ export default function Navbar() {
       )}
 
     </header>
+  )
+}
+
+export default function Navbar() {
+  return (
+    <Suspense fallback={<header className="sticky top-0 z-[100] w-full bg-white h-16 shadow-xs border-b border-gray-100" />}>
+      <NavbarContent />
+    </Suspense>
   )
 }

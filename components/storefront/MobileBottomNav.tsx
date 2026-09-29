@@ -1,12 +1,12 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { Home, ShoppingBag, LayoutGrid, Building2, User, ShoppingCart } from 'lucide-react'
 import { useCart } from '@/hooks/useCart'
 
-export default function MobileBottomNav() {
+function MobileBottomNavContent() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const tabParam = searchParams ? searchParams.get('tab') : null
@@ -184,5 +184,13 @@ export default function MobileBottomNav() {
         })}
       </div>
     </nav>
+  )
+}
+
+export default function MobileBottomNav() {
+  return (
+    <Suspense fallback={null}>
+      <MobileBottomNavContent />
+    </Suspense>
   )
 }

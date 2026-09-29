@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, Suspense } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -9,7 +9,7 @@ import { useSocket } from '@/hooks/useSocket'
 import { useToast } from '@/components/ui/Toast'
 import { OrderCelebrationModal } from '@/components/storefront/OrderCelebrationModal'
 
-export default function OrderTrackingPage() {
+function OrderTrackingContent() {
   const params = useParams()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -569,5 +569,13 @@ export default function OrderTrackingPage() {
       )}
 
     </div>
+  )
+}
+
+export default function OrderTrackingPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen py-10 flex justify-center"><div className="w-8 h-8 border-4 border-[#0c831f] border-t-transparent rounded-full animate-spin" /></div>}>
+      <OrderTrackingContent />
+    </Suspense>
   )
 }
