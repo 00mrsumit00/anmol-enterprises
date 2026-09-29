@@ -28,7 +28,7 @@ Fill in the following fields:
 | **Region** | `Singapore` (Fastest for India) or `Oregon` |
 | **Branch** | `main` |
 | **Runtime** | `Node` |
-| **Build Command** | `npm install && npm run build` |
+| **Build Command** | `npm install --include=dev && npm run build` |
 | **Start Command** | `npm run start` |
 | **Instance Type** | **Free** ($0/month) |
 
