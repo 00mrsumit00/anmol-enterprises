@@ -2558,16 +2558,191 @@ apiRouter.put('/orders/:id/assign', authMiddleware, requireRole(['ADMIN', 'STAFF
 
 // ─── ADMIN B2B BUSINESS ACCOUNTS MANAGEMENT ─────────────────────────────────
 
+// ─── ADMIN REGISTERED USERS MANAGEMENT (RETAIL & BUSINESS) ─────────────
+
+apiRouter.get('/admin/users', authMiddleware, requireRole(['ADMIN', 'STAFF']), async (req: Request, res: Response) => {
+  try {
+    const typeFilter = ((req.query.type as string) || 'ALL').toUpperCase()
+    const statusFilter = ((req.query.status as string) || 'ALL').toUpperCase()
+    const search = ((req.query.search as string) || '').trim()
+
+    const whereClause: any = {}
+
+    // Filter by type: RETAIL vs B2B vs ALL
+    if (typeFilter === 'RETAIL') {
+      whereClause.isB2B = false
+    } else if (typeFilter === 'B2B') {
+      whereClause.isB2B = true
+    }
+
+    // Filter by account or verification status
+    if (statusFilter === 'ACTIVE') {
+      whereClause.isActive = true
+    } else if (statusFilter === 'DISABLED') {
+      whereClause.isActive = false
+    } else if (statusFilter === 'PENDING') {
+      whereClause.isB2B = true
+      whereClause.businessProfile = { verificationStatus: 'PENDING' }
+    } else if (statusFilter === 'VERIFIED') {
+      whereClause.isB2B = true
+      whereClause.businessProfile = { verificationStatus: 'VERIFIED' }
+    }
+
+    // Keyword search
+    if (search) {
+      whereClause.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { phone: { contains: search } },
+        { email: { contains: search, mode: 'insensitive' } },
+        { businessName: { contains: search, mode: 'insensitive' } },
+        { businessProfile: { gstin: { contains: search, mode: 'insensitive' } } }
+      ]
+    }
+
+    const [users, totalCount, retailCount, b2bCount, pendingB2bCount, creditAgg, ordersCount] = await Promise.all([
+      prisma.user.findMany({
+        where: whereClause,
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          email: true,
+          role: true,
+          authProvider: true,
+          isB2B: true,
+          businessName: true,
+          isCreditEnabled: true,
+          creditLimit: true,
+          creditUsed: true,
+          phoneVerified: true,
+          emailVerified: true,
+          isActive: true,
+          createdAt: true,
+          businessProfile: true,
+          addresses: {
+            take: 2,
+            orderBy: { isDefault: 'desc' }
+          },
+          _count: { select: { orders: true } }
+        },
+        orderBy: { createdAt: 'desc' }
+      }),
+      prisma.user.count(),
+      prisma.user.count({ where: { isB2B: false } }),
+      prisma.user.count({ where: { isB2B: true } }),
+      prisma.businessProfile.count({ where: { verificationStatus: 'PENDING' } }),
+      prisma.user.aggregate({
+        _sum: { creditLimit: true }
+      }),
+      prisma.order.count()
+    ])
+
+    return res.json({
+      users,
+      stats: {
+        total: totalCount,
+        retailCount,
+        b2bCount,
+        pendingB2bCount,
+        creditAllocated: creditAgg._sum.creditLimit || 0,
+        totalOrders: ordersCount
+      }
+    })
+  } catch (error) {
+    console.error('Fetch admin users error:', error)
+    return res.status(500).json({ error: 'Failed to fetch registered users' })
+  }
+})
+
+// Toggle user active / disabled status
+apiRouter.put('/admin/users/:id/toggle-active', authMiddleware, requireRole(['ADMIN']), async (req: Request, res: Response) => {
+  try {
+    const userId = req.params.id as string
+    const user = await prisma.user.findUnique({ where: { id: userId } })
+    if (!user) return res.status(404).json({ error: 'User not found' })
+
+    const updated = await prisma.user.update({
+      where: { id: userId },
+      data: { isActive: !user.isActive }
+    })
+
+    return res.json({
+      success: true,
+      message: `User ${updated.name || updated.phone} is now ${updated.isActive ? 'ACTIVE' : 'DEACTIVATED'}`,
+      user: updated
+    })
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message || 'Failed to update user status' })
+  }
+})
+
+// Toggle / Upgrade between Retail and B2B
+apiRouter.put('/admin/users/:id/toggle-b2b', authMiddleware, requireRole(['ADMIN']), async (req: Request, res: Response) => {
+  try {
+    const userId = req.params.id as string
+    const { isB2B, businessName, businessType, gstin } = req.body
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { businessProfile: true }
+    })
+    if (!user) return res.status(404).json({ error: 'User not found' })
+
+    const updated = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        isB2B,
+        businessName: isB2B ? (businessName || user.businessName || `${user.name}'s Enterprise`) : user.businessName,
+        businessProfile: isB2B ? {
+          upsert: {
+            create: {
+              businessName: businessName || user.businessName || `${user.name}'s Enterprise`,
+              businessType: businessType || 'OTHER',
+              gstin: gstin || null,
+              verificationStatus: 'VERIFIED',
+              isCreditEnabled: false
+            },
+            update: {
+              businessName: businessName || user.businessName || undefined,
+              businessType: businessType || undefined,
+              gstin: gstin || undefined
+            }
+          }
+        } : undefined
+      },
+      include: { businessProfile: true }
+    })
+
+    return res.json({
+      success: true,
+      message: `User ${updated.name} updated to ${isB2B ? 'B2B Business Account' : 'Retail Customer'}`,
+      user: updated
+    })
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message || 'Failed to update user type' })
+  }
+})
+
 apiRouter.get('/admin/business-accounts', authMiddleware, requireRole(['ADMIN', 'STAFF']), async (req: Request, res: Response) => {
   try {
     const statusFilter = req.query.status as string | undefined
+    const typeFilter = req.query.type as string | undefined
     
-    const whereClause: any = { isB2B: true }
+    const whereClause: any = {}
+    if (typeFilter === 'RETAIL') {
+      whereClause.isB2B = false
+    } else if (typeFilter === 'B2B') {
+      whereClause.isB2B = true
+    } else if (!typeFilter) {
+      // If legacy call without type filter, keep isB2B: true
+      whereClause.isB2B = true
+    }
+
     if (statusFilter && statusFilter !== 'ALL') {
       whereClause.businessProfile = { verificationStatus: statusFilter }
     }
 
-    const businessUsers = await prisma.user.findMany({
+    const users = await prisma.user.findMany({
       where: whereClause,
       select: {
         id: true,
@@ -2575,23 +2750,30 @@ apiRouter.get('/admin/business-accounts', authMiddleware, requireRole(['ADMIN', 
         phone: true,
         email: true,
         role: true,
+        authProvider: true,
         isB2B: true,
         isCreditEnabled: true,
         businessName: true,
         creditLimit: true,
         creditUsed: true,
+        phoneVerified: true,
+        emailVerified: true,
         isActive: true,
         createdAt: true,
         businessProfile: true,
+        addresses: {
+          take: 2,
+          orderBy: { isDefault: 'desc' }
+        },
         _count: { select: { orders: true } }
       },
       orderBy: { createdAt: 'desc' }
     })
 
-    return res.json(businessUsers)
+    return res.json(users)
   } catch (error) {
     console.error('Fetch business accounts error:', error)
-    return res.status(500).json({ error: 'Failed to fetch B2B business accounts' })
+    return res.status(500).json({ error: 'Failed to fetch business accounts' })
   }
 })
 

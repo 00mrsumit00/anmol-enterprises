@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { ClipboardList, Package, BarChart3, Truck, Home, LogOut, Building2 } from 'lucide-react'
+import { ClipboardList, Package, BarChart3, Truck, Home, LogOut, Users } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import { useSocket } from '@/hooks/useSocket'
 import AnimatedLogo from '@/components/storefront/AnimatedLogo'
@@ -60,7 +60,7 @@ export default function AdminLayout({
 
   const navLinks = [
     { name: 'Orders Dispatch', path: '/admin/orders', icon: ClipboardList },
-    { name: 'Business Accounts', path: '/admin/business-accounts', icon: Building2 },
+    { name: 'Registered Users', path: '/admin/business-accounts', icon: Users },
     { name: 'Product List', path: '/admin/products', icon: Package },
     { name: 'Inventory Manager', path: '/admin/inventory', icon: BarChart3 },
     { name: 'Driver List', path: '/admin/drivers', icon: Truck },
