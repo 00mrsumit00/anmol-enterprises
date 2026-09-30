@@ -9,7 +9,7 @@ import { OAuth2Client } from 'google-auth-library'
 import { prisma } from './prisma'
 import { signToken, verifyToken, authMiddleware, requireRole } from './auth'
 import { env } from './env'
-import { sendSmsLocalOtp, sendSmsLocalTransactional, isSmsLocalLive } from './smslocal'
+import { sendTwilioVerifyOtp, checkTwilioVerifyOtp, isTwilioLive, toE164India } from './twilio'
 
 // ─── UTILITIES & INITIALIZERS ────────────────────────────────────────────────
 
@@ -45,42 +45,19 @@ function generateCsprngOtp(): string {
   return String(num)
 }
 
-// Send OTP via SmsLocal India DLT Gateway (or fallback to MSG91 / simulation)
-async function sendSmsOtp(phone: string, code: string): Promise<boolean> {
-  // 1. Prioritize SmsLocal if configured
-  if (isSmsLocalLive()) {
-    const success = await sendSmsLocalOtp(phone, code)
-    if (success) return true
+// Send OTP via Twilio Verify Service (or fallback to dev stub)
+async function sendSmsOtp(phone: string): Promise<boolean> {
+  // 1. Use Twilio Verify if configured (Twilio generates and sends the code itself)
+  if (isTwilioLive()) {
+    const result = await sendTwilioVerifyOtp(phone)
+    if (result.success) return true
+    console.error('[Twilio Verify]: OTP send failed:', result.error)
+    // Fall through to stub in non-production
+    if (process.env.NODE_ENV === 'production') return false
   }
 
-  // 2. Fallback to MSG91 if configured
-  const msg91AuthKey = process.env.MSG91_AUTH_KEY || ''
-  const templateId = process.env.MSG91_TEMPLATE_ID || ''
-  
-  if (msg91AuthKey && !msg91AuthKey.toLowerCase().includes('mock') && !msg91AuthKey.toLowerCase().includes('placeholder')) {
-    try {
-      const res = await fetch('https://control.msg91.com/api/v5/otp', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'authkey': msg91AuthKey
-        },
-        body: JSON.stringify({
-          template_id: templateId,
-          mobile: `91${phone}`,
-          otp: code
-        })
-      })
-      const data = await res.json()
-      return res.ok && data.type === 'success'
-    } catch (err) {
-      console.error('[MSG91 OTP Error]: Failed to deliver OTP via MSG91 API:', err)
-      return false
-    }
-  }
-
-  // 3. In dev / test environment, stub delivery cleanly
-  console.log(`[SMS Gateway Stub]: Dispatched SMS OTP to 91${phone} (Test OTP Code: ${code})`)
+  // 2. Dev/test stub — log to console so developer can see the code
+  console.log(`[SMS Gateway Stub]: Twilio not configured. In production, OTP would be sent to +91${phone}`)
   return true
 }
 
@@ -156,14 +133,12 @@ function generateOrderNumber() {
   return `ORD-${year}${month}${day}-${randomStr}`
 }
 
-// Send transactional SMS (via SmsLocal if configured, or console stub)
+// Send transactional SMS notification (console stub — extend with Twilio Messaging API if needed)
 async function mockSendSMS(phone: string, message: string) {
   try {
-    if (isSmsLocalLive() && process.env.SMSLOCAL_ORDER_TEMPLATE_ID) {
-      await sendSmsLocalTransactional(phone, message)
-    } else {
-      console.log(`[SMS Notification to ${phone}]: ${message}`)
-    }
+    // Twilio Verify is for OTP only; transactional SMS requires Twilio Programmable Messaging.
+    // For now, log to console. Upgrade to Twilio Messaging API when a phone number is provisioned.
+    console.log(`[SMS Notification to ${phone}]: ${message}`)
   } catch (err) {
     console.error(`[SMS Dispatch Error for ${phone}]:`, err)
   }
@@ -217,17 +192,15 @@ apiRouter.post('/otp/send', async (req: Request, res: Response) => {
       })
     }
 
-    // Generate cryptographic random 6-digit code (CSPRNG)
-    const rawCode = generateCsprngOtp()
+    // With Twilio Verify, Twilio generates and sends the OTP code itself.
+    // We store a DB marker record for rate-limiting and audit only.
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000) // 10 minutes
 
-    // Hash before storing — NEVER store or log plaintext OTP code
-    const otpHash = await bcrypt.hash(rawCode, 10)
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000) // 10 minutes expiry
-
+    // Store marker record — otpHash is a sentinel value since Twilio owns the code
     await prisma.otpVerification.create({
       data: {
         phone: cleanPhone,
-        otpHash,
+        otpHash: isTwilioLive() ? 'TWILIO_VERIFY' : await bcrypt.hash('000000', 4),
         purpose,
         expiresAt,
         attempts: 0,
@@ -236,8 +209,11 @@ apiRouter.post('/otp/send', async (req: Request, res: Response) => {
       }
     })
 
-    // Send via SMS provider (MSG91)
-    await sendSmsOtp(cleanPhone, rawCode)
+    // Dispatch OTP via Twilio Verify (Twilio generates and delivers the code)
+    const sent = await sendSmsOtp(cleanPhone)
+    if (!sent && process.env.NODE_ENV === 'production') {
+      return res.status(500).json({ error: 'Failed to send OTP. Please try again.' })
+    }
 
     return res.json({
       message: 'Verification OTP sent successfully',
@@ -269,10 +245,10 @@ apiRouter.post('/otp/verify', async (req: Request, res: Response) => {
       cleanPhone = cleanPhone.substring(2)
     }
 
-    const isLiveGateway = isSmsLocalLive() || Boolean(process.env.MSG91_AUTH_KEY && !process.env.MSG91_AUTH_KEY.toLowerCase().includes('mock'))
-    const isDevTestCode = (!isLiveGateway || process.env.NODE_ENV !== 'production') && code === '123456'
+    // Dev test code: 123456 always works when Twilio is not live
+    const isDevTestCode = !isTwilioLive() && code === '123456'
 
-    // Look up most recent unexpired, unverified OTP record
+    // Look up most recent unexpired, unverified OTP marker record (for rate limiting)
     const otpRecord = await prisma.otpVerification.findFirst({
       where: {
         phone: cleanPhone,
@@ -296,10 +272,21 @@ apiRouter.post('/otp/verify', async (req: Request, res: Response) => {
     }
 
     let isValid = false
+
     if (isDevTestCode) {
+      // Dev-mode bypass: accept 123456 when Twilio is not live
       isValid = true
-    } else if (otpRecord) {
-      isValid = await bcrypt.compare(code, otpRecord.otpHash)
+    } else if (isTwilioLive()) {
+      // Twilio Verify: let Twilio validate the code the user entered
+      const result = await checkTwilioVerifyOtp(cleanPhone, code)
+      if (!result.success && result.status === 'expired') {
+        // Expire the DB record too
+        if (otpRecord) {
+          await prisma.otpVerification.update({ where: { id: otpRecord.id }, data: { expiresAt: new Date() } })
+        }
+        return res.status(400).json({ error: 'OTP expired. Please request a new code.' })
+      }
+      isValid = result.success
     }
 
     if (!isValid) {
@@ -322,7 +309,7 @@ apiRouter.post('/otp/verify', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Invalid OTP code.' })
     }
 
-    // Mark OTP record as verified if present
+    // Mark DB marker record as verified
     if (otpRecord) {
       await prisma.otpVerification.update({
         where: { id: otpRecord.id },
