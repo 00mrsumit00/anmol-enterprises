@@ -116,16 +116,25 @@ function NavbarContent() {
 
   const handleLogout = async () => {
     try {
-      await fetch('/api/auth/logout', { method: 'POST' })
-      setUser(null)
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new Event('auth-change'))
-      }
-      showToast('Logged out successfully', 'success')
-      router.refresh()
-      router.push('/')
-    } catch (err) {
-      showToast('Failed to log out', 'error')
+      await fetch('/api/auth/logout', { 
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      })
+    } catch {}
+
+    try {
+      localStorage.removeItem('user')
+      localStorage.removeItem('auth')
+      localStorage.removeItem('token')
+      sessionStorage.clear()
+    } catch {}
+
+    setUser(null)
+    setShowDropdown(false)
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('auth-change'))
+      window.location.href = '/'
     }
   }
 

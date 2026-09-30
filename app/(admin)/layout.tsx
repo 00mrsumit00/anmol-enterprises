@@ -50,11 +50,23 @@ export default function AdminLayout({
 
   const handleLogout = async () => {
     try {
-      await fetch('/api/auth/logout', { method: 'POST' })
-      showToast('Logged out successfully', 'success')
-      router.push('/')
-    } catch (err) {
-      showToast('Logout failed', 'error')
+      await fetch('/api/auth/logout', { 
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      })
+    } catch {}
+
+    try {
+      localStorage.removeItem('admin')
+      localStorage.removeItem('token')
+      sessionStorage.clear()
+    } catch {}
+
+    setAdmin(null)
+    showToast('Logged out successfully', 'success')
+    if (typeof window !== 'undefined') {
+      window.location.href = '/admin/login'
     }
   }
 

@@ -285,15 +285,25 @@ export default function AccountPage() {
 
   const handleLogout = async () => {
     try {
-      await fetch('/api/auth/logout', { method: 'POST' })
-      setUser(null)
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new Event('auth-change'))
-      }
-      showToast('Logged out successfully', 'success')
-      router.refresh()
-    } catch (err) {
-      showToast('Logout failed', 'error')
+      await fetch('/api/auth/logout', { 
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      })
+    } catch {}
+
+    try {
+      localStorage.removeItem('user')
+      localStorage.removeItem('auth')
+      localStorage.removeItem('token')
+      sessionStorage.clear()
+    } catch {}
+
+    setUser(null)
+    showToast('Logged out successfully', 'success')
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('auth-change'))
+      window.location.href = '/account'
     }
   }
 

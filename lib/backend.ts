@@ -640,6 +640,7 @@ apiRouter.post('/auth/register', async (req: Request, res: Response) => {
     const token = signToken(user.id, user.role)
     
     res.cookie('token', token, {
+      path: '/',
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production', // HTTPS-only in prod
       sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
@@ -699,6 +700,7 @@ apiRouter.post('/auth/login', async (req: Request, res: Response) => {
     const token = signToken(user.id, user.role)
     
     res.cookie('token', token, {
+      path: '/',
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production', // HTTPS-only in prod
       sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
@@ -801,6 +803,7 @@ apiRouter.post('/auth/google', async (req: Request, res: Response) => {
     // Issue standard JWT session cookie
     const token = signToken(user.id, user.role)
     res.cookie('token', token, {
+      path: '/',
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
@@ -832,9 +835,35 @@ apiRouter.post('/auth/google', async (req: Request, res: Response) => {
   }
 })
 
-apiRouter.post('/auth/logout', (req: Request, res: Response) => {
+apiRouter.all(['/auth/logout', '/auth/signout'], (req: Request, res: Response) => {
+  const isProd = process.env.NODE_ENV === 'production'
+  
+  // 1. Clear with matching options
+  res.clearCookie('token', {
+    path: '/',
+    httpOnly: true,
+    secure: isProd,
+    sameSite: isProd ? 'strict' : 'lax'
+  })
+
+  // 2. Also clear default path
   res.clearCookie('token')
-  return res.json({ message: 'Logged out successfully' })
+
+  // 3. Overwrite cookie with immediate epoch expiry to guarantee removal
+  res.cookie('token', '', {
+    path: '/',
+    httpOnly: true,
+    secure: isProd,
+    sameSite: isProd ? 'strict' : 'lax',
+    expires: new Date(0),
+    maxAge: 0
+  })
+
+  // 4. Clear any other potential session cookies
+  res.clearCookie('session', { path: '/' })
+  res.cookie('session', '', { path: '/', expires: new Date(0), maxAge: 0 })
+
+  return res.json({ success: true, message: 'Logged out successfully' })
 })
 
 apiRouter.get('/auth/me', authMiddleware, (req: Request, res: Response) => {
