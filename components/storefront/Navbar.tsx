@@ -136,14 +136,14 @@ function NavbarContent() {
       <div className="h-[3px] w-full bg-gradient-to-r from-[#FF6B00] via-[#FFC700] to-[#FF6B00]" />
 
       {/* Main Navbar Body */}
-      <div className="border-b border-gray-200/80 shadow-sm">
+      <div className={`border-b border-gray-200/80 transition-all duration-200 ${isScrolled ? 'shadow-md bg-white/95 backdrop-blur-md' : 'shadow-sm bg-white'}`}>
         <div className="max-w-7xl mx-auto px-3 sm:px-5">
 
-          {/* Row 1: Logo + Delivery ETA + User Avatar */}
-          <div className="flex items-center justify-between py-2 gap-3">
+          {/* Main Navbar Bar (Single Row on Desktop, Two Rows on Mobile via CSS Order) */}
+          <div className={`flex flex-wrap lg:flex-nowrap items-center justify-between gap-y-2 gap-x-3 sm:gap-x-4 transition-all duration-200 ${isScrolled ? 'py-1.5' : 'py-2'}`}>
 
-            {/* Left: Logo + Delivery ETA */}
-            <div className="flex items-center gap-3 sm:gap-4 shrink-0">
+            {/* Left: Logo + Delivery ETA (order-1) */}
+            <div className="flex items-center gap-3 sm:gap-4 shrink-0 order-1">
 
               {/* Animated Logo */}
               <AnimatedLogo />
@@ -185,9 +185,9 @@ function NavbarContent() {
               </button>
             </div>
 
-            {/* Middle: Desktop Scrolled Search Bar (only appears on desktop when scrolled, to the left of profile icon) */}
-            {isScrolled && !isProfileOrCheckout && (
-              <div className="hidden lg:flex flex-1 max-w-md lg:max-w-xl xl:max-w-2xl mx-4 sm:mx-6 transition-all duration-300">
+            {/* Middle: Single Permanent Search Bar (Center on desktop, Row 2 on mobile) */}
+            {!isProfileOrCheckout && (
+              <div className="order-3 lg:order-2 w-full lg:w-auto lg:flex-1 max-w-none lg:max-w-xl xl:max-w-2xl lg:mx-4 sm:lg:mx-6 pb-1 lg:pb-0 transition-all duration-200">
                 <form onSubmit={handleSearchSubmit} className="w-full relative">
                   <div className="relative flex items-center">
                     <Search className="w-4 h-4 text-gray-400 absolute left-3.5 pointer-events-none shrink-0" />
@@ -220,8 +220,8 @@ function NavbarContent() {
               </div>
             )}
 
-            {/* Right: Wallet + Admin badge + B2B indicator + User avatar */}
-            <div className="flex items-center gap-2 shrink-0">
+            {/* Right: Wallet + Admin badge + B2B indicator + User avatar (order-2 on mobile, lg:order-3 on desktop) */}
+            <div className="flex items-center gap-2 shrink-0 order-2 lg:order-3">
 
               {/* Wallet Pill */}
               <Link
@@ -347,45 +347,6 @@ function NavbarContent() {
               )}
             </div>
           </div>
-
-          {/* Row 2: Full-width Search Bar (Hidden on profile/account & checkout pages; On desktop: hides when scrolled) */}
-          {!isProfileOrCheckout && (
-            <div className={`pb-3 transition-all duration-300 ${isScrolled ? 'lg:hidden' : 'block'}`}>
-              <form onSubmit={handleSearchSubmit}>
-                <div className="relative flex items-center">
-                  {/* Left icon: search magnifying glass */}
-                  <Search className="w-4 h-4 text-gray-400 absolute left-4 pointer-events-none shrink-0" />
-
-                  <input
-                    type="text"
-                    placeholder={PLACEHOLDERS[placeholderIndex]}
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full bg-[#f4f6fb] hover:bg-[#edf1f7] focus:bg-white border border-gray-200 focus:border-[#0c831f] text-gray-900 placeholder-gray-400 text-sm font-medium rounded-2xl pl-11 pr-12 py-3 focus:outline-none transition-all shadow-sm focus:shadow-md focus:shadow-emerald-600/10"
-                  />
-
-                  {/* Right: clear ✕ OR mic icon */}
-                  {searchQuery ? (
-                    <button
-                      type="button"
-                      onClick={() => setSearchQuery('')}
-                      className="absolute right-4 text-gray-400 hover:text-gray-700 font-bold text-sm"
-                    >
-                      ✕
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      title="Voice Search (Coming soon)"
-                      className="absolute right-4 text-gray-400 hover:text-gray-600"
-                    >
-                      <Mic className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-              </form>
-            </div>
-          )}
 
         </div>
       </div>
