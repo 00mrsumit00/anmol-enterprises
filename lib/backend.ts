@@ -9,6 +9,7 @@ import { OAuth2Client } from 'google-auth-library'
 import { prisma } from './prisma'
 import { signToken, verifyToken, authMiddleware, requireRole } from './auth'
 import { env } from './env'
+import { sendSmsLocalOtp, sendSmsLocalTransactional, isSmsLocalLive } from './smslocal'
 
 // ─── UTILITIES & INITIALIZERS ────────────────────────────────────────────────
 
@@ -44,8 +45,15 @@ function generateCsprngOtp(): string {
   return String(num)
 }
 
-// Send OTP via MSG91 Gateway (or simulate in development)
+// Send OTP via SmsLocal India DLT Gateway (or fallback to MSG91 / simulation)
 async function sendSmsOtp(phone: string, code: string): Promise<boolean> {
+  // 1. Prioritize SmsLocal if configured
+  if (isSmsLocalLive()) {
+    const success = await sendSmsLocalOtp(phone, code)
+    if (success) return true
+  }
+
+  // 2. Fallback to MSG91 if configured
   const msg91AuthKey = process.env.MSG91_AUTH_KEY || ''
   const templateId = process.env.MSG91_TEMPLATE_ID || ''
   
@@ -69,11 +77,11 @@ async function sendSmsOtp(phone: string, code: string): Promise<boolean> {
       console.error('[MSG91 OTP Error]: Failed to deliver OTP via MSG91 API:', err)
       return false
     }
-  } else {
-    // In dev / test environment, stub delivery cleanly without exposing plaintext in responses
-    console.log(`[MSG91 Gateway Stub]: Dispatched SMS OTP to 91${phone}`)
-    return true
   }
+
+  // 3. In dev / test environment, stub delivery cleanly
+  console.log(`[SMS Gateway Stub]: Dispatched SMS OTP to 91${phone} (Test OTP Code: ${code})`)
+  return true
 }
 
 // Send OTP via Nodemailer SMTP (Resend / Brevo)
@@ -148,9 +156,17 @@ function generateOrderNumber() {
   return `ORD-${year}${month}${day}-${randomStr}`
 }
 
-// Mock services logs
-function mockSendSMS(phone: string, message: string) {
-  console.log(`[MSG91 SMS to ${phone}]: ${message}`)
+// Send transactional SMS (via SmsLocal if configured, or console stub)
+async function mockSendSMS(phone: string, message: string) {
+  try {
+    if (isSmsLocalLive() && process.env.SMSLOCAL_ORDER_TEMPLATE_ID) {
+      await sendSmsLocalTransactional(phone, message)
+    } else {
+      console.log(`[SMS Notification to ${phone}]: ${message}`)
+    }
+  } catch (err) {
+    console.error(`[SMS Dispatch Error for ${phone}]:`, err)
+  }
 }
 
 // Mock PWA push
@@ -253,9 +269,8 @@ apiRouter.post('/otp/verify', async (req: Request, res: Response) => {
       cleanPhone = cleanPhone.substring(2)
     }
 
-    const msg91Key = process.env.MSG91_AUTH_KEY || ''
-    const isMockSms = !msg91Key || msg91Key.toLowerCase().includes('mock') || msg91Key.toLowerCase().includes('placeholder')
-    const isDevTestCode = (isMockSms || process.env.NODE_ENV !== 'production') && code === '123456'
+    const isLiveGateway = isSmsLocalLive() || Boolean(process.env.MSG91_AUTH_KEY && !process.env.MSG91_AUTH_KEY.toLowerCase().includes('mock'))
+    const isDevTestCode = (!isLiveGateway || process.env.NODE_ENV !== 'production') && code === '123456'
 
     // Look up most recent unexpired, unverified OTP record
     const otpRecord = await prisma.otpVerification.findFirst({
