@@ -1893,6 +1893,7 @@ apiRouter.post('/orders', async (req: Request, res: Response) => {
           deliveryDate: data.deliveryDate,
           paymentMethod: data.paymentMethod,
           paymentStatus: data.paymentMethod === 'CREDIT_ACCOUNT' ? 'CREDIT_PENDING' : 'PENDING',
+          status: 'CONFIRMED',
           subtotal,
           deliveryFee,
           coldHandlingFee: convenienceFee,
@@ -1904,9 +1905,9 @@ apiRouter.post('/orders', async (req: Request, res: Response) => {
           statusHistory: {
             create: {
               fromStatus: null,
-              toStatus: 'PENDING',
-              changedBy: (loggedInUser?.id || 'guest') as string,
-              note: 'Order placed'
+              toStatus: 'CONFIRMED',
+              changedBy: (loggedInUser?.id || 'system') as string,
+              note: 'Order placed & automatically confirmed'
             }
           }
         }
@@ -2356,7 +2357,14 @@ apiRouter.get('/orders', authMiddleware, async (req: Request, res: Response) => 
   try {
     const orders = await prisma.order.findMany({
       where: { userId: req.user!.id },
-      include: { items: true },
+      include: {
+        items: {
+          include: {
+            product: true,
+            variant: true
+          }
+        }
+      },
       orderBy: { createdAt: 'desc' }
     })
     return res.json(orders)
@@ -2369,7 +2377,16 @@ apiRouter.get('/orders', authMiddleware, async (req: Request, res: Response) => 
 apiRouter.get('/orders/all', authMiddleware, requireRole(['ADMIN', 'STAFF']), async (req: Request, res: Response) => {
   try {
     const orders = await prisma.order.findMany({
-      include: { items: true, driver: true },
+      include: {
+        items: {
+          include: {
+            product: true,
+            variant: true
+          }
+        },
+        driver: true,
+        user: true
+      },
       orderBy: [
         { deliveryDate: 'asc' },
         { createdAt: 'desc' }
@@ -2389,8 +2406,14 @@ apiRouter.get('/orders/:id', authMiddleware, async (req: Request, res: Response)
     const order = await prisma.order.findUnique({
       where: { id },
       include: {
-        items: true,
+        items: {
+          include: {
+            product: true,
+            variant: true
+          }
+        },
         driver: true,
+        user: true,
         statusHistory: { orderBy: { createdAt: 'desc' } }
       }
     })

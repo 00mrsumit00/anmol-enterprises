@@ -14,6 +14,7 @@ import { useToast } from '@/components/ui/Toast'
 import OtpVerificationModal from '@/components/storefront/OtpVerificationModal'
 import { GoogleLogin } from '@react-oauth/google'
 import { useCart } from '@/hooks/useCart'
+import { getProductPacketImage } from '@/lib/productImages'
 
 export default function AccountPage() {
   const router = useRouter()
@@ -27,12 +28,16 @@ export default function AccountPage() {
     orderItems.forEach((item: any) => {
       const price = item.unitPrice || 0
       const qty = item.quantity || 1
+      const productSlug = item.product?.slug || item.variant?.product?.slug || (item.productName ? item.productName.toLowerCase().replace(/[^a-z0-9]+/g, '-') : '')
+      const rawImg = item.product?.imageUrl || item.variant?.product?.imageUrl || item.imageUrl
+      const resolvedImg = getProductPacketImage(productSlug, rawImg)
+
       add({
         variantId: item.variantId,
         productId: item.productId,
         productName: item.productName || 'McCain Product',
-        productSlug: item.variant?.product?.slug || 'mccain-product',
-        imageUrl: item.variant?.product?.imageUrl || item.imageUrl || '/placeholder.png',
+        productSlug: productSlug || 'mccain-product',
+        imageUrl: resolvedImg,
         packagingType: item.packagingType || 'SINGLE',
         weightGrams: item.weightGrams || 1000,
         unitsInPack: item.unitsInPack || 1,
@@ -665,7 +670,7 @@ export default function AccountPage() {
             <h3 className="font-display text-sm font-black text-brand-charcoal mb-4 pb-3 border-b border-gray-100 flex items-center justify-between">
               <span className="flex items-center gap-2">
                 <ShoppingBag className="w-4 h-4 text-brand-orange" />
-                <span>Your Order History & Express Deliveries</span>
+                <span>Recent Orders</span>
               </span>
               <span className="text-[11px] font-semibold text-gray-400">
                 {pastOrders.length} placed
@@ -712,24 +717,33 @@ export default function AccountPage() {
 
                     {/* Product Thumbnails Grid Preview */}
                     <div className="flex items-center gap-2 overflow-x-auto py-1 no-scrollbar">
-                      {order.items.slice(0, 4).map((item: any, idx: number) => (
-                        <div 
-                          key={idx}
-                          className="w-14 h-14 rounded-xl bg-white border border-gray-200/80 p-1 flex items-center justify-center shrink-0 shadow-xs relative"
-                          title={item.productName}
-                        >
-                          <img 
-                            src={item.variant?.product?.imageUrl || item.imageUrl || '/placeholder.png'} 
-                            alt={item.productName || 'Item'}
-                            className="w-full h-full object-contain"
-                          />
-                          {item.quantity > 1 && (
-                            <span className="absolute -top-1.5 -right-1.5 bg-brand-charcoal text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center border border-white">
-                              {item.quantity}
-                            </span>
-                          )}
-                        </div>
-                      ))}
+                      {order.items.slice(0, 4).map((item: any, idx: number) => {
+                        const productSlug = item.product?.slug || item.variant?.product?.slug || (item.productName ? item.productName.toLowerCase().replace(/[^a-z0-9]+/g, '-') : '')
+                        const rawImg = item.product?.imageUrl || item.variant?.product?.imageUrl || item.imageUrl
+                        const imgSrc = getProductPacketImage(productSlug, rawImg)
+
+                        return (
+                          <div 
+                            key={idx}
+                            className="w-14 h-14 rounded-xl bg-white border border-gray-200/80 p-1 flex items-center justify-center shrink-0 shadow-xs relative overflow-hidden"
+                            title={item.productName}
+                          >
+                            <img 
+                              src={imgSrc} 
+                              alt={item.productName || 'Item'}
+                              className="w-full h-full object-contain"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = '/images/products/mccain-french-fries-420g.jpg'
+                              }}
+                            />
+                            {item.quantity > 1 && (
+                              <span className="absolute -top-1.5 -right-1.5 bg-brand-charcoal text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center border border-white">
+                                {item.quantity}
+                              </span>
+                            )}
+                          </div>
+                        )
+                      })}
                       {order.items.length > 4 && (
                         <div className="w-14 h-14 rounded-xl bg-gray-100 text-gray-500 font-black text-xs flex items-center justify-center shrink-0 border border-dashed border-gray-300">
                           +{order.items.length - 4} more
@@ -749,15 +763,25 @@ export default function AccountPage() {
                       </button>
 
                       <div className="flex items-center gap-2">
-                        <Link
-                          href={`/admin/orders/${order.id}/invoice`}
-                          target="_blank"
-                          className="px-3 py-2 bg-purple-50 hover:bg-purple-100 text-purple-900 border border-purple-200 rounded-xl text-xs font-bold flex items-center gap-1 transition-all tap-scale"
-                          title="Download Official Tax Invoice"
-                        >
-                          <FileText className="w-3.5 h-3.5 text-purple-700" />
-                          <span>Tax Invoice</span>
-                        </Link>
+                        {order.status === 'PENDING' ? (
+                          <span
+                            className="px-3 py-2 bg-gray-100 text-gray-400 border border-gray-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-not-allowed select-none"
+                            title="Official Tax Invoice will be generated once order is confirmed"
+                          >
+                            <FileText className="w-3.5 h-3.5 text-gray-400" />
+                            <span>Invoice (Pending)</span>
+                          </span>
+                        ) : (
+                          <Link
+                            href={`/admin/orders/${order.id}/invoice`}
+                            target="_blank"
+                            className="px-3 py-2 bg-purple-50 hover:bg-purple-100 text-purple-900 border border-purple-200 rounded-xl text-xs font-bold flex items-center gap-1 transition-all tap-scale shadow-xs"
+                            title="Download Official Tax Invoice"
+                          >
+                            <FileText className="w-3.5 h-3.5 text-purple-700" />
+                            <span>Tax Invoice</span>
+                          </Link>
+                        )}
 
                         <button
                           type="button"

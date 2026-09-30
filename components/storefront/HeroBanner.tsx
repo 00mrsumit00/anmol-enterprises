@@ -112,23 +112,6 @@ export default function HeroBanner() {
 
       </div>
 
-      {/* 3. 🎉 Free Delivery Banner — Compact Strip */}
-      <Link
-        href="/account"
-        className="flex items-center justify-between bg-gradient-to-r from-emerald-600 to-[#0c831f] text-white rounded-xl px-4 py-2 shadow-xs active:scale-[0.99] transition-all group"
-      >
-        <div className="flex items-center gap-2.5">
-          <span className="text-base">🎉</span>
-          <div>
-            <span className="font-black text-xs leading-tight">First Order Free Delivery: </span>
-            <span className="text-[11px] text-emerald-100 font-medium">New customers get ₹0 delivery fee</span>
-          </div>
-        </div>
-        <span className="text-[11px] font-bold text-emerald-200 flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
-          Sign up <ArrowRight className="w-3.5 h-3.5" />
-        </span>
-      </Link>
-
     </div>
   )
 }
