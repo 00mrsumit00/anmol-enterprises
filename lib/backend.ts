@@ -2867,6 +2867,39 @@ apiRouter.delete('/admin/users/:id', authMiddleware, requireRole(['ADMIN']), asy
   }
 })
 
+// ─── GET USER ORDERS (Admin popup modal) ──────────────────────────────────────
+apiRouter.get('/admin/users/:id/orders', authMiddleware, requireRole(['ADMIN', 'STAFF']), async (req: Request, res: Response) => {
+  try {
+    const userId = req.params.id as string
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, name: true, phone: true, email: true, isB2B: true, businessName: true }
+    })
+    if (!user) return res.status(404).json({ error: 'User not found' })
+
+    const orders = await prisma.order.findMany({
+      where: { userId },
+      include: {
+        items: true,
+        driver: { select: { id: true, name: true, phone: true, vehicleNumber: true } }
+      },
+      orderBy: { createdAt: 'desc' }
+    })
+
+    const totalSpend = orders.reduce((sum, o) => sum + (o.totalAmount || 0), 0)
+
+    return res.json({
+      user,
+      totalOrders: orders.length,
+      totalSpend,
+      orders
+    })
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message || 'Failed to fetch user orders' })
+  }
+})
+
 apiRouter.get('/admin/business-accounts', authMiddleware, requireRole(['ADMIN', 'STAFF']), async (req: Request, res: Response) => {
   try {
     const statusFilter = req.query.status as string | undefined

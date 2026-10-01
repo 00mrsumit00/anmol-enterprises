@@ -4,7 +4,8 @@ import React, { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { 
   Users, Building2, ShoppingBag, Search, RefreshCw, UserCheck, UserX,
-  CreditCard, Calendar, Trash2, Plus, Phone, Mail, Edit3, X, ChevronRight, AlertTriangle
+  CreditCard, Calendar, Trash2, Plus, Phone, Mail, Edit3, X, ChevronRight, AlertTriangle,
+  Eye, Printer, Package, ExternalLink, CheckCircle2
 } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import Link from 'next/link'
@@ -41,6 +42,21 @@ export default function AdminUsersAndAccountsPage() {
   const [createEmail, setCreateEmail] = useState<string>('')
   const [createRole, setCreateRole] = useState<'CUSTOMER' | 'STAFF'>('CUSTOMER')
   const [createIsB2B, setCreateIsB2B] = useState<boolean>(false)
+
+  // Customer Orders Modal State
+  const [selectedCustomerForOrders, setSelectedCustomerForOrders] = useState<any>(null)
+
+  // Query customer's orders history
+  const { data: customerOrdersData, isLoading: isLoadingCustomerOrders } = useQuery({
+    queryKey: ['admin-customer-orders', selectedCustomerForOrders?.id],
+    queryFn: async () => {
+      if (!selectedCustomerForOrders?.id) return null
+      const res = await fetch(`/api/admin/users/${selectedCustomerForOrders.id}/orders`)
+      if (!res.ok) throw new Error('Failed to fetch customer orders')
+      return res.json()
+    },
+    enabled: Boolean(selectedCustomerForOrders?.id)
+  })
 
   // Query users from /api/admin/users
   const { data, isLoading, refetch, isFetching } = useQuery({
@@ -168,7 +184,10 @@ export default function AdminUsersAndAccountsPage() {
   // Delete User Mutation
   const deleteMutation = useMutation({
     mutationFn: async (userId: string) => {
-      const res = await fetch(`/api/admin/users/${userId}`, { method: 'DELETE' })
+      const res = await fetch(`/api/admin/users/${userId}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' }
+      })
       const resData = await res.json()
       if (!res.ok) throw new Error(resData.error || 'Failed to delete user')
       return resData
@@ -459,11 +478,11 @@ export default function AdminUsersAndAccountsPage() {
       </div>
 
       {/* 4. Data Table */}
-      <div className="bg-white border border-slate-200/80 shadow-sm rounded-2xl overflow-hidden">
-        <div className="overflow-x-auto">
+      <div className="bg-white border border-slate-200/80 shadow-sm rounded-2xl overflow-hidden flex flex-col">
+        <div className="overflow-x-auto max-h-[calc(100vh-320px)] overflow-y-auto">
           <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-50/80 border-b border-slate-200">
+            <thead className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200 shadow-xs">
+              <tr>
                 <th className="px-5 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">User</th>
                 <th className="px-5 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Type</th>
                 <th className="px-5 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Contact</th>
@@ -543,11 +562,16 @@ export default function AdminUsersAndAccountsPage() {
                         </div>
                       </td>
 
-                      {/* Orders */}
+                      {/* Orders Button (Opens Modal) */}
                       <td className="px-5 py-4">
-                        <Link href={`/admin/orders?q=${encodeURIComponent(user.phone || user.name || '')}`} className="inline-flex items-center gap-1 text-sm font-semibold text-amber-600 hover:text-amber-700">
-                          {user._count?.orders || 0} <ChevronRight className="w-3 h-3" />
-                        </Link>
+                        <button
+                          onClick={() => setSelectedCustomerForOrders(user)}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200/80 transition-all active:scale-95 shadow-2xs cursor-pointer"
+                          title="Click to view customer orders history & invoices"
+                        >
+                          <Eye className="w-3.5 h-3.5 text-amber-600" />
+                          <span>{user._count?.orders || 0} Orders</span>
+                        </button>
                       </td>
 
                       {/* Joined */}
@@ -761,6 +785,173 @@ export default function AdminUsersAndAccountsPage() {
             <div className="pt-4 border-t border-slate-100 flex justify-end gap-3">
               <button onClick={() => setShowCreateModal(false)} className="px-5 py-2 text-sm font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors">Cancel</button>
               <button onClick={handleCreateUser} disabled={createMutation.isPending} className="px-5 py-2 text-sm font-semibold text-white bg-amber-500 hover:bg-amber-600 rounded-xl shadow-sm transition-colors disabled:opacity-50">Create User</button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* 7. CUSTOMER ORDERS HISTORY & INVOICE MODAL */}
+      {selectedCustomerForOrders && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl max-w-3xl w-full p-6 shadow-2xl flex flex-col max-h-[90vh] overflow-hidden border border-slate-200">
+            
+            {/* Modal Header */}
+            <div className="flex items-start justify-between pb-4 border-b border-slate-100 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className={`w-11 h-11 rounded-2xl flex items-center justify-center font-bold text-sm shrink-0 ${
+                  selectedCustomerForOrders.isB2B ? 'bg-violet-100 text-violet-700' : 'bg-emerald-100 text-emerald-700'
+                }`}>
+                  {(selectedCustomerForOrders.name || 'U').substring(0, 2).toUpperCase()}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-lg text-slate-900">
+                      {selectedCustomerForOrders.name || 'Anonymous Customer'}
+                    </h3>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
+                      selectedCustomerForOrders.isB2B ? 'bg-violet-100 text-violet-700' : 'bg-emerald-100 text-emerald-700'
+                    }`}>
+                      {selectedCustomerForOrders.isB2B ? 'B2B Partner' : 'Retail'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 font-medium mt-0.5 flex items-center gap-2">
+                    <span>📞 +91 {selectedCustomerForOrders.phone || 'N/A'}</span>
+                    {selectedCustomerForOrders.email && <span>• ✉️ {selectedCustomerForOrders.email}</span>}
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setSelectedCustomerForOrders(null)} 
+                className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center font-bold text-sm transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Lifetime KPI Ribbon */}
+            <div className="grid grid-cols-2 gap-3 py-3 border-b border-slate-100 bg-slate-50/70 -mx-6 px-6">
+              <div className="bg-white p-3 rounded-2xl border border-slate-200/80 shadow-2xs">
+                <span className="text-[10px] font-bold uppercase text-slate-400 block tracking-wider">Total Orders</span>
+                <span className="text-xl font-bold text-slate-800 mt-0.5 block">
+                  {customerOrdersData?.totalOrders ?? (selectedCustomerForOrders._count?.orders || 0)}
+                </span>
+              </div>
+              <div className="bg-white p-3 rounded-2xl border border-slate-200/80 shadow-2xs">
+                <span className="text-[10px] font-bold uppercase text-slate-400 block tracking-wider">Lifetime Spend</span>
+                <span className="text-xl font-bold text-emerald-600 mt-0.5 block">
+                  ₹{(customerOrdersData?.totalSpend || 0).toLocaleString('en-IN')}
+                </span>
+              </div>
+            </div>
+
+            {/* Orders Content List */}
+            <div className="overflow-y-auto py-4 flex flex-col gap-4 flex-1 pr-1">
+              {isLoadingCustomerOrders ? (
+                <div className="py-16 text-center flex flex-col items-center justify-center gap-2">
+                  <RefreshCw className="w-6 h-6 animate-spin text-amber-500" />
+                  <span className="text-xs text-slate-400 font-bold uppercase">Loading order records...</span>
+                </div>
+              ) : !customerOrdersData?.orders || customerOrdersData.orders.length === 0 ? (
+                <div className="py-16 text-center text-slate-400 text-sm font-medium flex flex-col items-center justify-center gap-2">
+                  <Package className="w-8 h-8 text-slate-300" />
+                  <span>No orders placed by this customer yet.</span>
+                </div>
+              ) : (
+                customerOrdersData.orders.map((order: any) => {
+                  const paymentText = 
+                    order.paymentMethod === 'CASH_ON_DELIVERY' 
+                      ? '💵 Cash on Delivery (COD)' 
+                      : order.paymentMethod === 'CREDIT_ACCOUNT'
+                      ? '💼 B2B Credit Account'
+                      : order.paymentStatus === 'PAID'
+                      ? '✓ Paid Online (Razorpay)'
+                      : '⏳ Payment Pending'
+
+                  const isPaid = order.paymentStatus === 'PAID' || order.paymentMethod === 'CREDIT_ACCOUNT'
+
+                  return (
+                    <div key={order.id} className="bg-white rounded-2xl border border-slate-200/90 p-4.5 shadow-xs flex flex-col gap-3 hover:border-amber-400/50 transition-colors">
+                      {/* Order Header */}
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-bold text-sm text-slate-900">#{order.orderNumber}</span>
+                          <span className="text-xs text-slate-400 font-medium">
+                            {new Date(order.createdAt).toLocaleDateString('en-IN', {
+                              day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+                            })}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase bg-slate-100 text-slate-700">
+                            {order.status}
+                          </span>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            isPaid ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'
+                          }`}>
+                            {paymentText}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Products List */}
+                      <div className="bg-slate-50/80 rounded-xl p-3 flex flex-col gap-1.5 text-xs text-slate-700">
+                        <span className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Ordered Products</span>
+                        {order.items && order.items.length > 0 ? (
+                          order.items.map((item: any, idx: number) => (
+                            <div key={idx} className="flex items-center justify-between font-medium">
+                              <span>
+                                {item.quantity} × {item.productName} ({item.packagingType || 'Item'})
+                              </span>
+                              <span className="font-mono font-bold text-slate-800">₹{item.lineTotal}</span>
+                            </div>
+                          ))
+                        ) : (
+                          <span className="text-slate-400 italic">Product snapshot details not found</span>
+                        )}
+                      </div>
+
+                      {/* Footer Summary & Invoice Button */}
+                      <div className="flex flex-wrap items-center justify-between gap-3 pt-1 text-xs">
+                        <div>
+                          <span className="text-slate-400 text-[11px] block">Delivery Location</span>
+                          <span className="font-medium text-slate-700 truncate max-w-[320px] block" title={order.deliveryAddress}>
+                            📍 {order.deliveryAddress || 'Standard Address'}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                          <div className="text-right">
+                            <span className="text-slate-400 text-[11px] block">Order Amount</span>
+                            <span className="text-base font-bold text-slate-900">₹{order.totalAmount}</span>
+                          </div>
+
+                          <a
+                            href={`/admin/orders/${order.id}/invoice`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-xl shadow-xs transition-all active:scale-95 shrink-0"
+                            title="Print Tax Invoice"
+                          >
+                            <Printer className="w-3.5 h-3.5" />
+                            <span>Print Bill</span>
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })
+              )}
+            </div>
+
+            {/* Modal Close Footer */}
+            <div className="pt-3 border-t border-slate-100 flex justify-end shrink-0">
+              <button 
+                onClick={() => setSelectedCustomerForOrders(null)} 
+                className="px-5 py-2 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
+              >
+                Close
+              </button>
             </div>
 
           </div>

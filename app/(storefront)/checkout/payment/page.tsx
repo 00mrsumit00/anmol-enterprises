@@ -48,14 +48,15 @@ export default function CheckoutPaymentPage() {
       return
     }
 
-    if (!savedSlot) {
-      showToast('Please select a delivery slot.', 'warning')
-      router.push('/checkout/slot')
-      return
+    const parsedSlot = savedSlot ? JSON.parse(savedSlot) : {
+      slot: 'EXPRESS',
+      deliverySlot: 'EXPRESS_10MIN',
+      slotLabel: '⚡ Express Cold Chain Delivery',
+      deliveryDate: new Date().toISOString()
     }
 
     setDeliveryInfo(JSON.parse(savedDelivery))
-    setSlotInfo(JSON.parse(savedSlot))
+    setSlotInfo(parsedSlot)
 
     // Fetch user details & order history for first-order check
     fetch('/api/auth/me')

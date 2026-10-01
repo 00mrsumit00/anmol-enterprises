@@ -108,11 +108,11 @@ export default function AdminLayout({
         
         {/* Top brand */}
         <div>
-          <div className="pt-8 pb-6 px-6 flex flex-col items-center gap-3">
-            <div className="bg-white px-3 py-2 rounded-full w-full flex justify-center shadow-sm">
+          <div className="pt-6 pb-4 px-4 flex flex-col items-center gap-2">
+            <div className="bg-white px-3 py-2 rounded-2xl w-full flex items-center justify-center shadow-md border border-white/10 overflow-hidden">
               <AnimatedLogo />
             </div>
-            <span className="text-slate-500 text-xs font-semibold uppercase tracking-widest">
+            <span className="text-slate-500 text-[10px] font-semibold uppercase tracking-widest">
               Admin Panel
             </span>
           </div>
