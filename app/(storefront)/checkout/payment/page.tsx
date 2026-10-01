@@ -48,15 +48,22 @@ export default function CheckoutPaymentPage() {
       return
     }
 
-    const parsedSlot = savedSlot ? JSON.parse(savedSlot) : {
-      slot: 'EXPRESS',
-      deliverySlot: 'EXPRESS_10MIN',
-      slotLabel: '⚡ Express Cold Chain Delivery',
-      deliveryDate: new Date().toISOString()
+    let activeSlot = null
+    if (savedSlot) {
+      try { activeSlot = JSON.parse(savedSlot) } catch {}
+    }
+    if (!activeSlot) {
+      activeSlot = {
+        slot: 'EXPRESS',
+        deliverySlot: 'EXPRESS',
+        slotLabel: '⚡ Express Cold Chain Delivery',
+        deliveryDate: new Date().toISOString()
+      }
+      localStorage.setItem('checkout_slot_info', JSON.stringify(activeSlot))
     }
 
     setDeliveryInfo(JSON.parse(savedDelivery))
-    setSlotInfo(parsedSlot)
+    setSlotInfo(activeSlot)
 
     // Fetch user details & order history for first-order check
     fetch('/api/auth/me')

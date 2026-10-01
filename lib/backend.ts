@@ -2867,14 +2867,20 @@ apiRouter.delete('/admin/users/:id', authMiddleware, requireRole(['ADMIN']), asy
   }
 })
 
-// ─── GET USER ORDERS (Admin popup modal) ──────────────────────────────────────
+// ─── GET USER ORDERS (Admin) ──────────────────────────────────────────────────
 apiRouter.get('/admin/users/:id/orders', authMiddleware, requireRole(['ADMIN', 'STAFF']), async (req: Request, res: Response) => {
   try {
     const userId = req.params.id as string
-
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, name: true, phone: true, email: true, isB2B: true, businessName: true }
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        email: true,
+        isB2B: true,
+        businessName: true,
+      }
     })
     if (!user) return res.status(404).json({ error: 'User not found' })
 
@@ -2882,17 +2888,20 @@ apiRouter.get('/admin/users/:id/orders', authMiddleware, requireRole(['ADMIN', '
       where: { userId },
       include: {
         items: true,
-        driver: { select: { id: true, name: true, phone: true, vehicleNumber: true } }
+        driver: {
+          select: { id: true, name: true, vehicleNumber: true, phone: true }
+        }
       },
       orderBy: { createdAt: 'desc' }
     })
 
-    const totalSpend = orders.reduce((sum, o) => sum + (o.totalAmount || 0), 0)
+    const totalSpent = orders.reduce((sum, o) => sum + (o.status !== 'CANCELLED' ? o.totalAmount : 0), 0)
 
     return res.json({
+      success: true,
       user,
+      totalSpent,
       totalOrders: orders.length,
-      totalSpend,
       orders
     })
   } catch (error: any) {

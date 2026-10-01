@@ -132,15 +132,17 @@ app.prepare().then(() => {
   // Forces all state-mutating requests (POST, PUT, PATCH, DELETE) to send application/json.
   // This ensures browsers execute a CORS preflight (OPTIONS) check for cross-origin calls.
   expressApp.use('/api', (req, res, next) => {
-    // Exempt logout endpoints and DELETE requests without body from strict content-type requirement
+    // Exempt logout endpoints from strict content-type requirement
     if (req.path === '/auth/logout' || req.path === '/auth/signout') {
       return next()
     }
-    if (req.method === 'DELETE') {
-      return next()
-    }
-    if (['POST', 'PUT', 'PATCH'].includes(req.method)) {
+    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {
       const contentType = req.headers['content-type'] || ''
+      const contentLength = req.headers['content-length']
+      // Permit DELETE without body or requests with empty content
+      if (req.method === 'DELETE' && (!contentLength || contentLength === '0')) {
+        return next()
+      }
       if (!contentType.includes('application/json')) {
         return res.status(415).json({
           error: 'Unsupported Media Type: State-changing requests must specify Content-Type: application/json'
