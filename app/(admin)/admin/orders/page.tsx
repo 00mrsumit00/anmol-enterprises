@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { 
   Printer, Check, XCircle, Search, RefreshCw, Filter, 
-  Sun, Moon, Calendar, DollarSign, Package, X
+  Sun, Moon, Calendar, DollarSign, Package, X, Clock
 } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import { useSocket } from '@/hooks/useSocket'
