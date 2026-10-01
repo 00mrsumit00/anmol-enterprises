@@ -2754,6 +2754,119 @@ apiRouter.put('/admin/users/:id/toggle-b2b', authMiddleware, requireRole(['ADMIN
   }
 })
 
+// ─── CREATE USER (Admin) ──────────────────────────────────────────────────────
+apiRouter.post('/admin/users', authMiddleware, requireRole(['ADMIN']), async (req: Request, res: Response) => {
+  try {
+    const schema = z.object({
+      name: z.string().min(2, 'Name must be at least 2 characters'),
+      phone: z.string().regex(/^\d{10}$/, 'Phone must be exactly 10 digits'),
+      email: z.string().email('Invalid email').optional().or(z.literal('')),
+      role: z.enum(['CUSTOMER', 'STAFF']).default('CUSTOMER'),
+      isB2B: z.boolean().default(false),
+    })
+    const { name, phone, email, role, isB2B } = schema.parse(req.body)
+
+    // Check phone uniqueness
+    const existing = await prisma.user.findUnique({ where: { phone } })
+    if (existing) return res.status(409).json({ error: 'A user with this phone number already exists.' })
+
+    // Check email uniqueness if provided
+    if (email) {
+      const existingEmail = await prisma.user.findUnique({ where: { email } })
+      if (existingEmail) return res.status(409).json({ error: 'A user with this email already exists.' })
+    }
+
+    const user = await prisma.user.create({
+      data: {
+        name,
+        phone,
+        email: email || null,
+        role,
+        isB2B,
+        phoneVerified: false,
+        isActive: true,
+        authProvider: 'PHONE',
+        businessName: isB2B ? `${name}'s Business` : null,
+      }
+    })
+
+    return res.status(201).json({ success: true, message: `User "${name}" created successfully.`, user })
+  } catch (error: any) {
+    if (error instanceof z.ZodError) return res.status(400).json({ error: getZodErrorMessage(error) })
+    return res.status(500).json({ error: error.message || 'Failed to create user' })
+  }
+})
+
+// ─── UPDATE USER BASIC INFO (Admin) ──────────────────────────────────────────
+apiRouter.patch('/admin/users/:id', authMiddleware, requireRole(['ADMIN']), async (req: Request, res: Response) => {
+  try {
+    const userId = req.params.id as string
+    const schema = z.object({
+      name: z.string().min(2).optional(),
+      phone: z.string().regex(/^\d{10}$/, 'Phone must be exactly 10 digits').optional(),
+      email: z.string().email('Invalid email').optional().or(z.literal('')),
+    })
+    const updates = schema.parse(req.body)
+
+    const user = await prisma.user.findUnique({ where: { id: userId } })
+    if (!user) return res.status(404).json({ error: 'User not found' })
+
+    // Check phone uniqueness if changing
+    if (updates.phone && updates.phone !== user.phone) {
+      const clash = await prisma.user.findUnique({ where: { phone: updates.phone } })
+      if (clash) return res.status(409).json({ error: 'Another user already has this phone number.' })
+    }
+
+    // Check email uniqueness if changing
+    if (updates.email && updates.email !== user.email) {
+      const clash = await prisma.user.findUnique({ where: { email: updates.email } })
+      if (clash) return res.status(409).json({ error: 'Another user already has this email.' })
+    }
+
+    const updated = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        ...(updates.name && { name: updates.name }),
+        ...(updates.phone && { phone: updates.phone }),
+        ...(updates.email !== undefined && { email: updates.email || null }),
+      }
+    })
+
+    return res.json({ success: true, message: 'User info updated successfully.', user: updated })
+  } catch (error: any) {
+    if (error instanceof z.ZodError) return res.status(400).json({ error: getZodErrorMessage(error) })
+    return res.status(500).json({ error: error.message || 'Failed to update user' })
+  }
+})
+
+// ─── DELETE USER (Admin) ──────────────────────────────────────────────────────
+apiRouter.delete('/admin/users/:id', authMiddleware, requireRole(['ADMIN']), async (req: Request, res: Response) => {
+  try {
+    const userId = req.params.id as string
+
+    const user = await prisma.user.findUnique({ where: { id: userId } })
+    if (!user) return res.status(404).json({ error: 'User not found' })
+
+    // Protect admin accounts from accidental deletion
+    if (user.role === 'ADMIN') {
+      return res.status(403).json({ error: 'Admin accounts cannot be deleted through this endpoint.' })
+    }
+
+    // Anonymize orders to preserve order history integrity (do not hard-delete orders)
+    await prisma.order.updateMany({
+      where: { userId },
+      data: { userId: null, guestName: user.name || 'Deleted User', guestPhone: user.phone || '' }
+    })
+
+    // Delete user (cascades: addresses, otpVerification, businessProfile via Prisma relations)
+    await prisma.user.delete({ where: { id: userId } })
+
+    return res.json({ success: true, message: `User "${user.name || user.phone}" has been deleted.` })
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message || 'Failed to delete user' })
+  }
+})
+
 apiRouter.get('/admin/business-accounts', authMiddleware, requireRole(['ADMIN', 'STAFF']), async (req: Request, res: Response) => {
   try {
     const statusFilter = req.query.status as string | undefined
