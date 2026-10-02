@@ -34,7 +34,7 @@ declare global {
         id: string
         name: string
         email: string | null
-        phone: string
+        phone: string | null
         role: string
         isB2B: boolean
         businessName: string | null

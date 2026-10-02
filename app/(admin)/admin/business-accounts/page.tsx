@@ -242,13 +242,17 @@ export default function AdminUsersAndAccountsPage() {
       showToast('Name is required', 'error')
       return
     }
-    if (!/^\d{10}$/.test(createPhone.trim())) {
+    if (!createPhone.trim() && !createEmail.trim()) {
+      showToast('Please enter either a mobile number or an email address', 'error')
+      return
+    }
+    if (createPhone.trim() && !/^\d{10}$/.test(createPhone.trim())) {
       showToast('Please enter a valid 10-digit mobile number', 'error')
       return
     }
     createMutation.mutate({
       name: createName.trim(),
-      phone: createPhone.trim(),
+      phone: createPhone.trim() || undefined,
       email: createEmail.trim() || undefined,
       role: createRole,
       isB2B: createIsB2B
@@ -942,11 +946,11 @@ export default function AdminUsersAndAccountsPage() {
                 <input type="text" value={createName} onChange={(e) => setCreateName(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500" placeholder="e.g. Rahul Sharma" />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Phone Number (10-digit) *</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Phone Number (10-digit, optional if Email provided)</label>
                 <input type="text" maxLength={10} value={createPhone} onChange={(e) => setCreatePhone(e.target.value.replace(/\D/g, ''))} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500" placeholder="9876543210" />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Email Address (Optional)</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Email Address (optional if Phone provided)</label>
                 <input type="email" value={createEmail} onChange={(e) => setCreateEmail(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500" placeholder="rahul@example.com" />
               </div>
               <div className="grid grid-cols-2 gap-4">

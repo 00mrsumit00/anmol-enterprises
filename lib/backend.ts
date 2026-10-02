@@ -83,15 +83,24 @@ async function sendEmailOtp(email: string, code: string): Promise<boolean> {
         to: email,
         subject: `[Anmol Enterprises] ${code} is your Email Verification Code`,
         html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 12px;">
-            <h2 style="color: #0c831f; text-align: center;">Anmol Enterprises — Latur</h2>
-            <p style="font-size: 14px; color: #333;">Your email verification code for order completion & discount verification is:</p>
-            <div style="background-color: #f4f6f8; padding: 15px; text-align: center; border-radius: 8px; font-size: 28px; font-weight: bold; letter-spacing: 5px; color: #0c831f;">
-              ${code}
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff;">
+            <div style="text-align: center; margin-bottom: 20px;">
+              <h2 style="color: #0c831f; margin: 0; font-size: 22px; font-weight: 800;">Anmol Enterprises — Latur</h2>
+              <p style="color: #64748b; font-size: 13px; margin-top: 4px;">Direct McCain Frozen Food Distribution</p>
             </div>
-            <p style="font-size: 12px; color: #666; margin-top: 15px;">This code is valid for 10 minutes. Please do not share this OTP code with anyone.</p>
-            <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
-            <p style="font-size: 11px; color: #999;">If you didn't request this email verification, please ignore this email.</p>
+            <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; text-align: center; margin: 20px 0;">
+              <p style="font-size: 13px; color: #475569; margin: 0 0 10px 0; font-weight: 600;">Your 6-Digit Email Verification Code:</p>
+              <div style="font-size: 32px; font-weight: 900; letter-spacing: 6px; color: #0c831f; font-family: monospace;">
+                ${code}
+              </div>
+            </div>
+            <p style="font-size: 12px; color: #64748b; line-height: 1.5; margin: 15px 0 0 0;">
+              This code will expire in <strong>10 minutes</strong>. Please enter this code on the registration page to verify your email address. Never share this code with anyone.
+            </p>
+            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0 16px 0;" />
+            <p style="font-size: 11px; color: #94a3b8; margin: 0; text-align: center;">
+              © ${new Date().getFullYear()} Anmol Enterprises, Latur, Maharashtra. If you did not request this code, you can safely ignore this email.
+            </p>
           </div>
         `
       })
@@ -554,9 +563,11 @@ function getZodErrorMessage(error: z.ZodError): string {
 
 const registerSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
-  phone: z.string().min(10, 'Valid 10-digit mobile number required').regex(/^\+?91?\d{10}$|^\d{10}$/, 'Please enter a valid 10-digit mobile number'),
+  email: z.string().email('Valid email address required'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
+  phone: z.string().optional(),
   phoneOtpToken: z.string().optional(),
+  emailOtpToken: z.string().optional(),
   isB2B: z.boolean().optional(),
   businessName: z.string().optional(),
   businessType: z.string().optional(),
@@ -569,38 +580,52 @@ const registerSchema = z.object({
 apiRouter.post('/auth/register', async (req: Request, res: Response) => {
   try {
     const data = registerSchema.parse(req.body)
-    
-    // Normalize phone number
-    let cleanPhone = data.phone.replace(/\D/g, '')
-    if (cleanPhone.length > 10 && cleanPhone.startsWith('91')) {
-      cleanPhone = cleanPhone.substring(2)
+    const cleanEmail = data.email.toLowerCase().trim()
+
+    // 1. Check if email is already registered
+    const existingEmailUser = await prisma.user.findUnique({
+      where: { email: cleanEmail }
+    })
+    if (existingEmailUser) {
+      return res.status(400).json({ error: 'This email is already registered. Please login instead.' })
     }
 
-    // Verify phone verification proof token if supplied
-    const otpProofHeader = (req.headers['x-phone-otp-token'] || data.phoneOtpToken) as string | undefined
-    let isPhoneVerified = false
+    // 2. Normalize optional phone if provided
+    let cleanPhone: string | null = null
+    if (data.phone && data.phone.trim()) {
+      cleanPhone = data.phone.replace(/\D/g, '')
+      if (cleanPhone.length > 10 && cleanPhone.startsWith('91')) {
+        cleanPhone = cleanPhone.substring(2)
+      }
+      if (cleanPhone.length === 10) {
+        const existingPhoneUser = await prisma.user.findUnique({
+          where: { phone: cleanPhone }
+        })
+        if (existingPhoneUser) {
+          return res.status(400).json({ error: 'This mobile number is already linked to another account.' })
+        }
+      } else {
+        cleanPhone = null
+      }
+    }
 
-    if (otpProofHeader) {
+    // 3. Verify Email verification proof token if supplied
+    const emailProofHeader = (req.headers['x-email-otp-token'] || data.emailOtpToken) as string | undefined
+    let isEmailVerified = false
+
+    if (emailProofHeader) {
       try {
-        const decoded = jwt.verify(otpProofHeader, env.JWT_SECRET) as any
+        const decoded = jwt.verify(emailProofHeader, env.JWT_SECRET) as any
         if (
           decoded &&
-          decoded.type === 'PHONE_VERIFICATION_PROOF' &&
+          decoded.type === 'EMAIL_VERIFICATION_PROOF' &&
           decoded.purpose === 'SIGNUP' &&
           decoded.verified === true &&
-          decoded.phone === cleanPhone
+          decoded.email === cleanEmail
         ) {
-          isPhoneVerified = true
+          isEmailVerified = true
         }
       } catch (e) {}
-    }
-
-    const existingUser = await prisma.user.findUnique({
-      where: { phone: cleanPhone }
-    })
-
-    if (existingUser) {
-      return res.status(400).json({ error: 'Phone number already registered' })
     }
 
     const passwordHash = await bcrypt.hash(data.password, 10)
@@ -613,11 +638,13 @@ apiRouter.post('/auth/register', async (req: Request, res: Response) => {
     const user = await prisma.user.create({
       data: {
         name: data.name,
+        email: cleanEmail,
         phone: cleanPhone,
         passwordHash,
         role,
-        phoneVerified: isPhoneVerified,
-        phoneVerifiedAt: isPhoneVerified ? new Date() : null,
+        emailVerified: isEmailVerified,
+        emailVerifiedAt: isEmailVerified ? new Date() : null,
+        phoneVerified: false,
         businessName: data.isB2B ? (data.businessName || 'Business Partner') : null,
         isB2B: data.isB2B || false,
         creditLimit: data.isB2B ? 5000 : 0,
@@ -673,30 +700,63 @@ apiRouter.post('/auth/register', async (req: Request, res: Response) => {
 })
 
 const loginSchema = z.object({
-  phone: z.string().min(10, 'Phone number required'),
+  identifier: z.string().optional(),
+  phone: z.string().optional(),
+  email: z.string().optional(),
   password: z.string().min(1, 'Password required'),
 })
 
 apiRouter.post('/auth/login', async (req: Request, res: Response) => {
   try {
     const data = loginSchema.parse(req.body)
-    
-    let cleanPhone = data.phone.replace(/\D/g, '')
-    if (cleanPhone.length > 10 && cleanPhone.startsWith('91')) {
-      cleanPhone = cleanPhone.substring(2)
+    const rawIdentifier = (data.identifier || data.email || data.phone || '').trim()
+
+    if (!rawIdentifier) {
+      return res.status(400).json({ error: 'Please enter your email address or mobile number' })
     }
 
-    const user = await prisma.user.findUnique({
-      where: { phone: cleanPhone },
-      include: { businessProfile: true }
-    })
+    let user = null
 
-    if (!user || !(await bcrypt.compare(data.password, user.passwordHash))) {
-      return res.status(400).json({ error: 'Invalid phone number or password' })
+    if (rawIdentifier.includes('@')) {
+      // Login via email address
+      const cleanEmail = rawIdentifier.toLowerCase()
+      user = await prisma.user.findUnique({
+        where: { email: cleanEmail },
+        include: { businessProfile: true }
+      })
+    } else {
+      // Login via phone number
+      let cleanPhone = rawIdentifier.replace(/\D/g, '')
+      if (cleanPhone.length > 10 && cleanPhone.startsWith('91')) {
+        cleanPhone = cleanPhone.substring(2)
+      }
+      if (cleanPhone.length === 10) {
+        user = await prisma.user.findUnique({
+          where: { phone: cleanPhone },
+          include: { businessProfile: true }
+        })
+      }
+    }
+
+    // Fallback: If not found yet, try finding by email or phone directly
+    if (!user) {
+      user = await prisma.user.findFirst({
+        where: {
+          OR: [
+            { email: rawIdentifier.toLowerCase() },
+            { phone: rawIdentifier }
+          ]
+        },
+        include: { businessProfile: true }
+      })
+    }
+
+    if (!user || !user.passwordHash || !(await bcrypt.compare(data.password, user.passwordHash))) {
+      return res.status(400).json({ error: 'Invalid email/phone or password' })
     }
 
     if (!user.isActive) {
-      return res.status(403).json({ error: 'This account has been deactivated' })
+      return res.status(403).json({ error: 'This account has been deactivated. Please contact support.' })
     }
 
     const token = signToken(user.id, user.role)
@@ -714,6 +774,7 @@ apiRouter.post('/auth/login', async (req: Request, res: Response) => {
       user: {
         id: user.id,
         name: user.name,
+        email: user.email,
         phone: user.phone,
         role: user.role,
         isB2B: user.isB2B,
@@ -1908,14 +1969,30 @@ apiRouter.post('/orders', async (req: Request, res: Response) => {
         })
       }
 
+      // Normalize contact phone
+      let cleanContactPhone = (data.guestPhone || loggedInUser?.phone || '').replace(/\D/g, '')
+      if (cleanContactPhone.length > 10 && cleanContactPhone.startsWith('91')) {
+        cleanContactPhone = cleanContactPhone.substring(2)
+      }
+
+      // Sync phone to user profile if user registered with email and didn't have phone
+      if (loggedInUser && !loggedInUser.phone && cleanContactPhone.length === 10) {
+        try {
+          await tx.user.update({
+            where: { id: loggedInUser.id },
+            data: { phone: cleanContactPhone }
+          })
+        } catch (e) {}
+      }
+
       // 4. Create Order
       const newOrder = await tx.order.create({
         data: {
           orderNumber,
           userId: loggedInUser?.id || null,
           businessName: loggedInUser?.isB2B ? loggedInUser.businessName : null,
-          guestName: loggedInUser ? null : data.guestName,
-          guestPhone: loggedInUser ? null : data.guestPhone,
+          guestName: data.guestName || loggedInUser?.name || null,
+          guestPhone: cleanContactPhone || loggedInUser?.phone || null,
           addressId: data.addressId || null,
           deliveryAddress: data.deliveryAddress,
           deliveryCity: data.deliveryCity,
@@ -2759,33 +2836,42 @@ apiRouter.post('/admin/users', authMiddleware, requireRole(['ADMIN']), async (re
   try {
     const schema = z.object({
       name: z.string().min(2, 'Name must be at least 2 characters'),
-      phone: z.string().regex(/^\d{10}$/, 'Phone must be exactly 10 digits'),
+      phone: z.string().regex(/^\d{10}$/, 'Phone must be exactly 10 digits').optional().or(z.literal('')),
       email: z.string().email('Invalid email').optional().or(z.literal('')),
       role: z.enum(['CUSTOMER', 'STAFF']).default('CUSTOMER'),
       isB2B: z.boolean().default(false),
+    }).refine(data => (data.phone && data.phone.trim()) || (data.email && data.email.trim()), {
+      message: 'Either a 10-digit mobile number or an email address is required',
+      path: ['phone']
     })
     const { name, phone, email, role, isB2B } = schema.parse(req.body)
 
-    // Check phone uniqueness
-    const existing = await prisma.user.findUnique({ where: { phone } })
-    if (existing) return res.status(409).json({ error: 'A user with this phone number already exists.' })
+    const cleanPhone = phone && phone.trim() ? phone.trim() : null
+    const cleanEmail = email && email.trim() ? email.trim().toLowerCase() : null
+
+    // Check phone uniqueness if provided
+    if (cleanPhone) {
+      const existing = await prisma.user.findUnique({ where: { phone: cleanPhone } })
+      if (existing) return res.status(409).json({ error: 'A user with this phone number already exists.' })
+    }
 
     // Check email uniqueness if provided
-    if (email) {
-      const existingEmail = await prisma.user.findUnique({ where: { email } })
+    if (cleanEmail) {
+      const existingEmail = await prisma.user.findUnique({ where: { email: cleanEmail } })
       if (existingEmail) return res.status(409).json({ error: 'A user with this email already exists.' })
     }
 
     const user = await prisma.user.create({
       data: {
         name,
-        phone,
-        email: email || null,
+        phone: cleanPhone,
+        email: cleanEmail,
         role,
         isB2B,
         phoneVerified: false,
+        emailVerified: !!cleanEmail,
         isActive: true,
-        authProvider: 'PHONE',
+        authProvider: cleanEmail ? 'EMAIL' : 'PHONE',
         businessName: isB2B ? `${name}'s Business` : null,
       }
     })

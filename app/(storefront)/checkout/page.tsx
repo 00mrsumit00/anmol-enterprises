@@ -46,8 +46,8 @@ export default function CheckoutDeliveryPage() {
         if (data.user) {
           const u = data.user
           setUser(u)
-          setName(u.name)
-          setPhone(u.phone)
+          setName(u.name || '')
+          setPhone(u.phone || '')
           setIsB2BCheckout(u.isB2B)
           if (u.isB2B) {
             setBusinessName(u.businessName || u.businessProfile?.businessName || '')
@@ -360,6 +360,9 @@ export default function CheckoutDeliveryPage() {
                 required
               />
             </div>
+            <p className="text-[11px] text-gray-500 font-medium">
+              Mandatory: Delivery driver will call on this number for handover and navigation.
+            </p>
           </div>
 
           {/* Address Label (Home / Office / Hotel Outlet) */}

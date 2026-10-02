@@ -60,7 +60,7 @@ export default function AccountPage() {
   const [accountType, setAccountType] = useState<'CONSUMER' | 'BUSINESS'>('CONSUMER')
 
   // Login Form
-  const [loginPhone, setLoginPhone] = useState('')
+  const [loginIdentifier, setLoginIdentifier] = useState('')
   const [loginPassword, setLoginPassword] = useState('')
 
   // Customer Register Form
@@ -77,7 +77,7 @@ export default function AccountPage() {
   const [monthlyVolumeEst, setMonthlyVolumeEst] = useState('50-200kg')
   const [businessAddress, setBusinessAddress] = useState('')
 
-  // OTP Verification state
+  // OTP Verification state (Default to EMAIL channel)
   const [isOtpModalOpen, setIsOtpModalOpen] = useState(false)
   const [otpChannel, setOtpChannel] = useState<'SMS' | 'EMAIL'>('EMAIL')
   const [phoneOtpToken, setPhoneOtpToken] = useState('')
@@ -120,15 +120,15 @@ export default function AccountPage() {
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!loginPhone.trim() || !loginPassword.trim()) {
-      return showToast('Please enter mobile number and password', 'error')
+    if (!loginIdentifier.trim() || !loginPassword.trim()) {
+      return showToast('Please enter your email or mobile number and password', 'error')
     }
 
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: loginPhone, password: loginPassword })
+        body: JSON.stringify({ identifier: loginIdentifier.trim(), password: loginPassword })
       })
 
       let data: any = {}
@@ -197,8 +197,17 @@ export default function AccountPage() {
 
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!regName.trim() || !regPhone.trim() || !regPassword.trim()) {
-      return showToast('Please complete all required user details', 'error')
+    if (!regName.trim()) {
+      return showToast('Please enter your full name', 'error')
+    }
+
+    const cleanEmail = regEmail.trim().toLowerCase()
+    if (!cleanEmail || !cleanEmail.includes('@') || !cleanEmail.includes('.')) {
+      return showToast('Please enter a valid email address for verification', 'error')
+    }
+
+    if (!regPassword.trim() || regPassword.length < 6) {
+      return showToast('Password must be at least 6 characters', 'error')
     }
 
     const isB2B = accountType === 'BUSINESS'
@@ -207,13 +216,9 @@ export default function AccountPage() {
       return showToast('Please enter your business / outlet name', 'error')
     }
 
-    // Require either Phone OTP OR Email OTP verification before completing registration
-    if (!phoneOtpToken && !emailOtpToken) {
-      if (regEmail.trim()) {
-        setOtpChannel('EMAIL')
-      } else {
-        setOtpChannel('SMS')
-      }
+    // Require Email OTP verification via official SMTP before completing registration
+    if (!emailOtpToken) {
+      setOtpChannel('EMAIL')
       setIsOtpModalOpen(true)
       return
     }
@@ -224,15 +229,14 @@ export default function AccountPage() {
   const executeRegistration = async (tokenPassed?: string) => {
     const isB2B = accountType === 'BUSINESS'
     try {
-      const activePhoneToken = phoneOtpToken || (otpChannel === 'SMS' ? tokenPassed : '') || undefined
       const activeEmailToken = emailOtpToken || (otpChannel === 'EMAIL' ? tokenPassed : '') || undefined
+      const cleanPhone = regPhone.trim() ? regPhone.replace(/\D/g, '').slice(-10) : undefined
 
       const payload: any = {
-        name: regName,
-        phone: regPhone,
-        email: regEmail.trim() || undefined,
+        name: regName.trim(),
+        email: regEmail.trim().toLowerCase(),
+        phone: cleanPhone || undefined,
         password: regPassword,
-        phoneOtpToken: activePhoneToken,
         emailOtpToken: activeEmailToken,
         isB2B,
       }
@@ -250,7 +254,7 @@ export default function AccountPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-phone-otp-token': activePhoneToken || activeEmailToken || ''
+          'x-email-otp-token': activeEmailToken || ''
         },
         body: JSON.stringify(payload)
       })
@@ -265,7 +269,7 @@ export default function AccountPage() {
 
       if (!res.ok) throw new Error(data.error || 'Registration failed')
 
-      showToast(isB2B ? 'B2B Account created successfully!' : 'Account created & verified!', 'success')
+      showToast(isB2B ? 'B2B Account created & verified successfully!' : 'Email verified & Account created successfully!', 'success')
       setUser(data.user)
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event('auth-change'))
@@ -361,8 +365,23 @@ export default function AccountPage() {
             <h2 className="font-display text-xl font-black text-brand-charcoal mt-3 leading-tight">
               {user.name}
             </h2>
-            <p className="font-body text-xs text-gray-600 font-semibold mt-0.5">
-              📞 +91 {user.phone} {user.isB2B && (user.businessName || user.businessProfile?.businessName) ? `• 🏢 ${user.businessName || user.businessProfile?.businessName}` : ''}
+            <p className="font-body text-xs text-gray-600 font-semibold mt-0.5 flex items-center justify-center gap-1.5 flex-wrap">
+              {user.email && (
+                <span className="flex items-center gap-1 text-gray-700">
+                  <Mail className="w-3.5 h-3.5 text-gray-400" />
+                  {user.email}
+                </span>
+              )}
+              {user.phone && (
+                <span className="flex items-center gap-1 text-gray-700">
+                  • 📞 +91 {user.phone}
+                </span>
+              )}
+              {user.isB2B && (user.businessName || user.businessProfile?.businessName) && (
+                <span className="text-purple-700 font-bold">
+                  • 🏢 {user.businessName || user.businessProfile?.businessName}
+                </span>
+              )}
             </p>
 
             <div className="flex items-center justify-center gap-2 mt-2">
@@ -859,18 +878,18 @@ export default function AccountPage() {
             /* ===================================================================== */
             <form onSubmit={handleLoginSubmit} className="flex flex-col gap-4 font-body">
               
-              {/* Phone */}
+              {/* Email / Mobile Identifier */}
               <div className="flex flex-col gap-1">
                 <label className="text-[11px] font-bold text-brand-charcoal uppercase tracking-wider pl-1">
-                  Mobile Number
+                  Email Address or Mobile Number
                 </label>
                 <div className="relative flex items-center">
-                  <Phone className="w-4 h-4 text-gray-400 absolute left-3.5" />
+                  <Mail className="w-4 h-4 text-gray-400 absolute left-3.5" />
                   <input
-                    type="tel"
-                    placeholder="Enter 10-digit mobile number"
-                    value={loginPhone}
-                    onChange={(e) => setLoginPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                    type="text"
+                    placeholder="Enter email address or mobile number"
+                    value={loginIdentifier}
+                    onChange={(e) => setLoginIdentifier(e.target.value)}
                     className="w-full bg-gray-50 border border-gray-200 text-sm rounded-2xl pl-10 pr-4 py-3 focus:outline-none focus:border-brand-orange focus:bg-white transition-all font-semibold"
                     required
                   />
@@ -1032,56 +1051,23 @@ export default function AccountPage() {
                     </div>
                   </div>
 
-                  {/* Common: Phone */}
-                  <div className="flex flex-col gap-1">
-                    <div className="flex items-center justify-between pl-1">
-                      <label className="text-[11px] font-bold text-brand-charcoal uppercase tracking-wider">
-                        Mobile Number *
-                      </label>
-                      {phoneOtpToken ? (
-                        <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full flex items-center gap-1 border border-emerald-200">
-                          <CheckCircle2 className="w-3 h-3" /> Verified
-                        </span>
-                      ) : regPhone.length === 10 ? (
-                        <button
-                          type="button"
-                          onClick={() => { setOtpChannel('SMS'); setIsOtpModalOpen(true); }}
-                          className="text-[10px] font-extrabold text-brand-orange hover:underline bg-brand-orange/10 px-2 py-0.5 rounded-full"
-                        >
-                          Verify Phone via SMS OTP
-                        </button>
-                      ) : null}
-                    </div>
-                    <div className="relative flex items-center">
-                      <Phone className="w-4 h-4 text-gray-400 absolute left-3.5" />
-                      <input
-                        type="tel"
-                        placeholder="Enter 10-digit number"
-                        value={regPhone}
-                        onChange={(e) => setRegPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                        className="w-full bg-gray-50 border border-gray-200 text-sm rounded-2xl pl-10 pr-4 py-3 focus:outline-none focus:border-brand-orange focus:bg-white font-semibold"
-                        required
-                      />
-                    </div>
-                  </div>
-
                   {/* Common: Email */}
                   <div className="flex flex-col gap-1">
                     <div className="flex items-center justify-between pl-1">
                       <label className="text-[11px] font-bold text-brand-charcoal uppercase tracking-wider">
-                        Email Address <span className="text-gray-400 font-normal lowercase">(for Email OTP & invoices)</span>
+                        Email Address *
                       </label>
                       {emailOtpToken ? (
-                        <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full flex items-center gap-1 border border-emerald-200">
-                          <CheckCircle2 className="w-3 h-3" /> Verified
+                        <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded-full flex items-center gap-1 border border-emerald-200">
+                          <CheckCircle2 className="w-3 h-3" /> OTP Verified
                         </span>
-                      ) : regEmail.includes('@') ? (
+                      ) : regEmail.includes('@') && regEmail.includes('.') ? (
                         <button
                           type="button"
                           onClick={() => { setOtpChannel('EMAIL'); setIsOtpModalOpen(true); }}
-                          className="text-[10px] font-extrabold text-brand-orange hover:underline bg-brand-orange/10 px-2 py-0.5 rounded-full"
+                          className="text-[10px] font-extrabold text-brand-orange hover:underline bg-brand-orange/10 px-2.5 py-0.5 rounded-full"
                         >
-                          Verify Email via OTP
+                          Send OTP to Email
                         </button>
                       ) : null}
                     </div>
@@ -1089,12 +1075,16 @@ export default function AccountPage() {
                       <Mail className="w-4 h-4 text-gray-400 absolute left-3.5" />
                       <input
                         type="email"
-                        placeholder="e.g. name@example.com"
+                        placeholder="e.g. name@gmail.com"
                         value={regEmail}
-                        onChange={(e) => setRegEmail(e.target.value)}
+                        onChange={(e) => { setRegEmail(e.target.value); setEmailOtpToken(''); }}
                         className="w-full bg-gray-50 border border-gray-200 text-sm rounded-2xl pl-10 pr-4 py-3 focus:outline-none focus:border-brand-orange focus:bg-white font-semibold"
+                        required
                       />
                     </div>
+                    <p className="text-[11px] text-gray-400 pl-1 font-medium">
+                      A 6-digit verification OTP will be sent to this email via our official mail server.
+                    </p>
                   </div>
 
                   {/* Common: Password */}
@@ -1113,6 +1103,28 @@ export default function AccountPage() {
                         required
                       />
                     </div>
+                  </div>
+
+                  {/* Common: Optional Phone Number */}
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center justify-between pl-1">
+                      <label className="text-[11px] font-bold text-gray-600 uppercase tracking-wider">
+                        Mobile Number <span className="text-gray-400 font-normal lowercase">(optional)</span>
+                      </label>
+                    </div>
+                    <div className="relative flex items-center">
+                      <Phone className="w-4 h-4 text-gray-400 absolute left-3.5" />
+                      <input
+                        type="tel"
+                        placeholder="Enter 10-digit number (can be added during checkout)"
+                        value={regPhone}
+                        onChange={(e) => setRegPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                        className="w-full bg-gray-50 border border-gray-200 text-sm rounded-2xl pl-10 pr-4 py-3 focus:outline-none focus:border-brand-orange focus:bg-white font-semibold"
+                      />
+                    </div>
+                    <p className="text-[11px] text-gray-400 pl-1 font-medium">
+                      Mobile number is mandatory at checkout for delivery drivers.
+                    </p>
                   </div>
 
                   {/* ================= EXTRA B2B BUSINESS FIELDS ================= */}
@@ -1231,7 +1243,11 @@ export default function AccountPage() {
                     className="w-full bg-brand-orange hover:bg-brand-orange-dark text-white font-body text-sm font-extrabold py-3.5 rounded-2xl shadow-lg hover:shadow-brand-orange/20 flex items-center justify-center gap-2 tap-scale mt-3"
                   >
                     <UserPlus className="w-4.5 h-4.5" />
-                    <span>{accountType === 'BUSINESS' ? 'Submit B2B Business Application' : 'Create Customer Account'}</span>
+                    <span>
+                      {accountType === 'BUSINESS'
+                        ? (emailOtpToken ? 'Submit B2B Business Application' : 'Verify Email & Submit Application')
+                        : (emailOtpToken ? 'Create Customer Account' : 'Verify Email & Create Account')}
+                    </span>
                   </button>
 
                 </form>
@@ -1250,14 +1266,20 @@ export default function AccountPage() {
         </div>
       )}
 
-      {/* SMS OTP Phone Verification Modal */}
+      {/* Email / SMS OTP Verification Modal */}
       <OtpVerificationModal
         isOpen={isOtpModalOpen}
+        channel={otpChannel}
+        email={regEmail}
         phone={regPhone}
         purpose="SIGNUP"
         onClose={() => setIsOtpModalOpen(false)}
         onVerified={(token) => {
-          setPhoneOtpToken(token)
+          if (otpChannel === 'EMAIL') {
+            setEmailOtpToken(token)
+          } else {
+            setPhoneOtpToken(token)
+          }
           executeRegistration(token)
         }}
       />

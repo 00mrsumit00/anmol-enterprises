@@ -128,8 +128,8 @@ export default function CheckoutPaymentPage() {
 
     try {
       const orderPayload = {
-        guestName: user ? undefined : deliveryInfo.name,
-        guestPhone: user ? undefined : deliveryInfo.phone,
+        guestName: deliveryInfo.name || user?.name || undefined,
+        guestPhone: deliveryInfo.phone || user?.phone || undefined,
         addressId: deliveryInfo.addressId || undefined,
         deliveryAddress: deliveryInfo.fullAddress,
         deliveryCity: deliveryInfo.city,
