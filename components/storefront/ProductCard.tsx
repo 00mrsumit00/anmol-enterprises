@@ -136,12 +136,12 @@ export default function ProductCard({ product }: ProductCardProps) {
 
   const handleIncrement = (e: React.MouseEvent) => {
     e.stopPropagation()
-    if (cartItem) increment(cartItem.id)
+    if (cartItem) increment(cartItem.variantId)
   }
 
   const handleDecrement = (e: React.MouseEvent) => {
     e.stopPropagation()
-    if (cartItem) decrement(cartItem.id)
+    if (cartItem) decrement(cartItem.variantId)
   }
 
   // Format weight/pack label

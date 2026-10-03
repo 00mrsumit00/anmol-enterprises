@@ -12,6 +12,7 @@ interface OtpVerificationModalProps {
   purpose: 'SIGNUP' | 'GUEST_CHECKOUT'
   onClose: () => void
   onVerified: (proofToken: string) => void
+  onSwitchToLogin?: (emailOrPhone?: string) => void
 }
 
 export default function OtpVerificationModal({
@@ -21,7 +22,8 @@ export default function OtpVerificationModal({
   channel = 'SMS',
   purpose,
   onClose,
-  onVerified
+  onVerified,
+  onSwitchToLogin
 }: OtpVerificationModalProps) {
   const { showToast } = useToast()
   const [otp, setOtp] = useState<string[]>(Array(6).fill(''))
@@ -29,6 +31,7 @@ export default function OtpVerificationModal({
   const [isSending, setIsSending] = useState(false)
   const [cooldown, setCooldown] = useState(60)
   const [errorMsg, setErrorMsg] = useState('')
+  const [isAlreadyRegistered, setIsAlreadyRegistered] = useState(false)
 
   // Cooldown countdown timer
   useEffect(() => {
@@ -63,9 +66,13 @@ export default function OtpVerificationModal({
 
       const data = await res.json()
       if (!res.ok) {
+        if (data.alreadyRegistered || (data.error && data.error.toLowerCase().includes('already registered'))) {
+          setIsAlreadyRegistered(true)
+        }
         throw new Error(data.error || 'Failed to send OTP')
       }
 
+      setIsAlreadyRegistered(false)
       if (channel === 'EMAIL') {
         showToast('6-digit OTP code sent via Email to ' + email, 'info')
       } else {
@@ -187,9 +194,23 @@ export default function OtpVerificationModal({
 
         {/* Error Alert */}
         {errorMsg && (
-          <div className="mb-4 p-3 bg-rose-50 border border-rose-200/80 rounded-xl flex items-start gap-2.5 text-xs text-rose-700 font-semibold animate-shake">
-            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-            <span>{errorMsg}</span>
+          <div className="mb-4 flex flex-col gap-2">
+            <div className="p-3 bg-rose-50 border border-rose-200/80 rounded-xl flex items-start gap-2.5 text-xs text-rose-700 font-semibold animate-shake">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>{errorMsg}</span>
+            </div>
+            {isAlreadyRegistered && onSwitchToLogin && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose()
+                  onSwitchToLogin(channel === 'EMAIL' ? email : phone)
+                }}
+                className="w-full py-2.5 px-3 bg-brand-orange hover:bg-brand-orange-dark active:scale-98 text-white font-extrabold text-xs rounded-xl shadow transition-all flex items-center justify-center gap-1.5"
+              >
+                <span>Existing Account Found — Click Here to Sign In</span>
+              </button>
+            )}
           </div>
         )}
 

@@ -82,6 +82,8 @@ export default function AccountPage() {
   const [otpChannel, setOtpChannel] = useState<'SMS' | 'EMAIL'>('EMAIL')
   const [phoneOtpToken, setPhoneOtpToken] = useState('')
   const [emailOtpToken, setEmailOtpToken] = useState('')
+  const [emailAlreadyExists, setEmailAlreadyExists] = useState(false)
+  const [isCheckingEmail, setIsCheckingEmail] = useState(false)
 
   // Local user state
   const [user, setUser] = useState<any>(null)
@@ -195,6 +197,50 @@ export default function AccountPage() {
     }
   }
 
+  const checkEmailAvailable = async (emailToCheck: string) => {
+    const clean = emailToCheck.trim().toLowerCase()
+    if (!clean || !clean.includes('@') || !clean.includes('.')) {
+      setEmailAlreadyExists(false)
+      return { ok: false, exists: false }
+    }
+    setIsCheckingEmail(true)
+    try {
+      const res = await fetch(`/api/auth/check-exists?email=${encodeURIComponent(clean)}`)
+      if (res.ok) {
+        const data = await res.json()
+        if (data.emailExists) {
+          setEmailAlreadyExists(true)
+          return { ok: true, exists: true }
+        } else {
+          setEmailAlreadyExists(false)
+          return { ok: true, exists: false }
+        }
+      }
+    } catch (e) {
+      // ignore network errors, server endpoint validates as well
+    } finally {
+      setIsCheckingEmail(false)
+    }
+    return { ok: false, exists: false }
+  }
+
+  const handleRequestEmailOtp = async () => {
+    const cleanEmail = regEmail.trim().toLowerCase()
+    if (!cleanEmail || !cleanEmail.includes('@') || !cleanEmail.includes('.')) {
+      showToast('Please enter a valid email address first', 'error')
+      return
+    }
+    const check = await checkEmailAvailable(cleanEmail)
+    if (check.exists) {
+      showToast('This email is already registered! Please sign in to your account.', 'error')
+      setFormMode('login')
+      setLoginIdentifier(cleanEmail)
+      return
+    }
+    setOtpChannel('EMAIL')
+    setIsOtpModalOpen(true)
+  }
+
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!regName.trim()) {
@@ -214,6 +260,15 @@ export default function AccountPage() {
 
     if (isB2B && !businessName.trim()) {
       return showToast('Please enter your business / outlet name', 'error')
+    }
+
+    // Verify if this email is already registered before proceeding with OTP
+    const check = await checkEmailAvailable(cleanEmail)
+    if (check.exists) {
+      showToast('This email is already registered! Please sign in to your account.', 'error')
+      setFormMode('login')
+      setLoginIdentifier(cleanEmail)
+      return
     }
 
     // Require Email OTP verification via official SMTP before completing registration
@@ -1064,10 +1119,11 @@ export default function AccountPage() {
                       ) : regEmail.includes('@') && regEmail.includes('.') ? (
                         <button
                           type="button"
-                          onClick={() => { setOtpChannel('EMAIL'); setIsOtpModalOpen(true); }}
-                          className="text-[10px] font-extrabold text-brand-orange hover:underline bg-brand-orange/10 px-2.5 py-0.5 rounded-full"
+                          onClick={handleRequestEmailOtp}
+                          disabled={isCheckingEmail}
+                          className="text-[10px] font-extrabold text-brand-orange hover:underline bg-brand-orange/10 px-2.5 py-0.5 rounded-full disabled:opacity-50"
                         >
-                          Send OTP to Email
+                          {isCheckingEmail ? 'Checking...' : 'Send OTP to Email'}
                         </button>
                       ) : null}
                     </div>
@@ -1077,14 +1133,38 @@ export default function AccountPage() {
                         type="email"
                         placeholder="e.g. name@gmail.com"
                         value={regEmail}
-                        onChange={(e) => { setRegEmail(e.target.value); setEmailOtpToken(''); }}
-                        className="w-full bg-gray-50 border border-gray-200 text-sm rounded-2xl pl-10 pr-4 py-3 focus:outline-none focus:border-brand-orange focus:bg-white font-semibold"
+                        onChange={(e) => { setRegEmail(e.target.value); setEmailOtpToken(''); setEmailAlreadyExists(false); }}
+                        onBlur={() => { if (regEmail.includes('@') && regEmail.includes('.')) checkEmailAvailable(regEmail) }}
+                        className={`w-full bg-gray-50 border text-sm rounded-2xl pl-10 pr-4 py-3 focus:outline-none font-semibold ${
+                          emailAlreadyExists 
+                            ? 'border-amber-400 bg-amber-50/30 focus:border-amber-500' 
+                            : 'border-gray-200 focus:border-brand-orange focus:bg-white'
+                        }`}
                         required
                       />
                     </div>
-                    <p className="text-[11px] text-gray-400 pl-1 font-medium">
-                      A 6-digit verification OTP will be sent to this email via our official mail server.
-                    </p>
+                    {emailAlreadyExists ? (
+                      <div className="p-2.5 bg-amber-50 border border-amber-200/90 rounded-xl flex items-center justify-between gap-2 text-xs">
+                        <div className="flex items-center gap-1.5 text-amber-800 font-semibold">
+                          <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                          <span>This email is already registered.</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFormMode('login')
+                            setLoginIdentifier(regEmail.trim().toLowerCase())
+                          }}
+                          className="text-brand-orange hover:text-brand-orange-dark font-extrabold flex items-center gap-1 shrink-0"
+                        >
+                          Sign In Instead <ArrowRight className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-gray-400 pl-1 font-medium">
+                        A 6-digit verification OTP will be sent to this email via our official mail server.
+                      </p>
+                    )}
                   </div>
 
                   {/* Common: Password */}
@@ -1274,6 +1354,10 @@ export default function AccountPage() {
         phone={regPhone}
         purpose="SIGNUP"
         onClose={() => setIsOtpModalOpen(false)}
+        onSwitchToLogin={(identifier) => {
+          setFormMode('login')
+          if (identifier) setLoginIdentifier(identifier)
+        }}
         onVerified={(token) => {
           if (otpChannel === 'EMAIL') {
             setEmailOtpToken(token)

@@ -322,6 +322,19 @@ apiRouter.post('/otp/send', async (req: Request, res: Response) => {
       cleanPhone = cleanPhone.substring(2)
     }
 
+    // 1. If purpose is SIGNUP, verify mobile number is not already registered
+    if (purpose === 'SIGNUP') {
+      const existingUser = await prisma.user.findUnique({
+        where: { phone: cleanPhone }
+      })
+      if (existingUser) {
+        return res.status(400).json({
+          error: 'This mobile number is already registered to an account. Please sign in instead.',
+          alreadyRegistered: true
+        })
+      }
+    }
+
     const clientIp = req.ip || req.socket.remoteAddress || '127.0.0.1'
     if (!checkIpOtpRateLimit(clientIp)) {
       return res.status(429).json({
@@ -523,6 +536,19 @@ apiRouter.post('/otp/send-email', async (req: Request, res: Response) => {
   try {
     const { email, purpose } = otpEmailSendSchema.parse(req.body)
     const cleanEmail = email.toLowerCase().trim()
+
+    // 1. If purpose is SIGNUP, verify email is not already registered
+    if (purpose === 'SIGNUP') {
+      const existingUser = await prisma.user.findUnique({
+        where: { email: cleanEmail }
+      })
+      if (existingUser) {
+        return res.status(400).json({
+          error: 'This email address is already registered to an account. Please sign in instead.',
+          alreadyRegistered: true
+        })
+      }
+    }
 
     const clientIp = req.ip || req.socket.remoteAddress || '127.0.0.1'
     if (!checkIpOtpRateLimit(clientIp)) {
@@ -756,6 +782,48 @@ const registerSchema = z.object({
   fssaiNumber: z.string().optional(),
   monthlyVolumeEst: z.string().optional(),
   businessAddress: z.string().optional(),
+})
+
+// ─── AUTHENTICATION CHECK ENDPOINT (Verify Uniqueness) ────────────────────────
+apiRouter.get('/auth/check-exists', async (req: Request, res: Response) => {
+  try {
+    const rawEmail = typeof req.query.email === 'string' ? req.query.email.toLowerCase().trim() : null
+    let rawPhone = typeof req.query.phone === 'string' ? req.query.phone.replace(/\D/g, '') : null
+    if (rawPhone && rawPhone.length > 10 && rawPhone.startsWith('91')) {
+      rawPhone = rawPhone.substring(2)
+    }
+
+    let emailExists = false
+    let phoneExists = false
+
+    if (rawEmail && rawEmail.includes('@')) {
+      const existingEmail = await prisma.user.findUnique({
+        where: { email: rawEmail },
+        select: { id: true, email: true, name: true }
+      })
+      emailExists = !!existingEmail
+    }
+
+    if (rawPhone && rawPhone.length === 10) {
+      const existingPhone = await prisma.user.findUnique({
+        where: { phone: rawPhone },
+        select: { id: true, phone: true }
+      })
+      phoneExists = !!existingPhone
+    }
+
+    return res.json({
+      exists: emailExists || phoneExists,
+      emailExists,
+      phoneExists,
+      message: emailExists
+        ? 'This email address is already registered. Please sign in instead.'
+        : (phoneExists ? 'This mobile number is already registered.' : 'Available')
+    })
+  } catch (error) {
+    console.error('Check user exists error:', error)
+    return res.status(500).json({ error: 'Failed to verify account uniqueness' })
+  }
 })
 
 apiRouter.post('/auth/register', async (req: Request, res: Response) => {
@@ -1559,7 +1627,7 @@ apiRouter.post('/admin/products/bulk-import', authMiddleware, requireRole(['ADMI
     const { products } = bulkImportSchema.parse(req.body)
 
     // Pre-resolve all category slugs in one query
-    const categorySlugs = [...new Set(products.map(p => p.categorySlug))]
+    const categorySlugs = Array.from(new Set(products.map(p => p.categorySlug)))
     const categories = await prisma.category.findMany({
       where: { slug: { in: categorySlugs } },
     })
@@ -3265,7 +3333,7 @@ apiRouter.put('/admin/business-accounts/:id/toggle-credit', authMiddleware, requ
     await prisma.creditAuditLog.create({
       data: {
         adminId: req.user!.id,
-        adminName: req.user!.name || req.user!.phone,
+        adminName: req.user!.name || req.user!.phone || 'Admin',
         targetUserId: user.id,
         businessName: user.businessName || user.name,
         action: 'TOGGLE_CREDIT',
@@ -3338,7 +3406,7 @@ apiRouter.put('/admin/business-accounts/:id/verify', authMiddleware, requireRole
     await prisma.creditAuditLog.create({
       data: {
         adminId: req.user!.id,
-        adminName: req.user!.name || req.user!.phone,
+        adminName: req.user!.name || req.user!.phone || 'Admin',
         targetUserId: user.id,
         businessName: user.businessName || user.name,
         action: 'VERIFY_BUSINESS',
@@ -3351,7 +3419,9 @@ apiRouter.put('/admin/business-accounts/:id/verify', authMiddleware, requireRole
     })
 
     // Send SMS notification mock
-    mockSendSMS(updatedUser.phone, `Anmol Enterprises B2B Status: Your business account is now ${data.verificationStatus}. Credit Limit: Rs ${updatedUser.creditLimit}`)
+    if (updatedUser.phone) {
+      mockSendSMS(updatedUser.phone, `Anmol Enterprises B2B Status: Your business account is now ${data.verificationStatus}. Credit Limit: Rs ${updatedUser.creditLimit}`)
+    }
 
     return res.json({
       message: `Business account updated to ${data.verificationStatus}`,

@@ -5,9 +5,11 @@ import { useRouter } from 'next/navigation'
 import { X, Plus, Minus, Share2, Timer, ArrowRight, ShoppingBag } from 'lucide-react'
 import { useCart } from '@/hooks/useCart'
 import { getProductPacketImage, normalizeImageUrl } from '@/lib/productImages'
+import { useToast } from '@/components/ui/Toast'
 
 export default function CartDrawer() {
   const router = useRouter()
+  const { showToast } = useToast()
   const { items, total, count, isOpen, close, increment, decrement, remove, isB2BMode } = useCart()
 
   const [isFirstOrder, setIsFirstOrder] = useState<boolean>(true)
