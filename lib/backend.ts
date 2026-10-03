@@ -61,28 +61,25 @@ async function sendSmsOtp(phone: string): Promise<boolean> {
   return true
 }
 
-// Send OTP via Nodemailer SMTP (Resend / Brevo)
-async function sendEmailOtp(email: string, code: string): Promise<boolean> {
-  const host = process.env.SMTP_HOST || ''
-  const port = parseInt(process.env.SMTP_PORT || '587', 10)
-  const user = process.env.SMTP_USER || ''
-  const pass = process.env.SMTP_PASS || ''
-  const from = process.env.SMTP_FROM_ADDRESS || 'Anmol Enterprises <noreply@anmolenterprises.in>'
-
-  if (host && user && pass && !host.toLowerCase().includes('mock') && !user.toLowerCase().includes('mock')) {
-    try {
-      const transporter = nodemailer.createTransport({
-        host,
-        port,
-        secure: port === 465,
-        auth: { user, pass }
-      })
-
-      await transporter.sendMail({
-        from,
-        to: email,
+// Send OTP via Brevo HTTPS API (Uses HTTPS port 443 — NEVER blocked by Render Free Tier firewall)
+async function sendEmailViaBrevo(apiKey: string, toEmail: string, code: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const senderEmail = process.env.SMTP_USER || 'anmolenterprizes2026@gmail.com'
+    const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'api-key': apiKey.trim(),
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify({
+        sender: {
+          name: 'Anmol Enterprises',
+          email: senderEmail
+        },
+        to: [{ email: toEmail }],
         subject: `[Anmol Enterprises] ${code} is your Email Verification Code`,
-        html: `
+        htmlContent: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff;">
             <div style="text-align: center; margin-bottom: 20px;">
               <h2 style="color: #0c831f; margin: 0; font-size: 22px; font-weight: 800;">Anmol Enterprises — Latur</h2>
@@ -104,14 +101,162 @@ async function sendEmailOtp(email: string, code: string): Promise<boolean> {
           </div>
         `
       })
-      return true
-    } catch (err) {
-      console.error('[SMTP Email Error]: Failed to send verification email via Nodemailer:', err)
-      return false
+    })
+
+    const data = await res.json()
+    if (!res.ok) {
+      return { success: false, error: data.message || JSON.stringify(data) }
     }
-  } else {
-    console.log(`[SMTP Email Stub]: Dispatched Email OTP verification code to ${email}`)
-    return true
+    console.log(`[Brevo API]: Verification email successfully sent to ${toEmail}`)
+    return { success: true }
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Brevo network request failed' }
+  }
+}
+
+// Send OTP via Resend HTTPS API (Uses HTTPS port 443)
+async function sendEmailViaResend(apiKey: string, toEmail: string, code: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const fromAddress = process.env.SMTP_FROM_ADDRESS || 'Anmol Enterprises <onboarding@resend.dev>'
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey.trim()}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        from: fromAddress,
+        to: [toEmail],
+        subject: `[Anmol Enterprises] ${code} is your Email Verification Code`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff;">
+            <div style="text-align: center; margin-bottom: 20px;">
+              <h2 style="color: #0c831f; margin: 0; font-size: 22px; font-weight: 800;">Anmol Enterprises — Latur</h2>
+              <p style="color: #64748b; font-size: 13px; margin-top: 4px;">Direct McCain Frozen Food Distribution</p>
+            </div>
+            <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; text-align: center; margin: 20px 0;">
+              <p style="font-size: 13px; color: #475569; margin: 0 0 10px 0; font-weight: 600;">Your 6-Digit Email Verification Code:</p>
+              <div style="font-size: 32px; font-weight: 900; letter-spacing: 6px; color: #0c831f; font-family: monospace;">
+                ${code}
+              </div>
+            </div>
+            <p style="font-size: 12px; color: #64748b; line-height: 1.5; margin: 15px 0 0 0;">
+              This code will expire in <strong>10 minutes</strong>. Please enter this code on the registration page to verify your email address.
+            </p>
+          </div>
+        `
+      })
+    })
+
+    const data = await res.json()
+    if (!res.ok) {
+      return { success: false, error: data.message || JSON.stringify(data) }
+    }
+    console.log(`[Resend API]: Verification email successfully sent to ${toEmail}`)
+    return { success: true }
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Resend network request failed' }
+  }
+}
+
+// Send OTP via standard Nodemailer SMTP (Gmail / Custom Host)
+async function sendEmailViaSmtp(toEmail: string, code: string): Promise<{ success: boolean; error?: string }> {
+  const host = (process.env.SMTP_HOST || '').trim()
+  const port = parseInt(process.env.SMTP_PORT || '587', 10)
+  const user = (process.env.SMTP_USER || '').trim()
+  const pass = (process.env.SMTP_PASS || '').replace(/\s+/g, '')
+  const from = process.env.SMTP_FROM_ADDRESS || `Anmol Enterprises <${user || 'anmolenterprizes2026@gmail.com'}>`
+
+  if (!host || !user || !pass) {
+    return { 
+      success: false, 
+      error: `Incomplete SMTP configuration in environment: host=${host ? 'OK' : 'MISSING'}, user=${user ? 'OK' : 'MISSING'}, pass=${pass ? 'OK' : 'MISSING'}` 
+    }
+  }
+
+  try {
+    const transporter = nodemailer.createTransport({
+      host,
+      port,
+      secure: port === 465,
+      auth: { user, pass },
+      connectionTimeout: 8000, // 8s fail-fast timeout if port blocked
+      socketTimeout: 8000
+    })
+
+    await transporter.sendMail({
+      from,
+      to: toEmail,
+      subject: `[Anmol Enterprises] ${code} is your Email Verification Code`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff;">
+          <div style="text-align: center; margin-bottom: 20px;">
+            <h2 style="color: #0c831f; margin: 0; font-size: 22px; font-weight: 800;">Anmol Enterprises — Latur</h2>
+            <p style="color: #64748b; font-size: 13px; margin-top: 4px;">Direct McCain Frozen Food Distribution</p>
+          </div>
+          <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; text-align: center; margin: 20px 0;">
+            <p style="font-size: 13px; color: #475569; margin: 0 0 10px 0; font-weight: 600;">Your 6-Digit Email Verification Code:</p>
+            <div style="font-size: 32px; font-weight: 900; letter-spacing: 6px; color: #0c831f; font-family: monospace;">
+              ${code}
+            </div>
+          </div>
+          <p style="font-size: 12px; color: #64748b; line-height: 1.5; margin: 15px 0 0 0;">
+            This code will expire in <strong>10 minutes</strong>. Please enter this code on the registration page to verify your email address. Never share this code with anyone.
+          </p>
+          <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0 16px 0;" />
+          <p style="font-size: 11px; color: #94a3b8; margin: 0; text-align: center;">
+            © ${new Date().getFullYear()} Anmol Enterprises, Latur, Maharashtra. If you did not request this code, you can safely ignore this email.
+          </p>
+        </div>
+      `
+    })
+    console.log(`[SMTP Nodemailer]: Verification email sent to ${toEmail}`)
+    return { success: true }
+  } catch (err: any) {
+    const isTimeout = err.code === 'ETIMEDOUT' || err.message?.includes('timeout') || err.code === 'ECONNREFUSED'
+    const note = isTimeout ? ' (Notice: Render Free Tier blocks outbound SMTP ports 25, 465, and 587. Please add BREVO_API_KEY to Render Environment variables for HTTP delivery)' : ''
+    return { success: false, error: `${err.message || 'SMTP dispatch failed'}${note}` }
+  }
+}
+
+// Master email OTP sender: Tries Brevo HTTPS API first, Resend second, then SMTP
+async function sendEmailOtp(email: string, code: string): Promise<{ success: boolean; method?: string; error?: string }> {
+  // 1. Try Brevo HTTPS API (Best for Render free tier — uses port 443)
+  const brevoKey = process.env.BREVO_API_KEY || ''
+  if (brevoKey && !brevoKey.includes('mock')) {
+    const brevoRes = await sendEmailViaBrevo(brevoKey, email, code)
+    if (brevoRes.success) return { success: true, method: 'BREVO_API' }
+    console.error('[Brevo Dispatch Error]:', brevoRes.error)
+  }
+
+  // 2. Try Resend HTTPS API (Uses port 443)
+  const resendKey = process.env.RESEND_API_KEY || ''
+  if (resendKey && !resendKey.includes('mock')) {
+    const resendRes = await sendEmailViaResend(resendKey, email, code)
+    if (resendRes.success) return { success: true, method: 'RESEND_API' }
+    console.error('[Resend Dispatch Error]:', resendRes.error)
+  }
+
+  // 3. Try standard SMTP (Nodemailer / Gmail)
+  const smtpHost = process.env.SMTP_HOST || ''
+  const smtpUser = process.env.SMTP_USER || ''
+  const smtpPass = process.env.SMTP_PASS || ''
+  if (smtpHost && smtpUser && smtpPass && !smtpHost.includes('mock')) {
+    const smtpRes = await sendEmailViaSmtp(email, code)
+    if (smtpRes.success) return { success: true, method: 'SMTP' }
+    console.error('[SMTP Dispatch Error]:', smtpRes.error)
+    return { success: false, method: 'SMTP', error: smtpRes.error }
+  }
+
+  // 4. In development mode with mock SMTP, stub the OTP
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`[DEV OTP STUB]: 6-digit code for ${email} is ${code}`)
+    return { success: true, method: 'DEV_STUB' }
+  }
+
+  return {
+    success: false,
+    error: 'No email service configured on Render. Render Free Tier blocks outbound SMTP ports (587/465). Please add BREVO_API_KEY (HTTP API) or SMTP credentials to your Render dashboard.'
   }
 }
 
@@ -424,13 +569,21 @@ apiRouter.post('/otp/send-email', async (req: Request, res: Response) => {
       }
     })
 
-    // Send via Nodemailer SMTP (Resend / Brevo)
-    await sendEmailOtp(cleanEmail, rawCode)
+    // Send email OTP via configured provider (Brevo HTTPS / Resend HTTPS / SMTP)
+    const sendResult = await sendEmailOtp(cleanEmail, rawCode)
+
+    if (!sendResult.success) {
+      console.error('[Send Email OTP Failed]:', sendResult.error)
+      return res.status(500).json({
+        error: `Could not send verification email: ${sendResult.error}`
+      })
+    }
 
     return res.json({
       message: 'Verification email OTP sent successfully',
       expiresAt: expiresAt.toISOString(),
-      cooldownSeconds: 60
+      cooldownSeconds: 60,
+      method: sendResult.method
     })
 
   } catch (error) {
@@ -440,6 +593,34 @@ apiRouter.post('/otp/send-email', async (req: Request, res: Response) => {
     console.error('Send Email OTP error:', error)
     return res.status(500).json({ error: 'Failed to send email OTP verification code' })
   }
+})
+
+// ─── EMAIL DIAGNOSTICS ENDPOINT (Check Render Environment status) ──────────────
+apiRouter.get('/otp/diagnostics', async (_req: Request, res: Response) => {
+  const host = process.env.SMTP_HOST || 'NOT_SET'
+  const port = process.env.SMTP_PORT || '587'
+  const user = process.env.SMTP_USER ? `${process.env.SMTP_USER.slice(0, 5)}***` : 'NOT_SET'
+  const passConfigured = process.env.SMTP_PASS ? `CONFIGURED (${process.env.SMTP_PASS.length} chars)` : 'NOT_SET'
+  const brevoKey = process.env.BREVO_API_KEY ? `CONFIGURED (${process.env.BREVO_API_KEY.length} chars)` : 'NOT_SET'
+  const resendKey = process.env.RESEND_API_KEY ? `CONFIGURED (${process.env.RESEND_API_KEY.length} chars)` : 'NOT_SET'
+
+  return res.json({
+    status: 'online',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV,
+    config: {
+      brevoApiKey: brevoKey,
+      resendApiKey: resendKey,
+      smtpHost: host,
+      smtpPort: port,
+      smtpUser: user,
+      smtpPass: passConfigured,
+      fromAddress: process.env.SMTP_FROM_ADDRESS || 'DEFAULT'
+    },
+    recommendation: brevoKey.startsWith('CONFIGURED') 
+      ? 'Brevo HTTPS API is configured! Outbound email uses HTTPS (port 443) and will not be blocked by Render.' 
+      : 'Render Free Tier blocks outbound SMTP ports 25, 465, and 587. To send emails on Render Free Tier without port blocks, add BREVO_API_KEY to Render Environment variables.'
+  })
 })
 
 const otpEmailVerifySchema = z.object({
