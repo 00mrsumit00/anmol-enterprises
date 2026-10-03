@@ -161,11 +161,11 @@ async function sendEmailViaResend(apiKey: string, toEmail: string, code: string)
 
 // Send OTP via standard Nodemailer SMTP (Gmail / Custom Host)
 async function sendEmailViaSmtp(toEmail: string, code: string): Promise<{ success: boolean; error?: string }> {
-  const host = (process.env.SMTP_HOST || '').trim()
+  const host = (process.env.SMTP_HOST || 'smtp.gmail.com').trim()
   const port = parseInt(process.env.SMTP_PORT || '587', 10)
-  const user = (process.env.SMTP_USER || '').trim()
-  const pass = (process.env.SMTP_PASS || '').replace(/\s+/g, '')
-  const from = process.env.SMTP_FROM_ADDRESS || `Anmol Enterprises <${user || 'anmolenterprizes2026@gmail.com'}>`
+  const user = (process.env.SMTP_USER || 'anmolenterprizes2026@gmail.com').trim()
+  const pass = (process.env.SMTP_PASS || 'hjztslxoliryxztc').replace(/\s+/g, '')
+  const from = process.env.SMTP_FROM_ADDRESS || `Anmol Enterprises <${user}>`
 
   if (!host || !user || !pass) {
     return { 
@@ -238,9 +238,9 @@ async function sendEmailOtp(email: string, code: string): Promise<{ success: boo
   }
 
   // 3. Try standard SMTP (Nodemailer / Gmail)
-  const smtpHost = process.env.SMTP_HOST || ''
-  const smtpUser = process.env.SMTP_USER || ''
-  const smtpPass = process.env.SMTP_PASS || ''
+  const smtpHost = (process.env.SMTP_HOST || 'smtp.gmail.com').trim()
+  const smtpUser = (process.env.SMTP_USER || 'anmolenterprizes2026@gmail.com').trim()
+  const smtpPass = (process.env.SMTP_PASS || 'hjztslxoliryxztc').replace(/\s+/g, '')
   if (smtpHost && smtpUser && smtpPass && !smtpHost.includes('mock')) {
     const smtpRes = await sendEmailViaSmtp(email, code)
     if (smtpRes.success) return { success: true, method: 'SMTP' }
@@ -597,10 +597,10 @@ apiRouter.post('/otp/send-email', async (req: Request, res: Response) => {
 
 // ─── EMAIL DIAGNOSTICS ENDPOINT (Check Render Environment status) ──────────────
 apiRouter.get('/otp/diagnostics', async (_req: Request, res: Response) => {
-  const host = process.env.SMTP_HOST || 'NOT_SET'
+  const host = process.env.SMTP_HOST || 'smtp.gmail.com (built-in default)'
   const port = process.env.SMTP_PORT || '587'
-  const user = process.env.SMTP_USER ? `${process.env.SMTP_USER.slice(0, 5)}***` : 'NOT_SET'
-  const passConfigured = process.env.SMTP_PASS ? `CONFIGURED (${process.env.SMTP_PASS.length} chars)` : 'NOT_SET'
+  const user = process.env.SMTP_USER || 'anmolenterprizes2026@gmail.com (built-in default)'
+  const passConfigured = process.env.SMTP_PASS ? `CONFIGURED (${process.env.SMTP_PASS.length} chars in env)` : 'Using built-in App Password'
   const brevoKey = process.env.BREVO_API_KEY ? `CONFIGURED (${process.env.BREVO_API_KEY.length} chars)` : 'NOT_SET'
   const resendKey = process.env.RESEND_API_KEY ? `CONFIGURED (${process.env.RESEND_API_KEY.length} chars)` : 'NOT_SET'
 
@@ -615,11 +615,11 @@ apiRouter.get('/otp/diagnostics', async (_req: Request, res: Response) => {
       smtpPort: port,
       smtpUser: user,
       smtpPass: passConfigured,
-      fromAddress: process.env.SMTP_FROM_ADDRESS || 'DEFAULT'
+      fromAddress: process.env.SMTP_FROM_ADDRESS || 'Anmol Enterprises <anmolenterprizes2026@gmail.com>'
     },
     recommendation: brevoKey.startsWith('CONFIGURED') 
-      ? 'Brevo HTTPS API is configured! Outbound email uses HTTPS (port 443) and will not be blocked by Render.' 
-      : 'Render Free Tier blocks outbound SMTP ports 25, 465, and 587. To send emails on Render Free Tier without port blocks, add BREVO_API_KEY to Render Environment variables.'
+      ? 'Brevo HTTPS API is active! Outbound email uses HTTPS (port 443) and will not be blocked by Render.' 
+      : 'Using Gmail SMTP (port 587). Notice: Render Free Tier blocks outbound SMTP ports 25, 465, and 587. If you receive a timeout error, add BREVO_API_KEY to Render Environment variables.'
   })
 })
 
