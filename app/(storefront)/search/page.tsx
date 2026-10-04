@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, Search, Mic, X } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import ProductGrid from '@/components/storefront/ProductGrid'
 import CategoryChipRail, { CATEGORY_CHIPS, CategoryChip } from '@/components/storefront/CategoryChipRail'
 import FilterBar, { SortOption, PriceFilter, TypeFilter } from '@/components/storefront/FilterBar'
@@ -13,15 +13,10 @@ function SearchPageContent() {
   const router = useRouter()
   const query = searchParams.get('q') || ''
   
-  const [searchInput, setSearchInput] = useState(query)
   const [selectedChip, setSelectedChip] = useState('all')
   const [sort, setSort] = useState<SortOption>('default')
   const [priceFilter, setPriceFilter] = useState<PriceFilter>('all')
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all')
-
-  useEffect(() => {
-    setSearchInput(query)
-  }, [query])
 
   // Fetch all active products
   const { data: products = [], isLoading } = useQuery({
@@ -111,61 +106,29 @@ function SearchPageContent() {
     return list
   }, [products, query, selectedChip, typeFilter, priceFilter, sort])
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (searchInput.trim()) {
-      router.push(`/search?q=${encodeURIComponent(searchInput.trim())}`)
-    } else {
-      router.push('/search')
-    }
-  }
-
-  const handleClearSearch = () => {
-    setSearchInput('')
-    router.push('/search')
-  }
-
   return (
     <div className="flex flex-col gap-4 no-print pb-24 font-sans">
       
-      {/* Search Bar Row with Back Arrow */}
-      <div className="flex items-center gap-2.5 pt-1">
+      {/* Navigation Header Row (Master search bar is sticky in header) */}
+      <div className="flex items-center justify-between gap-3 pt-1">
         <button 
           onClick={() => router.push('/')}
-          className="p-2.5 bg-white hover:bg-gray-50 border border-gray-200 rounded-full shadow-xs active:scale-95 transition-transform shrink-0"
+          className="px-3 py-2 bg-white hover:bg-gray-50 border border-gray-200 rounded-full shadow-xs active:scale-95 transition-transform shrink-0 flex items-center gap-1.5 text-xs font-bold text-gray-700"
           title="Back to Home"
         >
-          <ArrowLeft className="w-5 h-5 text-gray-800" />
+          <ArrowLeft className="w-4 h-4 text-gray-800" />
+          <span>Back to Store</span>
         </button>
 
-        {/* Input box */}
-        <form onSubmit={handleSearchSubmit} className="flex-1 flex items-center relative">
-          <Search className="w-4 h-4 text-gray-400 absolute left-4 pointer-events-none" />
-          <input
-            type="text"
-            placeholder="Search McCain fries, smiles, nuggets..."
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            className="w-full bg-[#f4f6fb] hover:bg-[#edf1f7] focus:bg-white border border-gray-200 focus:border-[#0c831f] text-gray-900 placeholder-gray-400 text-sm font-medium rounded-2xl pl-11 pr-12 py-2.5 focus:outline-none transition-all shadow-xs focus:shadow-md focus:shadow-emerald-600/10"
-          />
-          {searchInput ? (
-            <button
-              type="button"
-              onClick={handleClearSearch}
-              className="absolute right-3.5 text-gray-400 hover:text-gray-700 p-1 font-bold text-xs"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          ) : (
-            <button
-              type="button"
-              title="Voice Search"
-              className="absolute right-3.5 text-gray-400 hover:text-gray-600 p-1"
-            >
-              <Mic className="w-4 h-4" />
-            </button>
-          )}
-        </form>
+        {query ? (
+          <span className="text-xs text-gray-500 font-semibold truncate">
+            Search results for <strong className="text-gray-900">&ldquo;{query}&rdquo;</strong>
+          </span>
+        ) : (
+          <span className="text-xs text-gray-400 font-semibold">
+            All Products
+          </span>
+        )}
       </div>
 
       {/* Blinkit-Style Category Chip Rail */}

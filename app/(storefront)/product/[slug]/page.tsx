@@ -160,76 +160,6 @@ export default function ProductDetailPage() {
             discountPercent={discountPercent}
             isVeg={product.isVeg}
           />
-
-          {/* Clean Nutritional Facts & Ingredients Card */}
-          <div className="p-5 bg-gradient-to-br from-emerald-50/70 via-white to-amber-50/50 rounded-3xl border border-emerald-200/80 shadow-xs text-gray-900">
-            <div className="flex items-center gap-2 mb-2.5 pb-2 border-b border-emerald-200/60">
-              <Leaf className="w-4 h-4 text-emerald-700" />
-              <h4 className="font-extrabold text-xs uppercase tracking-wider text-gray-900">100% Vegetarian Ingredients</h4>
-            </div>
-            <p className="text-xs text-gray-600 font-medium leading-relaxed mb-4">
-              {mediaData.ingredients}
-            </p>
-
-            <h5 className="text-[11px] font-black text-gray-700 uppercase tracking-wider mb-2">
-              Nutritional Facts (Per 100g)
-            </h5>
-            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 text-center text-xs">
-              <div className="bg-white p-2 rounded-xl border border-gray-200/80 shadow-2xs">
-                <span className="text-[9px] text-gray-400 font-bold block">Energy</span>
-                <span className="font-black text-gray-900 text-xs">{mediaData.nutrition.calories} kcal</span>
-              </div>
-              <div className="bg-white p-2 rounded-xl border border-gray-200/80 shadow-2xs">
-                <span className="text-[9px] text-gray-400 font-bold block">Protein</span>
-                <span className="font-black text-gray-900 text-xs">{mediaData.nutrition.protein}g</span>
-              </div>
-              <div className="bg-white p-2 rounded-xl border border-gray-200/80 shadow-2xs">
-                <span className="text-[9px] text-gray-400 font-bold block">Carbs</span>
-                <span className="font-black text-gray-900 text-xs">{mediaData.nutrition.carbs}g</span>
-              </div>
-              <div className="bg-white p-2 rounded-xl border border-gray-200/80 shadow-2xs">
-                <span className="text-[9px] text-gray-400 font-bold block">Total Fat</span>
-                <span className="font-black text-gray-900 text-xs">{mediaData.nutrition.fat}g</span>
-              </div>
-              <div className="bg-emerald-100/90 p-2 rounded-xl border border-emerald-300 shadow-2xs">
-                <span className="text-[9px] text-emerald-800 font-bold block">Trans Fat</span>
-                <span className="font-black text-emerald-900 text-xs">0.0g ✓</span>
-              </div>
-              <div className="bg-white p-2 rounded-xl border border-gray-200/80 shadow-2xs">
-                <span className="text-[9px] text-gray-400 font-bold block">Sodium</span>
-                <span className="font-black text-gray-900 text-xs">{mediaData.nutrition.sodium}mg</span>
-              </div>
-            </div>
-          </div>
-
-          {/* 3-Minute Cooking Guide Card */}
-          <div className="p-5 bg-gradient-to-br from-amber-50/70 via-white to-yellow-50/50 rounded-3xl border border-amber-200/80 shadow-xs text-gray-900">
-            <div className="flex items-center gap-2 mb-3 pb-2 border-b border-amber-200/60">
-              <Flame className="w-4 h-4 text-amber-600" />
-              <h4 className="font-extrabold text-xs uppercase tracking-wider text-gray-900">3-Minute Easy Cooking Guide</h4>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-              <div className="p-2.5 bg-white rounded-2xl border border-amber-100 shadow-2xs flex flex-col gap-1">
-                <span className="text-lg">🍟</span>
-                <h5 className="font-black text-xs text-gray-900">Deep Fry (Classic)</h5>
-                <p className="text-[10px] text-gray-500 leading-snug">{mediaData.cooking.deepFry}</p>
-              </div>
-
-              <div className="p-2.5 bg-white rounded-2xl border border-amber-100 shadow-2xs flex flex-col gap-1">
-                <span className="text-lg">⏱️</span>
-                <h5 className="font-black text-xs text-gray-900">Air Fry (Zero Oil)</h5>
-                <p className="text-[10px] text-gray-500 leading-snug">{mediaData.cooking.airFry}</p>
-              </div>
-
-              <div className="p-2.5 bg-white rounded-2xl border border-amber-100 shadow-2xs flex flex-col gap-1">
-                <span className="text-lg">🔥</span>
-                <h5 className="font-black text-xs text-gray-900">Oven Bake</h5>
-                <p className="text-[10px] text-gray-500 leading-snug">{mediaData.cooking.bake}</p>
-              </div>
-            </div>
-          </div>
-
         </div>
 
         {/* RIGHT COLUMN: PRODUCT SPECIFICATIONS, VARIANT SELECTION & CART (Blinkit Screenshot Style) */}
@@ -249,8 +179,12 @@ export default function ProductDetailPage() {
               <span className="text-xs font-bold text-gray-600 bg-gray-100 px-2.5 py-1 rounded-lg">
                 {activeVariant.weightGrams >= 1000 ? `${(activeVariant.weightGrams / 1000).toFixed(1)} kg` : `${activeVariant.weightGrams} g`}
               </span>
-              <span className="text-xs font-extrabold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg">
-                ✓ In Stock (Latur Dark Store)
+              <span className={`text-xs font-extrabold px-2.5 py-1 rounded-lg ${
+                isOutOfStock 
+                  ? 'text-rose-700 bg-rose-50 border border-rose-200' 
+                  : 'text-emerald-700 bg-emerald-50 border border-emerald-200'
+              }`}>
+                {isOutOfStock ? 'Currently not available' : '✓ Available'}
               </span>
             </div>
 
@@ -338,7 +272,7 @@ export default function ProductDetailPage() {
                 disabled
                 className="w-full bg-gray-200 text-gray-500 font-extrabold py-3.5 rounded-2xl cursor-not-allowed text-sm"
               >
-                Currently Out of Stock
+                Currently not available
               </button>
             ) : quantityInCart > 0 ? (
               <div className="bg-[#0c831f] text-white rounded-2xl flex items-center justify-between w-full h-14 px-5 shadow-lg select-none">
@@ -367,6 +301,75 @@ export default function ProductDetailPage() {
                 <span>Add to cart</span>
               </button>
             )}
+          </div>
+
+          {/* Clean Nutritional Facts & Ingredients Card */}
+          <div className="p-5 bg-gradient-to-br from-emerald-50/70 via-white to-amber-50/50 rounded-3xl border border-emerald-200/80 shadow-xs text-gray-900 mt-2">
+            <div className="flex items-center gap-2 mb-2.5 pb-2 border-b border-emerald-200/60">
+              <Leaf className="w-4 h-4 text-emerald-700" />
+              <h4 className="font-extrabold text-xs uppercase tracking-wider text-gray-900">100% Vegetarian Ingredients</h4>
+            </div>
+            <p className="text-xs text-gray-600 font-medium leading-relaxed mb-4">
+              {mediaData.ingredients}
+            </p>
+
+            <h5 className="text-[11px] font-black text-gray-700 uppercase tracking-wider mb-2">
+              Nutritional Facts (Per 100g)
+            </h5>
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 text-center text-xs">
+              <div className="bg-white p-2 rounded-xl border border-gray-200/80 shadow-2xs">
+                <span className="text-[9px] text-gray-400 font-bold block">Energy</span>
+                <span className="font-black text-gray-900 text-xs">{mediaData.nutrition.calories} kcal</span>
+              </div>
+              <div className="bg-white p-2 rounded-xl border border-gray-200/80 shadow-2xs">
+                <span className="text-[9px] text-gray-400 font-bold block">Protein</span>
+                <span className="font-black text-gray-900 text-xs">{mediaData.nutrition.protein}g</span>
+              </div>
+              <div className="bg-white p-2 rounded-xl border border-gray-200/80 shadow-2xs">
+                <span className="text-[9px] text-gray-400 font-bold block">Carbs</span>
+                <span className="font-black text-gray-900 text-xs">{mediaData.nutrition.carbs}g</span>
+              </div>
+              <div className="bg-white p-2 rounded-xl border border-gray-200/80 shadow-2xs">
+                <span className="text-[9px] text-gray-400 font-bold block">Total Fat</span>
+                <span className="font-black text-gray-900 text-xs">{mediaData.nutrition.fat}g</span>
+              </div>
+              <div className="bg-emerald-100/90 p-2 rounded-xl border border-emerald-300 shadow-2xs">
+                <span className="text-[9px] text-emerald-800 font-bold block">Trans Fat</span>
+                <span className="font-black text-emerald-900 text-xs">0.0g ✓</span>
+              </div>
+              <div className="bg-white p-2 rounded-xl border border-gray-200/80 shadow-2xs">
+                <span className="text-[9px] text-gray-400 font-bold block">Sodium</span>
+                <span className="font-black text-gray-900 text-xs">{mediaData.nutrition.sodium}mg</span>
+              </div>
+            </div>
+          </div>
+
+          {/* 3-Minute Cooking Guide Card */}
+          <div className="p-5 bg-gradient-to-br from-amber-50/70 via-white to-yellow-50/50 rounded-3xl border border-amber-200/80 shadow-xs text-gray-900">
+            <div className="flex items-center gap-2 mb-3 pb-2 border-b border-amber-200/60">
+              <Flame className="w-4 h-4 text-amber-600" />
+              <h4 className="font-extrabold text-xs uppercase tracking-wider text-gray-900">3-Minute Easy Cooking Guide</h4>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+              <div className="p-2.5 bg-white rounded-2xl border border-amber-100 shadow-2xs flex flex-col gap-1">
+                <span className="text-lg">🍟</span>
+                <h5 className="font-black text-xs text-gray-900">Deep Fry (Classic)</h5>
+                <p className="text-[10px] text-gray-500 leading-snug">{mediaData.cooking.deepFry}</p>
+              </div>
+
+              <div className="p-2.5 bg-white rounded-2xl border border-amber-100 shadow-2xs flex flex-col gap-1">
+                <span className="text-lg">⏱️</span>
+                <h5 className="font-black text-xs text-gray-900">Air Fry (Zero Oil)</h5>
+                <p className="text-[10px] text-gray-500 leading-snug">{mediaData.cooking.airFry}</p>
+              </div>
+
+              <div className="p-2.5 bg-white rounded-2xl border border-amber-100 shadow-2xs flex flex-col gap-1">
+                <span className="text-lg">🔥</span>
+                <h5 className="font-black text-xs text-gray-900">Oven Bake</h5>
+                <p className="text-[10px] text-gray-500 leading-snug">{mediaData.cooking.bake}</p>
+              </div>
+            </div>
           </div>
 
           {/* "Why shop from Anmol Enterprises?" (Matching Screenshot media_1787492890360.png) */}
