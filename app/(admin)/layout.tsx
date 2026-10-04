@@ -25,7 +25,7 @@ export default function AdminLayout({
     fetch('/api/auth/me')
       .then((res) => res.json())
       .then((data) => {
-        if (!data.user || (data.user.role !== 'ADMIN' && data.user.role !== 'STAFF')) {
+        if (!data.user || (data.user.role !== 'SUPER_ADMIN' && data.user.role !== 'ADMIN' && data.user.role !== 'STAFF')) {
           showToast('Access Denied. Admin privileges required.', 'error')
           router.push('/admin/login')
         } else {
@@ -159,8 +159,14 @@ export default function AdminLayout({
                 </span>
                 <span className="text-slate-400 text-xs">Logged in</span>
               </div>
-              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${admin.role === 'ADMIN' ? 'bg-red-500/20 text-red-400' : 'bg-blue-500/20 text-blue-400'}`}>
-                {admin.role}
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                admin.role === 'SUPER_ADMIN' 
+                  ? 'bg-amber-400/20 text-amber-300 border border-amber-400/30' 
+                  : admin.role === 'ADMIN' 
+                    ? 'bg-red-500/20 text-red-400' 
+                    : 'bg-blue-500/20 text-blue-400'
+              }`}>
+                {admin.role === 'SUPER_ADMIN' ? 'SUPER ADMIN' : admin.role}
               </span>
             </div>
             <button
@@ -219,8 +225,14 @@ export default function AdminLayout({
               <div className="flex flex-col items-end">
                 <span className="text-sm font-semibold text-slate-700 leading-none">{admin.name}</span>
               </div>
-              <span className={`text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider ${admin.role === 'ADMIN' ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-blue-50 text-blue-600 border border-blue-100'}`}>
-                {admin.role}
+              <span className={`text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider ${
+                admin.role === 'SUPER_ADMIN' 
+                  ? 'bg-amber-100 text-amber-800 border border-amber-300 font-extrabold shadow-xs' 
+                  : admin.role === 'ADMIN' 
+                    ? 'bg-red-50 text-red-600 border border-red-100' 
+                    : 'bg-blue-50 text-blue-600 border border-blue-100'
+              }`}>
+                {admin.role === 'SUPER_ADMIN' ? 'SUPER ADMIN' : admin.role}
               </span>
             </div>
           </div>

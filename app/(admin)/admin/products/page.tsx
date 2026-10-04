@@ -44,6 +44,43 @@ export default function AdminProductsPage() {
   const [isUploading, setIsUploading] = useState(false)
   const [customImageUrlInput, setCustomImageUrlInput] = useState('')
 
+  // Inline Category Creation State
+  const [showAddCategoryInline, setShowAddCategoryInline] = useState(false)
+  const [newCategoryName, setNewCategoryName] = useState('')
+  const [newCategoryEmoji, setNewCategoryEmoji] = useState('🍟')
+  const [isCreatingCategory, setIsCreatingCategory] = useState(false)
+
+  const handleCreateCategoryInline = async () => {
+    if (!newCategoryName.trim()) {
+      showToast('Please enter a category name', 'error')
+      return
+    }
+    setIsCreatingCategory(true)
+    try {
+      const res = await fetch('/api/admin/categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newCategoryName.trim(),
+          emoji: newCategoryEmoji.trim() || '🍟'
+        })
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to create category')
+
+      showToast(`Category "${data.category.name}" created!`, 'success')
+      await queryClient.invalidateQueries({ queryKey: ['categories'] })
+      setFormData((prev: any) => ({ ...prev, categoryId: data.category.id }))
+      setNewCategoryName('')
+      setNewCategoryEmoji('🍟')
+      setShowAddCategoryInline(false)
+    } catch (err: any) {
+      showToast(err.message || 'Failed to create category', 'error')
+    } finally {
+      setIsCreatingCategory(false)
+    }
+  }
+
   // Form Fields State
   const [formData, setFormData] = useState({
     name: '',
@@ -699,19 +736,68 @@ export default function AdminProductsPage() {
                 </div>
 
                 <div className="flex flex-col gap-1">
-                  <label className="text-[11px] font-bold uppercase tracking-wider text-gray-700">Category *</label>
-                  <select
-                    value={formData.categoryId}
-                    onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
-                    className="w-full bg-gray-50 border border-gray-200 text-xs sm:text-sm rounded-2xl px-4 py-3 font-semibold text-gray-900 cursor-pointer focus:outline-none focus:border-[#0c831f]"
-                    required
-                  >
-                    {categories.map((cat: any) => (
-                      <option key={cat.id} value={cat.id}>
-                        {cat.emoji} {cat.name}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-gray-700">Category *</label>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddCategoryInline(!showAddCategoryInline)}
+                      className="text-[11px] font-bold text-amber-600 hover:text-amber-700 hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      {showAddCategoryInline ? '✕ Use Existing' : '+ Add New Category'}
+                    </button>
+                  </div>
+
+                  {showAddCategoryInline ? (
+                    <div className="p-3 bg-amber-50/80 border border-amber-200 rounded-2xl flex flex-col gap-2.5 my-0.5">
+                      <div className="flex items-center justify-between flex-wrap gap-1">
+                        <span className="text-[11px] font-bold text-amber-900">New Category Details</span>
+                        <div className="flex gap-1 flex-wrap">
+                          {['🍟', '🧀', '🌯', '🌽', '✨', '🍕', '🍔', '🥟', '🥤', '📦'].map((em) => (
+                            <button
+                              key={em}
+                              type="button"
+                              onClick={() => setNewCategoryEmoji(em)}
+                              className={`w-6 h-6 text-xs rounded-md flex items-center justify-center transition-all ${
+                                newCategoryEmoji === em ? 'bg-amber-500 text-white scale-110 shadow-xs' : 'bg-white hover:bg-amber-100 border border-amber-200'
+                              }`}
+                            >
+                              {em}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          placeholder="e.g. Party Platters or Kids Special"
+                          value={newCategoryName}
+                          onChange={(e) => setNewCategoryName(e.target.value)}
+                          className="flex-1 bg-white border border-amber-300 text-xs sm:text-sm rounded-xl px-3 py-2 font-medium focus:outline-none focus:ring-2 focus:ring-amber-500"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleCreateCategoryInline}
+                          disabled={isCreatingCategory}
+                          className="px-3.5 py-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-xs transition-all active:scale-95 shrink-0"
+                        >
+                          {isCreatingCategory ? 'Adding...' : 'Save & Select'}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <select
+                      value={formData.categoryId}
+                      onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
+                      className="w-full bg-gray-50 border border-gray-200 text-xs sm:text-sm rounded-2xl px-4 py-3 font-semibold text-gray-900 cursor-pointer focus:outline-none focus:border-[#0c831f]"
+                      required
+                    >
+                      {categories.map((cat: any) => (
+                        <option key={cat.id} value={cat.id}>
+                          {cat.emoji} {cat.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
               </div>
 

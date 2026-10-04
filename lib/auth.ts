@@ -98,10 +98,25 @@ export function requireRole(roles: string[]) {
       return res.status(401).json({ error: 'Authentication required.' })
     }
 
-    if (!roles.includes(req.user.role)) {
-      return res.status(403).json({ error: 'Forbidden: Insufficient privileges.' })
+    const userRole = req.user.role
+
+    // Direct role match
+    if (roles.includes(userRole)) {
+      return next()
     }
 
-    next()
+    // Role hierarchy inheritance:
+    // SUPER_ADMIN inherits all ADMIN and STAFF privileges
+    if (userRole === 'SUPER_ADMIN' && (roles.includes('ADMIN') || roles.includes('STAFF'))) {
+      return next()
+    }
+
+    // ADMIN inherits STAFF privileges
+    if (userRole === 'ADMIN' && roles.includes('STAFF')) {
+      return next()
+    }
+
+    return res.status(403).json({ error: 'Forbidden: Insufficient privileges.' })
   }
 }
+

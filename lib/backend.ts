@@ -1221,6 +1221,136 @@ apiRouter.get('/categories', async (req: Request, res: Response) => {
   }
 })
 
+// ─── ADMIN CATEGORIES MANAGEMENT ──────────────────────────────────────────
+
+apiRouter.get('/admin/categories', authMiddleware, requireRole(['ADMIN', 'STAFF']), async (req: Request, res: Response) => {
+  try {
+    const categories = await prisma.category.findMany({
+      include: {
+        _count: { select: { products: true } }
+      },
+      orderBy: { sortOrder: 'asc' }
+    })
+    return res.json(categories)
+  } catch (error) {
+    console.error('Fetch admin categories error:', error)
+    return res.status(500).json({ error: 'Failed to fetch categories' })
+  }
+})
+
+apiRouter.post('/admin/categories', authMiddleware, requireRole(['ADMIN', 'STAFF']), async (req: Request, res: Response) => {
+  try {
+    const { name, emoji, sortOrder } = req.body
+    if (!name || typeof name !== 'string' || !name.trim()) {
+      return res.status(400).json({ error: 'Category name is required' })
+    }
+
+    const cleanName = name.trim()
+    let slug = cleanName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+    if (!slug) slug = `cat-${Date.now()}`
+
+    const existing = await prisma.category.findFirst({
+      where: {
+        OR: [
+          { name: { equals: cleanName, mode: 'insensitive' } },
+          { slug }
+        ]
+      }
+    })
+
+    if (existing) {
+      return res.status(409).json({ error: 'A category with this name or slug already exists.' })
+    }
+
+    const category = await prisma.category.create({
+      data: {
+        name: cleanName,
+        slug,
+        emoji: emoji && typeof emoji === 'string' ? emoji.trim() : '📦',
+        sortOrder: typeof sortOrder === 'number' ? sortOrder : 0,
+        isActive: true,
+      }
+    })
+
+    // Invalidate caches
+    invalidateCatalogCache()
+
+    return res.status(201).json({ success: true, message: `Category "${cleanName}" created successfully`, category })
+  } catch (error: any) {
+    console.error('Create category error:', error)
+    return res.status(500).json({ error: error.message || 'Failed to create category' })
+  }
+})
+
+apiRouter.put('/admin/categories/:id', authMiddleware, requireRole(['ADMIN', 'STAFF']), async (req: Request, res: Response) => {
+  try {
+    const id = req.params.id as string
+    const { name, emoji, sortOrder, isActive } = req.body
+
+    const existing = await prisma.category.findUnique({ where: { id } })
+    if (!existing) {
+      return res.status(404).json({ error: 'Category not found' })
+    }
+
+    let slug = existing.slug
+    if (name && name.trim() && name.trim() !== existing.name) {
+      slug = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+      const clash = await prisma.category.findFirst({
+        where: {
+          id: { not: id },
+          OR: [{ name: { equals: name.trim(), mode: 'insensitive' } }, { slug }]
+        }
+      })
+      if (clash) return res.status(409).json({ error: 'Another category with this name already exists.' })
+    }
+
+    const updated = await prisma.category.update({
+      where: { id },
+      data: {
+        ...(name && { name: name.trim(), slug }),
+        ...(emoji !== undefined && { emoji: emoji.trim() || '📦' }),
+        ...(sortOrder !== undefined && { sortOrder: Number(sortOrder) }),
+        ...(isActive !== undefined && { isActive: Boolean(isActive) }),
+      }
+    })
+
+    invalidateCatalogCache()
+    return res.json({ success: true, message: 'Category updated successfully', category: updated })
+  } catch (error: any) {
+    console.error('Update category error:', error)
+    return res.status(500).json({ error: error.message || 'Failed to update category' })
+  }
+})
+
+apiRouter.delete('/admin/categories/:id', authMiddleware, requireRole(['ADMIN']), async (req: Request, res: Response) => {
+  try {
+    const id = req.params.id as string
+    const category = await prisma.category.findUnique({
+      where: { id },
+      include: { _count: { select: { products: true } } }
+    })
+    if (!category) return res.status(404).json({ error: 'Category not found' })
+
+    if (category._count.products > 0) {
+      // Soft-deactivate if products are attached
+      await prisma.category.update({
+        where: { id },
+        data: { isActive: false }
+      })
+      invalidateCatalogCache()
+      return res.json({ success: true, message: `Category deactivated (contains ${category._count.products} products)` })
+    }
+
+    await prisma.category.delete({ where: { id } })
+    invalidateCatalogCache()
+    return res.json({ success: true, message: 'Category deleted successfully' })
+  } catch (error: any) {
+    console.error('Delete category error:', error)
+    return res.status(500).json({ error: error.message || 'Failed to delete category' })
+  }
+})
+
+
 apiRouter.get('/products', async (req: Request, res: Response) => {
   try {
     const now = Date.now()
@@ -2925,6 +3055,17 @@ apiRouter.get('/admin/users', authMiddleware, requireRole(['ADMIN', 'STAFF']), a
 
     const whereClause: any = {}
 
+    // Role-based visibility isolation:
+    // STAFF can ONLY see customer and B2B client accounts (never Admin or Super Admin)
+    // ADMIN can see Staff, Customers, and other Admins (never Super Admin)
+    // SUPER_ADMIN can see everyone
+    let roleCondition: any = {}
+    if (req.user?.role === 'STAFF') {
+      roleCondition = { role: 'CUSTOMER' }
+    } else if (req.user?.role === 'ADMIN') {
+      roleCondition = { role: { not: 'SUPER_ADMIN' } }
+    }
+
     // Filter by type: RETAIL vs B2B vs ALL
     if (typeFilter === 'RETAIL') {
       whereClause.isB2B = false
@@ -2956,9 +3097,15 @@ apiRouter.get('/admin/users', authMiddleware, requireRole(['ADMIN', 'STAFF']), a
       ]
     }
 
+    // Combine with role condition
+    const finalWhere = {
+      ...whereClause,
+      ...roleCondition,
+    }
+
     const [users, totalCount, retailCount, b2bCount, pendingB2bCount, creditAgg, ordersCount] = await Promise.all([
       prisma.user.findMany({
-        where: whereClause,
+        where: finalWhere,
         select: {
           id: true,
           name: true,
@@ -2984,11 +3131,12 @@ apiRouter.get('/admin/users', authMiddleware, requireRole(['ADMIN', 'STAFF']), a
         },
         orderBy: { createdAt: 'desc' }
       }),
-      prisma.user.count(),
-      prisma.user.count({ where: { isB2B: false } }),
-      prisma.user.count({ where: { isB2B: true } }),
+      prisma.user.count({ where: roleCondition }),
+      prisma.user.count({ where: { isB2B: false, ...roleCondition } }),
+      prisma.user.count({ where: { isB2B: true, ...roleCondition } }),
       prisma.businessProfile.count({ where: { verificationStatus: 'PENDING' } }),
       prisma.user.aggregate({
+        where: roleCondition,
         _sum: { creditLimit: true }
       }),
       prisma.order.count()
@@ -3018,6 +3166,13 @@ apiRouter.put('/admin/users/:id/toggle-active', authMiddleware, requireRole(['AD
     const user = await prisma.user.findUnique({ where: { id: userId } })
     if (!user) return res.status(404).json({ error: 'User not found' })
 
+    if (user.role === 'SUPER_ADMIN') {
+      return res.status(403).json({ error: 'Super Admin accounts cannot be deactivated.' })
+    }
+    if (user.role === 'ADMIN' && req.user?.role !== 'SUPER_ADMIN') {
+      return res.status(403).json({ error: 'Only Super Admin can deactivate Admin accounts.' })
+    }
+
     const updated = await prisma.user.update({
       where: { id: userId },
       data: { isActive: !user.isActive }
@@ -3044,6 +3199,10 @@ apiRouter.put('/admin/users/:id/toggle-b2b', authMiddleware, requireRole(['ADMIN
       include: { businessProfile: true }
     })
     if (!user) return res.status(404).json({ error: 'User not found' })
+
+    if (user.role === 'SUPER_ADMIN' || user.role === 'ADMIN') {
+      return res.status(403).json({ error: 'Admin and Super Admin accounts cannot be modified as customer accounts.' })
+    }
 
     const updated = await prisma.user.update({
       where: { id: userId },
@@ -3080,20 +3239,25 @@ apiRouter.put('/admin/users/:id/toggle-b2b', authMiddleware, requireRole(['ADMIN
   }
 })
 
-// ─── CREATE USER (Admin) ──────────────────────────────────────────────────────
+// ─── CREATE USER (Admin & Super Admin) ──────────────────────────────────────────
 apiRouter.post('/admin/users', authMiddleware, requireRole(['ADMIN']), async (req: Request, res: Response) => {
   try {
     const schema = z.object({
       name: z.string().min(2, 'Name must be at least 2 characters'),
       phone: z.string().regex(/^\d{10}$/, 'Phone must be exactly 10 digits').optional().or(z.literal('')),
       email: z.string().email('Invalid email').optional().or(z.literal('')),
-      role: z.enum(['CUSTOMER', 'STAFF']).default('CUSTOMER'),
+      role: z.enum(['CUSTOMER', 'STAFF', 'ADMIN']).default('CUSTOMER'),
       isB2B: z.boolean().default(false),
     }).refine(data => (data.phone && data.phone.trim()) || (data.email && data.email.trim()), {
       message: 'Either a 10-digit mobile number or an email address is required',
       path: ['phone']
     })
     const { name, phone, email, role, isB2B } = schema.parse(req.body)
+
+    // Only SUPER_ADMIN can create ADMIN accounts
+    if (role === 'ADMIN' && req.user?.role !== 'SUPER_ADMIN') {
+      return res.status(403).json({ error: 'Only Super Admin can create Admin accounts.' })
+    }
 
     const cleanPhone = phone && phone.trim() ? phone.trim() : null
     const cleanEmail = email && email.trim() ? email.trim().toLowerCase() : null
@@ -3125,14 +3289,14 @@ apiRouter.post('/admin/users', authMiddleware, requireRole(['ADMIN']), async (re
       }
     })
 
-    return res.status(201).json({ success: true, message: `User "${name}" created successfully.`, user })
+    return res.status(201).json({ success: true, message: `User "${name}" (${role}) created successfully.`, user })
   } catch (error: any) {
     if (error instanceof z.ZodError) return res.status(400).json({ error: getZodErrorMessage(error) })
     return res.status(500).json({ error: error.message || 'Failed to create user' })
   }
 })
 
-// ─── UPDATE USER BASIC INFO (Admin) ──────────────────────────────────────────
+// ─── UPDATE USER BASIC INFO & ROLE (Admin & Super Admin) ──────────────────────────
 apiRouter.patch('/admin/users/:id', authMiddleware, requireRole(['ADMIN']), async (req: Request, res: Response) => {
   try {
     const userId = req.params.id as string
@@ -3140,11 +3304,27 @@ apiRouter.patch('/admin/users/:id', authMiddleware, requireRole(['ADMIN']), asyn
       name: z.string().min(2).optional(),
       phone: z.string().regex(/^\d{10}$/, 'Phone must be exactly 10 digits').optional(),
       email: z.string().email('Invalid email').optional().or(z.literal('')),
+      role: z.enum(['CUSTOMER', 'STAFF', 'ADMIN']).optional(),
     })
     const updates = schema.parse(req.body)
 
     const user = await prisma.user.findUnique({ where: { id: userId } })
     if (!user) return res.status(404).json({ error: 'User not found' })
+
+    // Hierarchy guards
+    if (user.role === 'SUPER_ADMIN' && req.user?.role !== 'SUPER_ADMIN') {
+      return res.status(403).json({ error: 'Super Admin accounts can only be managed by Super Admin.' })
+    }
+    if (user.role === 'ADMIN' && req.user?.role !== 'SUPER_ADMIN' && req.user?.id !== userId) {
+      return res.status(403).json({ error: 'Only Super Admin can edit other Admin accounts.' })
+    }
+
+    // Role elevation guard: only SUPER_ADMIN can grant or revoke ADMIN role
+    if (updates.role && updates.role !== user.role) {
+      if ((updates.role === 'ADMIN' || user.role === 'ADMIN') && req.user?.role !== 'SUPER_ADMIN') {
+        return res.status(403).json({ error: 'Only Super Admin can assign or change Admin roles.' })
+      }
+    }
 
     // Check phone uniqueness if changing
     if (updates.phone && updates.phone !== user.phone) {
@@ -3164,6 +3344,7 @@ apiRouter.patch('/admin/users/:id', authMiddleware, requireRole(['ADMIN']), asyn
         ...(updates.name && { name: updates.name }),
         ...(updates.phone && { phone: updates.phone }),
         ...(updates.email !== undefined && { email: updates.email || null }),
+        ...(updates.role && { role: updates.role }),
       }
     })
 
@@ -3174,7 +3355,7 @@ apiRouter.patch('/admin/users/:id', authMiddleware, requireRole(['ADMIN']), asyn
   }
 })
 
-// ─── DELETE USER (Admin) ──────────────────────────────────────────────────────
+// ─── DELETE USER (Admin & Super Admin) ──────────────────────────────────────────
 apiRouter.delete('/admin/users/:id', authMiddleware, requireRole(['ADMIN']), async (req: Request, res: Response) => {
   try {
     const userId = req.params.id as string
@@ -3182,9 +3363,14 @@ apiRouter.delete('/admin/users/:id', authMiddleware, requireRole(['ADMIN']), asy
     const user = await prisma.user.findUnique({ where: { id: userId } })
     if (!user) return res.status(404).json({ error: 'User not found' })
 
-    // Protect admin accounts from accidental deletion
-    if (user.role === 'ADMIN') {
-      return res.status(403).json({ error: 'Admin accounts cannot be deleted through this endpoint.' })
+    // Protect Super Admin from deletion
+    if (user.role === 'SUPER_ADMIN') {
+      return res.status(403).json({ error: 'Super Admin accounts cannot be deleted.' })
+    }
+
+    // Only Super Admin can delete Admin accounts
+    if (user.role === 'ADMIN' && req.user?.role !== 'SUPER_ADMIN') {
+      return res.status(403).json({ error: 'Only Super Admin can delete Admin accounts.' })
     }
 
     // Anonymize orders to preserve order history integrity (do not hard-delete orders)
@@ -3201,6 +3387,7 @@ apiRouter.delete('/admin/users/:id', authMiddleware, requireRole(['ADMIN']), asy
     return res.status(500).json({ error: error.message || 'Failed to delete user' })
   }
 })
+
 
 // ─── GET USER ORDERS (Admin) ──────────────────────────────────────────────────
 apiRouter.get('/admin/users/:id/orders', authMiddleware, requireRole(['ADMIN', 'STAFF']), async (req: Request, res: Response) => {
