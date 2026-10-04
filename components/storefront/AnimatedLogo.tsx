@@ -5,22 +5,24 @@ import Link from 'next/link'
 
 interface AnimatedLogoProps {
   className?: string
+  svgClassName?: string
   showSubtext?: boolean
+  asDiv?: boolean
 }
 
-export default function AnimatedLogo({ className = '', showSubtext = true }: AnimatedLogoProps) {
-  return (
-    <Link
-      href="/"
-      className={`group flex items-center gap-2 select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-[#10b981] focus-visible:ring-offset-2 rounded-2xl py-1 transition-all ${className}`}
-      aria-label="Anmol Enterprises Home"
-    >
-      <div className="relative flex items-center">
-        <svg
-          viewBox="0 0 264 68"
-          className="h-10 sm:h-12 w-auto max-w-[220px] sm:max-w-[275px] overflow-visible drop-shadow-xs"
-          xmlns="http://www.w3.org/2000/svg"
-        >
+export default function AnimatedLogo({
+  className = '',
+  svgClassName = '',
+  showSubtext = true,
+  asDiv = false,
+}: AnimatedLogoProps) {
+  const content = (
+    <div className="relative flex items-center justify-center">
+      <svg
+        viewBox="0 0 264 68"
+        className={`overflow-visible ${svgClassName || 'h-10 sm:h-12 w-auto max-w-[220px] sm:max-w-[275px] drop-shadow-xs'}`}
+        xmlns="http://www.w3.org/2000/svg"
+      >
           <defs>
             {/* Scoped Animations */}
             <style>{`
@@ -363,6 +365,24 @@ export default function AnimatedLogo({ className = '', showSubtext = true }: Ani
 
         </svg>
       </div>
+  )
+
+  if (asDiv) {
+    return (
+      <div className={`group flex items-center justify-center select-none ${className}`}>
+        {content}
+      </div>
+    )
+  }
+
+  return (
+    <Link
+      href="/"
+      className={`group flex items-center gap-2 select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-[#10b981] focus-visible:ring-offset-2 rounded-2xl py-1 transition-all ${className}`}
+      aria-label="Anmol Enterprises Home"
+    >
+      {content}
     </Link>
   )
 }
+
