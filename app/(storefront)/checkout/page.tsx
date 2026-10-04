@@ -115,6 +115,9 @@ export default function CheckoutDeliveryPage() {
     setPincode('')
   }
 
+  const minOrderValue = isB2BCheckout ? 1500 : 199
+  const isBelowMinOrder = total < minOrderValue
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -122,7 +125,12 @@ export default function CheckoutDeliveryPage() {
     if (!phone.trim() || phone.length < 10) return showToast('Please enter a valid 10-digit phone number', 'error')
     if (!flatNo.trim()) return showToast('Please enter house/flat/shop number', 'error')
     if (!street.trim()) return showToast('Please enter street/area name', 'error')
-    if (!pincode.trim() || pincode.length !== 6) return showToast('Please enter a valid 6-digit pincode', 'error')
+    if (!pincode.trim() || !/^[1-9][0-9]{5}$/.test(pincode.trim())) {
+      return showToast('Please enter a valid 6-digit Indian pincode (e.g. 413512)', 'error')
+    }
+    if (isBelowMinOrder) {
+      return showToast(`Minimum order amount is ₹${minOrderValue}. Please add ₹${minOrderValue - total} more to place your order.`, 'warning')
+    }
     if (isB2BCheckout && !businessName.trim()) return showToast('Please enter your business name', 'error')
 
     // If user selected "Add New Address" & checkbox is checked, save to DB
@@ -461,9 +469,22 @@ export default function CheckoutDeliveryPage() {
                 placeholder="6-digit pincode"
                 value={pincode}
                 onChange={(e) => setPincode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                className="w-full bg-white border border-gray-200 text-sm rounded-card px-4 py-2.5 focus:outline-none focus:border-brand-orange"
+                className="w-full bg-white border border-gray-200 text-sm rounded-card px-4 py-2.5 focus:outline-none focus:border-brand-orange font-mono"
                 required
               />
+              {pincode.length === 6 && (
+                <div className={`mt-1 p-2 rounded-xl text-[11px] font-bold flex items-center gap-1.5 ${
+                  pincode.startsWith('413')
+                    ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                    : 'bg-amber-50 text-amber-900 border border-amber-200'
+                }`}>
+                  {pincode.startsWith('413') ? (
+                    <>⚡ <strong>Latur Cold-Chain Zone:</strong> 10-30 Min Express Delivery (-18°C Guarantee)</>
+                  ) : (
+                    <>🚚 <strong>Regional Zone:</strong> Scheduled Cold-Chain Freight Available</>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -482,10 +503,30 @@ export default function CheckoutDeliveryPage() {
             </label>
           )}
 
+          {/* Minimum Order Value Notice */}
+          {isBelowMinOrder && (
+            <div className="bg-amber-50 border border-amber-200 p-3.5 rounded-2xl flex items-center gap-3 text-amber-900 mt-2">
+              <span className="text-xl">⚠️</span>
+              <div className="text-xs">
+                <p className="font-bold">
+                  Minimum order value is ₹{minOrderValue} for cold-chain frozen express.
+                </p>
+                <p className="text-amber-700 text-[11px] mt-0.5">
+                  Current cart total: ₹{total}. Please add ₹{minOrderValue - total} more to proceed to payment.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Submit button: Directly proceeds to Payment! */}
           <button
             type="submit"
-            className="w-full bg-brand-orange hover:bg-brand-orange-dark text-white font-display text-sm font-extrabold py-3.5 rounded-pill shadow-lg hover:shadow-brand-orange/20 flex items-center justify-center gap-2 tap-scale mt-4"
+            disabled={isBelowMinOrder}
+            className={`w-full font-display text-sm font-extrabold py-3.5 rounded-pill shadow-lg flex items-center justify-center gap-2 tap-scale mt-4 transition-all ${
+              isBelowMinOrder 
+                ? 'bg-gray-300 text-gray-500 cursor-not-allowed shadow-none' 
+                : 'bg-brand-orange hover:bg-brand-orange-dark text-white hover:shadow-brand-orange/20'
+            }`}
           >
             <span>Proceed to Payment</span>
             <ArrowRight className="w-4 h-4" />

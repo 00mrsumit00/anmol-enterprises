@@ -772,6 +772,8 @@ function getZodErrorMessage(error: z.ZodError): string {
   return 'Invalid input data'
 }
 
+export const GSTIN_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/i
+
 const registerSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
   email: z.string().email('Valid email address required'),
@@ -782,7 +784,9 @@ const registerSchema = z.object({
   isB2B: z.boolean().optional(),
   businessName: z.string().optional(),
   businessType: z.string().optional(),
-  gstin: z.string().optional(),
+  gstin: z.string().optional().refine(val => !val || !val.trim() || GSTIN_REGEX.test(val.trim()), {
+    message: 'Invalid GSTIN format. Expected 15-character Indian GSTIN (e.g. 27ABCDE1234F1Z5)'
+  }),
   fssaiNumber: z.string().optional(),
   monthlyVolumeEst: z.string().optional(),
   businessAddress: z.string().optional(),
@@ -2148,6 +2152,75 @@ apiRouter.delete('/addresses/:id', authMiddleware, async (req: Request, res: Res
   }
 })
 
+apiRouter.put('/addresses/:id', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const id = req.params.id as string
+    const userId = req.user!.id
+    const data = addressSchema.parse(req.body)
+
+    const existing = await prisma.address.findFirst({
+      where: { id, userId }
+    })
+    if (!existing) return res.status(404).json({ error: 'Address not found' })
+
+    if (data.isDefault) {
+      await prisma.address.updateMany({
+        where: { userId, id: { not: id } },
+        data: { isDefault: false }
+      })
+    }
+
+    const updated = await prisma.address.update({
+      where: { id },
+      data: {
+        label: data.label,
+        flatNo: data.flatNo,
+        street: data.street,
+        landmark: data.landmark || null,
+        city: data.city,
+        pincode: data.pincode,
+        isDefault: data.isDefault,
+      }
+    })
+
+    return res.json(updated)
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: getZodErrorMessage(error) })
+    }
+    console.error('Update address error:', error)
+    return res.status(500).json({ error: 'Failed to update address' })
+  }
+})
+
+apiRouter.put('/addresses/:id/set-default', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const id = req.params.id as string
+    const userId = req.user!.id
+
+    const existing = await prisma.address.findFirst({
+      where: { id, userId }
+    })
+    if (!existing) return res.status(404).json({ error: 'Address not found' })
+
+    await prisma.$transaction([
+      prisma.address.updateMany({
+        where: { userId },
+        data: { isDefault: false }
+      }),
+      prisma.address.update({
+        where: { id },
+        data: { isDefault: true }
+      })
+    ])
+
+    return res.json({ success: true, message: 'Address set as default' })
+  } catch (error) {
+    console.error('Set default address error:', error)
+    return res.status(500).json({ error: 'Failed to set default address' })
+  }
+})
+
 // ─── ORDERS ROUTES ───────────────────────────────────────────────────────────
 
 const orderItemSchema = z.object({
@@ -3205,6 +3278,10 @@ apiRouter.put('/admin/users/:id/toggle-b2b', authMiddleware, requireRole(['ADMIN
   try {
     const userId = req.params.id as string
     const { isB2B, businessName, businessType, gstin } = req.body
+
+    if (gstin && gstin.trim() && !GSTIN_REGEX.test(gstin.trim())) {
+      return res.status(400).json({ error: 'Invalid GSTIN format. Expected 15-character Indian GSTIN (e.g. 27ABCDE1234F1Z5)' })
+    }
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
