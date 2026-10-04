@@ -458,20 +458,22 @@ apiRouter.post('/otp/verify', async (req: Request, res: Response) => {
 
     if (!isValid) {
       if (otpRecord) {
-        const newAttempts = otpRecord.attempts + 1
-        await prisma.otpVerification.update({
+        const updatedOtp = await prisma.otpVerification.update({
           where: { id: otpRecord.id },
           data: {
-            attempts: newAttempts,
-            expiresAt: newAttempts >= otpRecord.maxAttempts ? new Date() : otpRecord.expiresAt
+            attempts: { increment: 1 }
           }
         })
 
-        if (newAttempts >= otpRecord.maxAttempts) {
+        if (updatedOtp.attempts >= otpRecord.maxAttempts) {
+          await prisma.otpVerification.update({
+            where: { id: otpRecord.id },
+            data: { expiresAt: new Date() }
+          })
           return res.status(400).json({ error: 'Invalid OTP code. Maximum attempts exceeded — OTP invalidated. Request a new OTP.' })
         }
 
-        return res.status(400).json({ error: `Invalid OTP code. ${otpRecord.maxAttempts - newAttempts} attempts remaining.` })
+        return res.status(400).json({ error: `Invalid OTP code. ${otpRecord.maxAttempts - updatedOtp.attempts} attempts remaining.` })
       }
       return res.status(400).json({ error: 'Invalid OTP code.' })
     }
@@ -693,20 +695,22 @@ apiRouter.post('/otp/verify-email', async (req: Request, res: Response) => {
     const isValid = isDevTestCode || (await bcrypt.compare(code, otpRecord.otpHash))
 
     if (!isValid) {
-      const newAttempts = otpRecord.attempts + 1
-      await prisma.otpVerification.update({
+      const updatedOtp = await prisma.otpVerification.update({
         where: { id: otpRecord.id },
         data: {
-          attempts: newAttempts,
-          expiresAt: newAttempts >= otpRecord.maxAttempts ? new Date() : otpRecord.expiresAt
+          attempts: { increment: 1 }
         }
       })
 
-      if (newAttempts >= otpRecord.maxAttempts) {
+      if (updatedOtp.attempts >= otpRecord.maxAttempts) {
+        await prisma.otpVerification.update({
+          where: { id: otpRecord.id },
+          data: { expiresAt: new Date() }
+        })
         return res.status(400).json({ error: 'Invalid Email OTP code. Maximum attempts exceeded — OTP invalidated. Request a new OTP.' })
       }
 
-      return res.status(400).json({ error: `Invalid Email OTP code. ${otpRecord.maxAttempts - newAttempts} attempts remaining.` })
+      return res.status(400).json({ error: `Invalid Email OTP code. ${otpRecord.maxAttempts - updatedOtp.attempts} attempts remaining.` })
     }
 
     // Mark OTP record as verified
@@ -2222,15 +2226,23 @@ apiRouter.post('/orders', async (req: Request, res: Response) => {
           lineTotal,
         })
 
-        // Decrement stock
-        await tx.productVariant.update({
-          where: { id: variant.id },
+        // Atomic stock decrement with DB-level concurrency guard
+        // Prevents race conditions where two simultaneous checkouts oversell stock below 0
+        const decrementResult = await tx.productVariant.updateMany({
+          where: {
+            id: variant.id,
+            stockCount: { gte: item.quantity }
+          },
           data: {
             stockCount: {
               decrement: item.quantity
             }
           }
         })
+
+        if (decrementResult.count === 0) {
+          throw new Error(`Insufficient stock for ${variant.product.name} (${variant.packagingType}). Another customer just purchased the remaining units. Please refresh your cart.`)
+        }
       }
 
       // 2. Calculate fees

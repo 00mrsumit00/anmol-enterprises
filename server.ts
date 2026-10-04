@@ -78,17 +78,18 @@ app.prepare().then(() => {
     const user = socket.data?.user
     console.log(`[Socket] New connection: ${socket.id} (User: ${user ? `${user.userId} [${user.role}]` : 'Anonymous'})`)
 
-    // Admin room: restricted strictly to ADMIN or STAFF roles
+    // Admin room: restricted strictly to SUPER_ADMIN, ADMIN or STAFF roles
     socket.on('join_admin', () => {
-      if (!user || !['ADMIN', 'STAFF'].includes(user.role)) {
-        console.warn(`[Socket] Unauthorized join_admin attempt by ${socket.id}`)
+      const isAuthorized = user && ['SUPER_ADMIN', 'ADMIN', 'STAFF'].includes(user.role)
+      if (!isAuthorized) {
+        console.warn(`[Socket] Unauthorized join_admin attempt by ${socket.id} (User: ${user?.role || 'Anonymous'})`)
         return socket.emit('error', { message: 'Forbidden: Admin or Staff role required' })
       }
       socket.join('admin')
       console.log(`[Socket] Authorized: Socket ${socket.id} (${user.role}) joined admin room`)
     })
 
-    // Order tracking room: restricted to order owner or ADMIN/STAFF
+    // Order tracking room: restricted to order owner or SUPER_ADMIN/ADMIN/STAFF
     socket.on('join_order', async (orderId: string) => {
       try {
         if (!orderId || typeof orderId !== 'string') return
@@ -102,7 +103,7 @@ app.prepare().then(() => {
           return socket.emit('error', { message: 'Order not found' })
         }
 
-        const isStaffOrAdmin = user && ['ADMIN', 'STAFF'].includes(user.role)
+        const isStaffOrAdmin = user && ['SUPER_ADMIN', 'ADMIN', 'STAFF'].includes(user.role)
         const isOwner = user && order.userId === user.userId
         const isGuestOrder = order.userId === null
 
