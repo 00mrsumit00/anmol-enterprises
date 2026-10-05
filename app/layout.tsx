@@ -58,6 +58,26 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${poppins.variable} ${dmSans.variable} ${baloo2.variable}`}>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
+                                     window.matchMedia('(display-mode: fullscreen)').matches ||
+                                     window.navigator.standalone === true ||
+                                     new URLSearchParams(window.location.search).has('pwa_splash');
+                  var hasSeen = sessionStorage.getItem('anmol_pwa_splash_seen');
+                  if (isStandalone && !hasSeen) {
+                    document.documentElement.classList.add('pwa-standalone-launch');
+                  }
+                } catch(e) {}
+              })();
+            `,
+          }}
+        />
+      </head>
       <body className="antialiased min-h-screen bg-brand-orange-light/20 text-brand-charcoal">
         <Providers>{children}</Providers>
       </body>

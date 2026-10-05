@@ -147,3 +147,17 @@ body {
 .animate-slide-in-right {
   animation: slideInRight 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+/* ==========================================================================
+   PWA Standalone Instant Launch Splash Screen
+   - Strictly hidden on regular website / browser tabs
+   - Instantly active on cold launch in standalone PWA mode
+   ========================================================================== */
+#pwa-instant-splash {
+  display: none !important;
+}
+
+.pwa-standalone-launch #pwa-instant-splash {
+  display: flex !important;
+}
+
