@@ -6,6 +6,7 @@ import BottomNav from '@/components/storefront/BottomNav'
 import CartDrawer from '@/components/storefront/CartDrawer'
 import FloatingCartBar from '@/components/storefront/FloatingCartBar'
 import SplashScreen from '@/components/storefront/SplashScreen'
+import InstallAppBanner from '@/components/storefront/InstallAppBanner'
 
 export default function StorefrontLayout({
   children,
@@ -16,6 +17,9 @@ export default function StorefrontLayout({
     <div className="flex flex-col min-h-screen">
       {/* Cold Launch Brand Splash Screen (5 seconds) */}
       <SplashScreen />
+
+      {/* Top Mobile & Desktop PWA Install Banner */}
+      <InstallAppBanner />
 
       {/* Sticky Top Header */}
       <Suspense fallback={<header className="sticky top-0 z-[100] w-full bg-white h-16 shadow-xs border-b border-gray-100" />}>
