@@ -1,9 +1,15 @@
+@import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=DM+Sans:wght@400;500;700&family=Poppins:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 /* Design Tokens — Custom Properties */
 :root {
+  --font-poppins: 'Poppins', system-ui, sans-serif;
+  --font-dm-sans: 'DM Sans', system-ui, sans-serif;
+  --font-baloo-2: 'Baloo 2', cursive, sans-serif;
+
   --color-brand-orange: #FF6B00;
   --color-brand-orange-dk: #E05C00;
   --color-brand-orange-lt: #FFF3E6;
