@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import Image from 'next/image'
-import { Download, X, Share, PlusSquare, Smartphone, CheckCircle } from 'lucide-react'
+import { Download, X, Share, PlusSquare, Smartphone, CheckCircle, Sparkles, Activity } from 'lucide-react'
 
 export default function InstallAppBanner() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
@@ -55,10 +55,10 @@ export default function InstallAppBanner() {
       setDeferredPrompt(null)
     })
 
-    // Show banner on mobile/desktop browsers even if prompt hasn't fired yet
+    // Slide in gracefully after 2 seconds without shifting the page layout
     const timer = setTimeout(() => {
       setShowBanner(true)
-    }, 1200)
+    }, 2000)
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
@@ -81,7 +81,6 @@ export default function InstallAppBanner() {
       }
       setDeferredPrompt(null)
     } else {
-      // Fallback for browsers where beforeinstallprompt isn't available or already fired
       setShowIOSTip(true)
     }
   }
@@ -98,110 +97,133 @@ export default function InstallAppBanner() {
 
   return (
     <>
-      {/* Top Floating App Install Banner (Styled directly from user design) */}
-      <div className="relative z-50 w-full bg-gradient-to-r from-[#142A63] via-[#1E40AF] to-[#2563EB] text-white shadow-md border-b border-blue-400/20 px-3 sm:px-6 py-2.5 transition-all duration-300">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
+      {/* 
+        Cyber-Luxury Floating App Node 
+        Inspired by vstechworks.co.in production node glassmorphism
+        - Position: Floating in bottom-right corner (desktop) / bottom sheet above nav (mobile)
+        - Zero page layout push (preserves full navbar cleanliness)
+      */}
+      <aside
+        aria-label="App Installation Suggestion"
+        className="fixed bottom-20 left-4 right-4 sm:bottom-6 sm:left-auto sm:right-6 sm:max-w-[360px] z-[90] select-none animate-slide-in-right"
+      >
+        <div className="relative overflow-hidden rounded-3xl bg-slate-950/90 backdrop-blur-2xl border border-emerald-500/30 shadow-[0_20px_50px_rgba(0,0,0,0.55),0_0_25px_rgba(16,185,129,0.2)] p-4 text-white">
           
-          {/* Left: App Logo & Information */}
-          <div className="flex items-center gap-3 min-w-0">
-            {/* High-res App Icon with Squircle Frame */}
-            <div className="relative shrink-0 w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-white p-1 shadow-md overflow-hidden ring-2 ring-white/30 flex items-center justify-center">
-              <Image
-                src="/icons/icon-192.png"
-                alt="Anmol App Icon"
-                width={48}
-                height={48}
-                className="w-full h-full object-contain rounded-lg"
-                priority
-              />
-              <span className="absolute bottom-0 inset-x-0 bg-emerald-600 text-[8px] font-extrabold text-white text-center py-0.2 tracking-tighter uppercase leading-none">
-                10-Min
+          {/* Ambient Glowing Halo Orbs (Like vstechworks) */}
+          <div className="absolute -top-10 -right-10 w-28 h-28 bg-emerald-500/25 rounded-full blur-2xl pointer-events-none" />
+          <div className="absolute -bottom-10 -left-10 w-24 h-24 bg-cyan-500/20 rounded-full blur-2xl pointer-events-none" />
+
+          {/* Top Live Node Status Header */}
+          <div className="relative flex items-center justify-between pb-3 border-b border-white/10 mb-3">
+            <div className="flex items-center gap-2">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+              </span>
+              <span className="text-[10px] font-mono font-bold tracking-wider uppercase text-emerald-400">
+                COLD-CHAIN NODE ACTIVE
               </span>
             </div>
 
-            {/* App Title & Benefit Subtitle */}
+            <div className="flex items-center gap-2">
+              <span className="text-[9px] font-mono text-slate-400 border border-slate-700/80 px-1.5 py-0.5 rounded-md">
+                PWA v2.0
+              </span>
+              <button
+                onClick={handleDismiss}
+                type="button"
+                className="text-slate-400 hover:text-white p-1 rounded-full hover:bg-white/10 transition-colors cursor-pointer"
+                aria-label="Close app suggestion"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Middle App Identity & Value Proposition */}
+          <div className="relative flex items-center gap-3 mb-3.5">
+            {/* 3D Glowing App Icon with Glass Frame */}
+            <div className="relative shrink-0 w-12 h-12 rounded-2xl bg-white/95 p-1.5 shadow-[0_0_15px_rgba(16,185,129,0.35)] ring-1 ring-emerald-400/40 flex items-center justify-center">
+              <Image
+                src="/icons/icon-192.png"
+                alt="Anmol Icon"
+                width={44}
+                height={44}
+                className="w-full h-full object-contain rounded-xl"
+              />
+            </div>
+
             <div className="min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h4 className="text-sm sm:text-base font-bold text-white tracking-tight truncate leading-tight">
-                  Install Anmol Mobile App
-                </h4>
-                <span className="hidden sm:inline-flex items-center gap-1 bg-amber-400/20 border border-amber-300/40 text-amber-200 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
-                  ⚡ Fast & Lite
-                </span>
-              </div>
-              <p className="text-xs text-blue-100/90 truncate sm:whitespace-normal leading-snug">
-                Access McCain frozen snacks, orders & live tracking instantly from your home screen.
+              <h4 className="text-sm font-extrabold text-white tracking-tight flex items-center gap-1.5 leading-tight">
+                Get Anmol Mobile App
+                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+              </h4>
+              <p className="text-[11px] text-slate-300 mt-0.5 line-clamp-2 leading-relaxed">
+                10-Min cold express delivery, sub-zero live tracking & 1-tap reorders.
               </p>
             </div>
           </div>
 
-          {/* Right: Install CTA Button & Dismiss */}
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            <button
-              onClick={handleInstallClick}
-              type="button"
-              className="group relative inline-flex items-center gap-1.5 sm:gap-2 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-600 text-white font-bold text-xs sm:text-sm px-3.5 sm:px-5 py-2 rounded-full shadow-lg hover:shadow-orange-500/30 active:scale-95 transition-all duration-200 cursor-pointer"
-            >
-              <Download className="w-4 h-4 shrink-0 transition-transform group-hover:-translate-y-0.5" />
-              <span>Install Now</span>
-            </button>
-
-            <button
-              onClick={handleDismiss}
-              type="button"
-              className="text-blue-200 hover:text-white hover:bg-white/10 p-1.5 rounded-full transition-colors cursor-pointer"
-              aria-label="Dismiss banner"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
+          {/* Bottom Electric Glowing CTA Button */}
+          <button
+            onClick={handleInstallClick}
+            type="button"
+            className="group relative w-full inline-flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-500 hover:from-emerald-300 hover:to-teal-200 text-slate-950 font-black text-xs sm:text-sm py-2.5 px-4 rounded-xl shadow-[0_0_20px_rgba(52,211,153,0.35)] hover:shadow-[0_0_25px_rgba(52,211,153,0.55)] active:scale-[0.98] transition-all duration-200 cursor-pointer"
+          >
+            <Download className="w-4 h-4 shrink-0 transition-transform group-hover:-translate-y-0.5" />
+            <span>Install Anmol App (Free)</span>
+          </button>
 
         </div>
-      </div>
+      </aside>
 
-      {/* iOS & Manual Install Instruction Modal */}
+      {/* iOS & Manual Setup Modal (Dark Cyber-Glassmorphism) */}
       {showIOSTip && (
-        <div className="fixed inset-0 z-[99999] bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-sm w-full p-6 text-slate-800 shadow-2xl animate-in fade-in slide-in-from-bottom duration-300 border border-slate-100">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div className="fixed inset-0 z-[99999] bg-black/75 backdrop-blur-md flex items-end sm:items-center justify-center p-4">
+          <div className="relative overflow-hidden bg-slate-950/95 border border-emerald-500/30 rounded-3xl max-w-sm w-full p-6 text-white shadow-2xl animate-in fade-in slide-in-from-bottom duration-300">
+            
+            {/* Ambient Modal Glow */}
+            <div className="absolute -top-12 -right-12 w-32 h-32 bg-emerald-500/20 rounded-full blur-2xl pointer-events-none" />
+
+            <div className="flex items-center justify-between pb-3 border-b border-white/10">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center">
-                  <Smartphone className="w-5 h-5 text-blue-600" />
+                <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center">
+                  <Smartphone className="w-5 h-5 text-emerald-400" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-slate-900 leading-tight">Install Anmol App</h3>
-                  <p className="text-[11px] text-slate-500">Quick 2-step home screen setup</p>
+                  <h3 className="text-base font-bold text-white leading-tight">Install on iPhone</h3>
+                  <p className="text-[11px] text-slate-400">Quick 2-step home screen setup</p>
                 </div>
               </div>
               <button
                 onClick={() => setShowIOSTip(false)}
-                className="text-slate-400 hover:text-slate-700 p-1 rounded-full hover:bg-slate-100"
+                className="text-slate-400 hover:text-white p-1 rounded-full hover:bg-white/10"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="py-4 space-y-3.5 text-sm">
-              <div className="flex items-start gap-3 bg-slate-50 p-3 rounded-2xl border border-slate-200/70">
-                <div className="w-7 h-7 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">
+            <div className="py-4 space-y-3 text-sm">
+              <div className="flex items-start gap-3 bg-white/5 p-3 rounded-2xl border border-white/10">
+                <div className="w-6 h-6 rounded-full bg-emerald-500 text-slate-950 font-black text-xs flex items-center justify-center shrink-0 mt-0.5">
                   1
                 </div>
                 <div>
-                  <p className="font-semibold text-slate-800">Tap the Share button</p>
-                  <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1">
-                    Look for <Share className="w-3.5 h-3.5 text-blue-600 inline" /> in Safari or your browser toolbar.
+                  <p className="font-semibold text-white">Tap the Share button</p>
+                  <p className="text-xs text-slate-300 mt-0.5 flex items-center gap-1">
+                    Tap <Share className="w-3.5 h-3.5 text-emerald-400 inline" /> in your Safari bottom toolbar.
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-start gap-3 bg-slate-50 p-3 rounded-2xl border border-slate-200/70">
-                <div className="w-7 h-7 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">
+              <div className="flex items-start gap-3 bg-white/5 p-3 rounded-2xl border border-white/10">
+                <div className="w-6 h-6 rounded-full bg-emerald-500 text-slate-950 font-black text-xs flex items-center justify-center shrink-0 mt-0.5">
                   2
                 </div>
                 <div>
-                  <p className="font-semibold text-slate-800">Select &quot;Add to Home Screen&quot;</p>
-                  <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1">
-                    Scroll down and tap <PlusSquare className="w-3.5 h-3.5 text-emerald-600 inline" /> <strong>Add to Home Screen</strong>.
+                  <p className="font-semibold text-white">Select &quot;Add to Home Screen&quot;</p>
+                  <p className="text-xs text-slate-300 mt-0.5 flex items-center gap-1">
+                    Scroll down and tap <PlusSquare className="w-3.5 h-3.5 text-emerald-400 inline" /> <strong>Add to Home Screen</strong>.
                   </p>
                 </div>
               </div>
@@ -209,7 +231,7 @@ export default function InstallAppBanner() {
 
             <button
               onClick={() => setShowIOSTip(false)}
-              className="w-full mt-2 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-xl transition-colors shadow-md active:scale-98 flex items-center justify-center gap-2"
+              className="w-full mt-2 py-2.5 bg-gradient-to-r from-emerald-400 to-teal-400 text-slate-950 font-black text-sm rounded-xl transition-all shadow-lg active:scale-98 flex items-center justify-center gap-2"
             >
               <CheckCircle className="w-4 h-4" />
               Got It

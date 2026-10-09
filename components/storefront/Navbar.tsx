@@ -163,8 +163,11 @@ function NavbarContent() {
                 className="hidden sm:flex flex-col text-left hover:bg-orange-50/70 px-2 py-1 rounded-xl transition-all select-none max-w-[240px]"
               >
                 <div className="flex items-center gap-1.5 leading-tight">
-                  <span className="flex items-center gap-1 font-black text-[13px] text-gray-900">
-                    <Zap className="w-3.5 h-3.5 text-[#FF6B00] fill-[#FF6B00]" />
+                  <span className="flex items-center gap-1.5 font-black text-[13px] text-gray-900">
+                    <span className="relative flex h-2 w-2 shrink-0">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                    </span>
                     Express 10 Min
                   </span>
                   <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded-md border border-emerald-200">
@@ -183,8 +186,11 @@ function NavbarContent() {
                 onClick={() => setShowLocationModal(!showLocationModal)}
                 className="flex sm:hidden flex-col text-left max-w-[140px]"
               >
-                <span className="flex items-center gap-1 font-black text-xs text-gray-900 leading-tight">
-                  <Zap className="w-3 h-3 text-[#FF6B00] fill-[#FF6B00]" />
+                <span className="flex items-center gap-1.5 font-black text-xs text-gray-900 leading-tight">
+                  <span className="relative flex h-1.5 w-1.5 shrink-0">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+                  </span>
                   10 Min
                 </span>
                 <span className="text-[10px] text-gray-500 font-semibold flex items-center gap-0.5 leading-tight truncate">
