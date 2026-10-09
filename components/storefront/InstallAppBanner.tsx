@@ -121,13 +121,13 @@ export default function InstallAppBanner() {
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
               </span>
               <span className="text-[10px] font-mono font-bold tracking-wider uppercase text-emerald-400">
-                COLD-CHAIN NODE ACTIVE
+                OFFICIAL APP &bull; 10-MIN EXPRESS
               </span>
             </div>
 
             <div className="flex items-center gap-2">
-              <span className="text-[9px] font-mono text-slate-400 border border-slate-700/80 px-1.5 py-0.5 rounded-md">
-                PWA v2.0
+              <span className="text-[9px] font-mono text-slate-300 bg-white/5 border border-white/10 px-2 py-0.5 rounded-md">
+                Latur City
               </span>
               <button
                 onClick={handleDismiss}
@@ -141,25 +141,33 @@ export default function InstallAppBanner() {
           </div>
 
           {/* Middle App Identity & Value Proposition */}
-          <div className="relative flex items-center gap-3 mb-3.5">
-            {/* 3D Glowing App Icon with Glass Frame */}
-            <div className="relative shrink-0 w-12 h-12 rounded-2xl bg-white/95 p-1.5 shadow-[0_0_15px_rgba(16,185,129,0.35)] ring-1 ring-emerald-400/40 flex items-center justify-center">
+          <div className="relative flex items-center gap-3.5 mb-4">
+            {/* 3D Glowing App Icon with Glass Frame using Official Brand Emblem */}
+            <div className="relative shrink-0 w-13 h-13 rounded-2xl bg-white/95 p-1 shadow-[0_0_20px_rgba(16,185,129,0.35)] ring-1 ring-emerald-400/40 flex items-center justify-center">
               <Image
-                src="/icons/icon-192.png"
-                alt="Anmol Icon"
-                width={44}
-                height={44}
+                src="/icons/emblem.png"
+                alt="Anmol Enterprises Emblem"
+                width={50}
+                height={50}
                 className="w-full h-full object-contain rounded-xl"
+                priority
               />
             </div>
 
             <div className="min-w-0">
-              <h4 className="text-sm font-extrabold text-white tracking-tight flex items-center gap-1.5 leading-tight">
-                Get Anmol Mobile App
-                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              </h4>
-              <p className="text-[11px] text-slate-300 mt-0.5 line-clamp-2 leading-relaxed">
-                10-Min cold express delivery, sub-zero live tracking & 1-tap reorders.
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <h4 className="text-sm font-extrabold text-white tracking-tight leading-tight">
+                  Anmol Enterprises
+                </h4>
+                <span className="bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-[9px] font-bold px-1.5 py-0.2 rounded-full uppercase tracking-wider">
+                  Verified
+                </span>
+              </div>
+              <p className="text-[11px] text-amber-300 font-semibold mt-0.5">
+                Official McCain Distributor App
+              </p>
+              <p className="text-[11px] text-slate-300 mt-0.5 line-clamp-2 leading-tight">
+                10-Min cold delivery & live order tracking.
               </p>
             </div>
           </div>
@@ -171,7 +179,7 @@ export default function InstallAppBanner() {
             className="group relative w-full inline-flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-500 hover:from-emerald-300 hover:to-teal-200 text-slate-950 font-black text-xs sm:text-sm py-2.5 px-4 rounded-xl shadow-[0_0_20px_rgba(52,211,153,0.35)] hover:shadow-[0_0_25px_rgba(52,211,153,0.55)] active:scale-[0.98] transition-all duration-200 cursor-pointer"
           >
             <Download className="w-4 h-4 shrink-0 transition-transform group-hover:-translate-y-0.5" />
-            <span>Install Anmol App (Free)</span>
+            <span>Install Anmol Enterprises</span>
           </button>
 
         </div>
