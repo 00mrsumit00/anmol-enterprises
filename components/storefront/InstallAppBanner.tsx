@@ -143,13 +143,13 @@ export default function InstallAppBanner() {
           {/* Middle App Identity & Value Proposition */}
           <div className="relative flex items-center gap-3.5 mb-4">
             {/* 3D Glowing App Icon with Glass Frame using Official Brand Emblem */}
-            <div className="relative shrink-0 w-13 h-13 rounded-2xl bg-white/95 p-1 shadow-[0_0_20px_rgba(16,185,129,0.35)] ring-1 ring-emerald-400/40 flex items-center justify-center">
+            <div className="relative shrink-0 w-13 h-13 rounded-2xl shadow-[0_4px_20px_rgba(16,185,129,0.35)] flex items-center justify-center">
               <Image
                 src="/icons/emblem.png"
                 alt="Anmol Enterprises Emblem"
-                width={50}
-                height={50}
-                className="w-full h-full object-contain rounded-xl"
+                width={52}
+                height={52}
+                className="w-full h-full object-contain"
                 priority
               />
             </div>
