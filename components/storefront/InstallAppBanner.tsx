@@ -2,13 +2,13 @@
 
 import React, { useState, useEffect } from 'react'
 import Image from 'next/image'
-import { Download, X, Share, PlusSquare, Smartphone, CheckCircle, Sparkles, Activity } from 'lucide-react'
+import { Download, X, Share, PlusSquare, Smartphone, Monitor, CheckCircle, Sparkles, Activity } from 'lucide-react'
 
 export default function InstallAppBanner() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
   const [showBanner, setShowBanner] = useState(false)
-  const [isIOS, setIsIOS] = useState(false)
-  const [showIOSTip, setShowIOSTip] = useState(false)
+  const [deviceType, setDeviceType] = useState<'ios' | 'android' | 'desktop'>('desktop')
+  const [showTutorialModal, setShowTutorialModal] = useState(false)
   const [isInstalled, setIsInstalled] = useState(false)
 
   useEffect(() => {
@@ -34,10 +34,18 @@ export default function InstallAppBanner() {
       }
     }
 
-    // 3. Detect iOS device
+    // 3. Detect device type accurately
     const userAgent = window.navigator.userAgent.toLowerCase()
-    const isIosDevice = /iphone|ipad|ipod/.test(userAgent)
-    setIsIOS(isIosDevice)
+    const isIosDevice = /iphone|ipad|ipod/.test(userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+    const isAndroidDevice = /android/.test(userAgent)
+
+    if (isIosDevice) {
+      setDeviceType('ios')
+    } else if (isAndroidDevice) {
+      setDeviceType('android')
+    } else {
+      setDeviceType('desktop')
+    }
 
     // 4. Capture native beforeinstallprompt event (Android Chrome, Edge, desktop)
     const handleBeforeInstallPrompt = (e: Event) => {
@@ -67,27 +75,30 @@ export default function InstallAppBanner() {
   }, [])
 
   const handleInstallClick = async () => {
-    if (isIOS) {
-      setShowIOSTip(true)
+    // 1. If native PWA install prompt is ready (Android Chrome / Edge / Desktop Chrome):
+    if (deferredPrompt) {
+      try {
+        deferredPrompt.prompt()
+        const { outcome } = await deferredPrompt.userChoice
+        if (outcome === 'accepted') {
+          setShowBanner(false)
+          setIsInstalled(true)
+        }
+        setDeferredPrompt(null)
+      } catch (err) {
+        console.warn('Install prompt error:', err)
+      }
       return
     }
 
-    if (deferredPrompt) {
-      deferredPrompt.prompt()
-      const { outcome } = await deferredPrompt.userChoice
-      if (outcome === 'accepted') {
-        setShowBanner(false)
-        setIsInstalled(true)
-      }
-      setDeferredPrompt(null)
-    } else {
-      setShowIOSTip(true)
-    }
+    // 2. If native prompt is not available, show platform-appropriate tutorial modal
+    // (Only iPhone sees the Safari Share sheet guide; Android & Desktop see their respective steps)
+    setShowTutorialModal(true)
   }
 
   const handleDismiss = () => {
     setShowBanner(false)
-    setShowIOSTip(false)
+    setShowTutorialModal(false)
     try {
       localStorage.setItem('anmol_install_banner_dismissed', Date.now().toString())
     } catch {}
@@ -185,8 +196,8 @@ export default function InstallAppBanner() {
         </div>
       </aside>
 
-      {/* iOS & Manual Setup Modal (Dark Cyber-Glassmorphism) */}
-      {showIOSTip && (
+      {/* Device-tailored Installation Modal (Dark Cyber-Glassmorphism) */}
+      {showTutorialModal && (
         <div className="fixed inset-0 z-[99999] bg-black/75 backdrop-blur-md flex items-end sm:items-center justify-center p-4">
           <div className="relative overflow-hidden bg-slate-950/95 border border-emerald-500/30 rounded-3xl max-w-sm w-full p-6 text-white shadow-2xl animate-in fade-in slide-in-from-bottom duration-300">
             
@@ -196,50 +207,129 @@ export default function InstallAppBanner() {
             <div className="flex items-center justify-between pb-3 border-b border-white/10">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center">
-                  <Smartphone className="w-5 h-5 text-emerald-400" />
+                  {deviceType === 'desktop' ? (
+                    <Monitor className="w-5 h-5 text-emerald-400" />
+                  ) : (
+                    <Smartphone className="w-5 h-5 text-emerald-400" />
+                  )}
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-white leading-tight">Install on iPhone</h3>
-                  <p className="text-[11px] text-slate-400">Quick 2-step home screen setup</p>
+                  <h3 className="text-base font-bold text-white leading-tight">
+                    {deviceType === 'ios'
+                      ? 'Install on iPhone'
+                      : deviceType === 'android'
+                      ? 'Install on Android'
+                      : 'Install on Computer / PC'}
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    {deviceType === 'ios'
+                      ? 'Quick 2-step Safari setup'
+                      : deviceType === 'android'
+                      ? 'Quick 2-step Chrome setup'
+                      : 'Install via Chrome or Edge'}
+                  </p>
                 </div>
               </div>
               <button
-                onClick={() => setShowIOSTip(false)}
-                className="text-slate-400 hover:text-white p-1 rounded-full hover:bg-white/10"
+                onClick={() => setShowTutorialModal(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-full hover:bg-white/10 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <div className="py-4 space-y-3 text-sm">
-              <div className="flex items-start gap-3 bg-white/5 p-3 rounded-2xl border border-white/10">
-                <div className="w-6 h-6 rounded-full bg-emerald-500 text-slate-950 font-black text-xs flex items-center justify-center shrink-0 mt-0.5">
-                  1
-                </div>
-                <div>
-                  <p className="font-semibold text-white">Tap the Share button</p>
-                  <p className="text-xs text-slate-300 mt-0.5 flex items-center gap-1">
-                    Tap <Share className="w-3.5 h-3.5 text-emerald-400 inline" /> in your Safari bottom toolbar.
-                  </p>
-                </div>
-              </div>
+              {/* 1. iOS Safari Instructions */}
+              {deviceType === 'ios' && (
+                <>
+                  <div className="flex items-start gap-3 bg-white/5 p-3 rounded-2xl border border-white/10">
+                    <div className="w-6 h-6 rounded-full bg-emerald-500 text-slate-950 font-black text-xs flex items-center justify-center shrink-0 mt-0.5">
+                      1
+                    </div>
+                    <div>
+                      <p className="font-semibold text-white">Tap the Share button</p>
+                      <p className="text-xs text-slate-300 mt-0.5 flex items-center gap-1">
+                        Tap <Share className="w-3.5 h-3.5 text-emerald-400 inline" /> in your Safari bottom toolbar.
+                      </p>
+                    </div>
+                  </div>
 
-              <div className="flex items-start gap-3 bg-white/5 p-3 rounded-2xl border border-white/10">
-                <div className="w-6 h-6 rounded-full bg-emerald-500 text-slate-950 font-black text-xs flex items-center justify-center shrink-0 mt-0.5">
-                  2
-                </div>
-                <div>
-                  <p className="font-semibold text-white">Select &quot;Add to Home Screen&quot;</p>
-                  <p className="text-xs text-slate-300 mt-0.5 flex items-center gap-1">
-                    Scroll down and tap <PlusSquare className="w-3.5 h-3.5 text-emerald-400 inline" /> <strong>Add to Home Screen</strong>.
-                  </p>
-                </div>
-              </div>
+                  <div className="flex items-start gap-3 bg-white/5 p-3 rounded-2xl border border-white/10">
+                    <div className="w-6 h-6 rounded-full bg-emerald-500 text-slate-950 font-black text-xs flex items-center justify-center shrink-0 mt-0.5">
+                      2
+                    </div>
+                    <div>
+                      <p className="font-semibold text-white">Select &quot;Add to Home Screen&quot;</p>
+                      <p className="text-xs text-slate-300 mt-0.5 flex items-center gap-1">
+                        Scroll down and tap <PlusSquare className="w-3.5 h-3.5 text-emerald-400 inline" /> <strong>Add to Home Screen</strong>.
+                      </p>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* 2. Android Chrome Instructions */}
+              {deviceType === 'android' && (
+                <>
+                  <div className="flex items-start gap-3 bg-white/5 p-3 rounded-2xl border border-white/10">
+                    <div className="w-6 h-6 rounded-full bg-emerald-500 text-slate-950 font-black text-xs flex items-center justify-center shrink-0 mt-0.5">
+                      1
+                    </div>
+                    <div>
+                      <p className="font-semibold text-white">Open Chrome Browser Menu</p>
+                      <p className="text-xs text-slate-300 mt-0.5">
+                        Tap the <strong>three dots (⋮)</strong> at the top-right corner of your browser.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3 bg-white/5 p-3 rounded-2xl border border-white/10">
+                    <div className="w-6 h-6 rounded-full bg-emerald-500 text-slate-950 font-black text-xs flex items-center justify-center shrink-0 mt-0.5">
+                      2
+                    </div>
+                    <div>
+                      <p className="font-semibold text-white">Tap &quot;Install app&quot; or &quot;Add to Home screen&quot;</p>
+                      <p className="text-xs text-slate-300 mt-0.5">
+                        Select <strong>Install app</strong> from the menu to add Anmol Enterprises to your device.
+                      </p>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* 3. Desktop PC / Mac Instructions */}
+              {deviceType === 'desktop' && (
+                <>
+                  <div className="flex items-start gap-3 bg-white/5 p-3 rounded-2xl border border-white/10">
+                    <div className="w-6 h-6 rounded-full bg-emerald-500 text-slate-950 font-black text-xs flex items-center justify-center shrink-0 mt-0.5">
+                      1
+                    </div>
+                    <div>
+                      <p className="font-semibold text-white">Click Install in the Address Bar</p>
+                      <p className="text-xs text-slate-300 mt-0.5">
+                        Look at the right side of your Chrome/Edge top URL address bar for the <strong>Install app (⊕)</strong> icon.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3 bg-white/5 p-3 rounded-2xl border border-white/10">
+                    <div className="w-6 h-6 rounded-full bg-emerald-500 text-slate-950 font-black text-xs flex items-center justify-center shrink-0 mt-0.5">
+                      2
+                    </div>
+                    <div>
+                      <p className="font-semibold text-white">Or use Browser Menu (⋮)</p>
+                      <p className="text-xs text-slate-300 mt-0.5">
+                        Click the <strong>three dots (⋮)</strong> &rarr; <strong>Save and Share</strong> &rarr; <strong>Install Anmol Enterprises</strong>.
+                      </p>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
 
             <button
-              onClick={() => setShowIOSTip(false)}
-              className="w-full mt-2 py-2.5 bg-gradient-to-r from-emerald-400 to-teal-400 text-slate-950 font-black text-sm rounded-xl transition-all shadow-lg active:scale-98 flex items-center justify-center gap-2"
+              onClick={() => setShowTutorialModal(false)}
+              className="w-full mt-2 py-2.5 bg-gradient-to-r from-emerald-400 to-teal-400 hover:from-emerald-300 hover:to-teal-300 text-slate-950 font-black text-sm rounded-xl transition-all shadow-lg active:scale-98 flex items-center justify-center gap-2 cursor-pointer"
             >
               <CheckCircle className="w-4 h-4" />
               Got It
