@@ -3,7 +3,7 @@
 import React, { useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
-import { Printer, ArrowLeft, Clock, ShieldCheck, CheckCircle2, Phone, Mail, MapPin } from 'lucide-react'
+import { Printer, ArrowLeft, Clock, ShieldCheck, CheckCircle2, Phone, Mail, MapPin, AlertCircle, RefreshCw } from 'lucide-react'
 
 function numberToWordsINR(amount: number): string {
   const rounded = Math.round(amount)
@@ -30,13 +30,17 @@ export default function PrintInvoicePage() {
   const orderId = params.id as string
 
   // Fetch order detail
-  const { data: order, isLoading } = useQuery({
+  const { data: order, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['invoice-order', orderId],
     queryFn: async () => {
       const res = await fetch(`/api/orders/${orderId}`)
-      if (!res.ok) throw new Error('Order not found')
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}))
+        throw new Error(errorData.error || `Failed to load order (HTTP ${res.status})`)
+      }
       return res.json()
-    }
+    },
+    retry: 2
   })
 
   // Trigger print dialog only if order is CONFIRMED / active
@@ -48,6 +52,45 @@ export default function PrintInvoicePage() {
       return () => clearTimeout(timer)
     }
   }, [order])
+
+  if (isError) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-sans">
+        <div className="bg-white max-w-md w-full rounded-2xl border border-red-200 p-8 shadow-lg text-center flex flex-col items-center gap-4">
+          <div className="w-16 h-16 rounded-2xl bg-red-50 border border-red-200 text-red-600 flex items-center justify-center">
+            <AlertCircle className="w-8 h-8" />
+          </div>
+          <div>
+            <span className="text-[10px] font-black uppercase tracking-wider bg-red-100 text-red-800 px-3 py-1 rounded-full">
+              Invoice Error
+            </span>
+            <h2 className="text-xl font-black text-gray-900 mt-3">
+              Unable to Generate Tax Invoice
+            </h2>
+            <p className="text-sm text-gray-600 mt-2">
+              {(error as Error)?.message || 'Could not fetch order details from the server.'}
+            </p>
+          </div>
+          <div className="flex items-center gap-3 w-full mt-2">
+            <button
+              onClick={() => router.push('/admin/orders')}
+              className="flex-1 py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-colors flex items-center justify-center gap-1.5"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back to Orders
+            </button>
+            <button
+              onClick={() => refetch()}
+              className="flex-1 py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition-colors flex items-center justify-center gap-1.5 shadow-sm"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Try Again
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   if (isLoading || !order) {
     return (

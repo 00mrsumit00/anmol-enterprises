@@ -2992,9 +2992,9 @@ apiRouter.get('/orders/:id', authMiddleware, async (req: Request, res: Response)
 
     if (!order) return res.status(404).json({ error: 'Order not found' })
 
-    // Authorization: only the order's owner or STAFF/ADMIN may view it
+    // Authorization: only the order's owner or SUPER_ADMIN/STAFF/ADMIN may view it
     const isOwner = order.userId === req.user!.id
-    const isStaffOrAdmin = ['STAFF', 'ADMIN'].includes(req.user!.role)
+    const isStaffOrAdmin = ['SUPER_ADMIN', 'ADMIN', 'STAFF'].includes(req.user!.role)
     if (!isOwner && !isStaffOrAdmin) {
       return res.status(403).json({ error: 'Forbidden: You do not have access to this order.' })
     }
