@@ -220,6 +220,7 @@ export default function AdminOrdersPage() {
     ASSIGNED: orders.filter((o: any) => o.status === 'ASSIGNED').length,
     OUT_FOR_DELIVERY: orders.filter((o: any) => o.status === 'OUT_FOR_DELIVERY').length,
     DELIVERED: orders.filter((o: any) => o.status === 'DELIVERED').length,
+    RETURNED: orders.filter((o: any) => o.status === 'RETURNED').length,
   }
 
   // Export to CSV Function
@@ -496,6 +497,7 @@ export default function AdminOrdersPage() {
             { id: 'ASSIGNED', label: 'Assigned', count: statusCounts.ASSIGNED },
             { id: 'OUT_FOR_DELIVERY', label: 'Out for delivery', count: statusCounts.OUT_FOR_DELIVERY },
             { id: 'DELIVERED', label: 'Delivered', count: statusCounts.DELIVERED },
+            { id: 'RETURNED', label: 'Returned', count: statusCounts.RETURNED },
             { id: 'PENDING', label: 'Pending', count: statusCounts.PENDING },
           ].map((pill) => {
             const active = statusFilter === pill.id
@@ -785,18 +787,52 @@ export default function AdminOrdersPage() {
                           )}
 
                           {order.status === 'OUT_FOR_DELIVERY' && (
-                            <button
-                              onClick={() => updateStatus(order.id, 'DELIVERED')}
-                              className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl text-xs shadow-xs transition-all active:scale-95 flex items-center gap-1.5"
-                            >
-                              <Check className="w-3.5 h-3.5" />
-                              <span>Mark delivered</span>
-                            </button>
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                onClick={() => updateStatus(order.id, 'DELIVERED')}
+                                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl text-xs shadow-xs transition-all active:scale-95 flex items-center gap-1"
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                                <span>Delivered</span>
+                              </button>
+                              <button
+                                onClick={() => {
+                                  const reason = prompt('Reason for return (e.g. Customer unreachable / Refused delivery / Defrosted in transit):')
+                                  if (reason) {
+                                    updateStatus(order.id, 'RETURNED', reason)
+                                  }
+                                }}
+                                className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold rounded-xl text-xs transition-all active:scale-95"
+                                title="Mark unsuccessful delivery & restock cold items"
+                              >
+                                Return
+                              </button>
+                            </div>
                           )}
 
                           {order.status === 'DELIVERED' && (
-                            <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-xl text-xs font-bold border border-emerald-200/60">
-                              <Check className="w-3.5 h-3.5" /> Delivered
+                            <div className="flex items-center gap-1.5">
+                              <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-xl text-xs font-bold border border-emerald-200/60">
+                                <Check className="w-3.5 h-3.5" /> Delivered
+                              </span>
+                              <button
+                                onClick={() => {
+                                  const reason = prompt('Enter return reason (Items will be restocked to Cold Room):')
+                                  if (reason) {
+                                    updateStatus(order.id, 'RETURNED', reason)
+                                  }
+                                }}
+                                className="px-2 py-1 text-[11px] text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
+                                title="Customer returned after delivery"
+                              >
+                                Return
+                              </button>
+                            </div>
+                          )}
+
+                          {order.status === 'RETURNED' && (
+                            <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-rose-50 text-rose-700 rounded-xl text-xs font-bold border border-rose-200/60">
+                              <XCircle className="w-3.5 h-3.5" /> Returned to Cold Room
                             </span>
                           )}
 

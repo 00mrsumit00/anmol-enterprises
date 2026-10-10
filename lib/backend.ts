@@ -2074,6 +2074,296 @@ apiRouter.put('/inventory/bulk-add', authMiddleware, requireRole(['ADMIN']), asy
   }
 })
 
+// GET /inventory/full — full inventory view with reserved counts, next expiry, and valuation
+apiRouter.get('/inventory/full', authMiddleware, requireRole(['ADMIN', 'STAFF']), async (_req: Request, res: Response) => {
+  try {
+    const products = await prisma.product.findMany({
+      include: {
+        category: true,
+        variants: {
+          include: {
+            batches: {
+              where: { quantity: { gt: 0 } },
+              orderBy: { expiryDate: 'asc' },
+            }
+          }
+        }
+      },
+      orderBy: { name: 'asc' }
+    })
+
+    // Compute reserved stock per variant from all active pending/packing/assigned orders
+    const activeOrderItems = await prisma.orderItem.groupBy({
+      by: ['variantId'],
+      where: {
+        order: {
+          status: { in: ['PENDING', 'CONFIRMED', 'PACKING', 'PACKED', 'ASSIGNED', 'OUT_FOR_DELIVERY'] }
+        }
+      },
+      _sum: {
+        quantity: true
+      }
+    })
+
+    const reservedMap: Record<string, number> = {}
+    activeOrderItems.forEach(item => {
+      reservedMap[item.variantId] = item._sum.quantity || 0
+    })
+
+    const items: any[] = []
+
+    products.forEach(p => {
+      p.variants.forEach(v => {
+        const physical = v.stockCount
+        const reserved = reservedMap[v.id] || 0
+        const available = Math.max(0, physical - reserved)
+        const nextBatch = v.batches.length > 0 ? v.batches[0] : null
+        const stockValue = physical * (v.unitCost || v.b2bPrice || 0)
+
+        items.push({
+          productId: p.id,
+          productName: p.name,
+          brand: p.brand,
+          categoryName: p.category?.name || 'Uncategorized',
+          categoryEmoji: p.category?.emoji || '📦',
+          variantId: v.id,
+          packagingType: v.packagingType,
+          unitsInPack: v.unitsInPack,
+          weightGrams: v.weightGrams,
+          skuCode: v.skuCode,
+          retailPrice: v.retailPrice,
+          b2bPrice: v.b2bPrice,
+          unitCost: v.unitCost || 0,
+          reorderLevel: v.reorderLevel || 5,
+          physical,
+          reserved,
+          available,
+          stockValue,
+          nextExpiry: nextBatch ? nextBatch.expiryDate : null,
+          nextBatchNumber: nextBatch ? nextBatch.batchNumber : null,
+          batchCount: v.batches.length,
+          status: physical === 0 ? 'OUT_OF_STOCK' : available <= (v.reorderLevel || 5) ? 'LOW_STOCK' : 'IN_STOCK',
+          updatedAt: v.updatedAt,
+        })
+      })
+    })
+
+    return res.json({ items })
+  } catch (error) {
+    console.error('Fetch full inventory error:', error)
+    return res.status(500).json({ error: 'Failed to fetch inventory' })
+  }
+})
+
+// POST /inventory/receive — Stock In receipt from McCain or supplier
+apiRouter.post('/inventory/receive', authMiddleware, requireRole(['ADMIN', 'STAFF']), async (req: Request, res: Response) => {
+  try {
+    const schema = z.object({
+      variantId: z.string(),
+      supplier: z.string().default('McCain Foods India'),
+      invoiceNo: z.string().optional(),
+      batchNumber: z.string().min(1, 'Batch number is required'),
+      mfgDate: z.string().optional(),
+      expiryDate: z.string().min(1, 'Expiry date is required'),
+      quantity: z.number().int().positive('Quantity must be positive'),
+      unitCost: z.number().nonnegative().optional(),
+      notes: z.string().optional(),
+    })
+
+    const body = schema.parse(req.body)
+
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Create the inventory batch record
+      const batch = await tx.inventoryBatch.create({
+        data: {
+          variantId: body.variantId,
+          batchNumber: body.batchNumber,
+          supplier: body.supplier,
+          invoiceNo: body.invoiceNo || null,
+          mfgDate: body.mfgDate ? new Date(body.mfgDate) : null,
+          expiryDate: new Date(body.expiryDate),
+          quantity: body.quantity,
+          initialQty: body.quantity,
+          unitCost: body.unitCost || 0,
+        }
+      })
+
+      // 2. Increment physical stock on variant
+      const updateData: any = {
+        stockCount: { increment: body.quantity },
+      }
+      if (body.unitCost && body.unitCost > 0) {
+        updateData.unitCost = body.unitCost
+      }
+
+      const updatedVariant = await tx.productVariant.update({
+        where: { id: body.variantId },
+        data: updateData,
+        include: { product: true }
+      })
+
+      // 3. Log stock movement
+      const movement = await tx.stockMovement.create({
+        data: {
+          variantId: body.variantId,
+          type: 'RECEIVE',
+          quantity: body.quantity,
+          balanceAfter: updatedVariant.stockCount,
+          batchNumber: body.batchNumber,
+          invoiceNo: body.invoiceNo || null,
+          reason: `Stock receipt from ${body.supplier}`,
+          notes: body.notes || null,
+          performedBy: req.user!.id as string,
+        }
+      })
+
+      return { batch, updatedVariant, movement }
+    })
+
+    invalidateCatalogCache()
+    if (ioInstance) {
+      ioInstance.emit('stock_update', { variantId: body.variantId, stockCount: result.updatedVariant.stockCount })
+      ioInstance.emit('inventory_movement_new', result.movement)
+    }
+
+    return res.status(201).json({
+      message: `Successfully received ${body.quantity} units of ${result.updatedVariant.product.name} (${result.updatedVariant.packagingType})`,
+      data: result
+    })
+  } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: getZodErrorMessage(error) })
+    }
+    console.error('Receive stock error:', error)
+    return res.status(500).json({ error: error.message || 'Failed to receive stock' })
+  }
+})
+
+// POST /inventory/issue — Manual Stock Out (Damage, Cold Chain Defrost, Sampling, Return to supplier)
+apiRouter.post('/inventory/issue', authMiddleware, requireRole(['ADMIN', 'STAFF']), async (req: Request, res: Response) => {
+  try {
+    const schema = z.object({
+      variantId: z.string(),
+      quantity: z.number().int().positive('Quantity must be positive'),
+      reason: z.string().min(1, 'Reason is required'),
+      notes: z.string().optional(),
+    })
+
+    const body = schema.parse(req.body)
+
+    const variant = await prisma.productVariant.findUnique({
+      where: { id: body.variantId },
+      include: {
+        product: true,
+        batches: {
+          where: { quantity: { gt: 0 } },
+          orderBy: { expiryDate: 'asc' } // FEFO deduction
+        }
+      }
+    })
+
+    if (!variant) return res.status(404).json({ error: 'Product variant not found' })
+
+    if (variant.stockCount < body.quantity) {
+      return res.status(400).json({
+        error: `Insufficient physical stock. Available: ${variant.stockCount}, Requested: ${body.quantity}`
+      })
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Deduct from batches using FEFO (First Expire, First Out)
+      let remainingToDeduct = body.quantity
+      for (const batch of variant.batches) {
+        if (remainingToDeduct <= 0) break
+        const deductFromBatch = Math.min(batch.quantity, remainingToDeduct)
+        await tx.inventoryBatch.update({
+          where: { id: batch.id },
+          data: { quantity: { decrement: deductFromBatch } }
+        })
+        remainingToDeduct -= deductFromBatch
+      }
+
+      // 2. Decrement physical stock on variant
+      const updatedVariant = await tx.productVariant.update({
+        where: { id: body.variantId },
+        data: { stockCount: { decrement: body.quantity } }
+      })
+
+      // 3. Log stock movement
+      const movement = await tx.stockMovement.create({
+        data: {
+          variantId: body.variantId,
+          type: 'ISSUE',
+          quantity: body.quantity,
+          balanceAfter: updatedVariant.stockCount,
+          reason: body.reason,
+          notes: body.notes || null,
+          performedBy: req.user!.id as string,
+        }
+      })
+
+      return { updatedVariant, movement }
+    })
+
+    invalidateCatalogCache()
+    if (ioInstance) {
+      ioInstance.emit('stock_update', { variantId: body.variantId, stockCount: result.updatedVariant.stockCount })
+      ioInstance.emit('inventory_movement_new', result.movement)
+    }
+
+    return res.json({
+      message: `Issued ${body.quantity} units for "${body.reason}"`,
+      data: result
+    })
+  } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: getZodErrorMessage(error) })
+    }
+    console.error('Issue stock error:', error)
+    return res.status(500).json({ error: error.message || 'Failed to issue stock' })
+  }
+})
+
+// GET /inventory/batches — list all active batches sorted by FEFO expiry date
+apiRouter.get('/inventory/batches', authMiddleware, requireRole(['ADMIN', 'STAFF']), async (_req: Request, res: Response) => {
+  try {
+    const batches = await prisma.inventoryBatch.findMany({
+      include: {
+        variant: {
+          include: { product: true }
+        }
+      },
+      orderBy: { expiryDate: 'asc' }
+    })
+
+    return res.json({ batches })
+  } catch (error) {
+    console.error('Fetch batches error:', error)
+    return res.status(500).json({ error: 'Failed to fetch batches' })
+  }
+})
+
+// GET /inventory/movements — audit log of all stock movements (Receive, Issue, Dispatch, Return)
+apiRouter.get('/inventory/movements', authMiddleware, requireRole(['ADMIN', 'STAFF']), async (req: Request, res: Response) => {
+  try {
+    const limit = Math.min(100, parseInt(req.query.limit as string) || 50)
+    const movements = await prisma.stockMovement.findMany({
+      include: {
+        variant: {
+          include: { product: true }
+        }
+      },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    })
+
+    return res.json({ movements })
+  } catch (error) {
+    console.error('Fetch movements error:', error)
+    return res.status(500).json({ error: 'Failed to fetch stock movements' })
+  }
+})
+
 // ─── USER SAVED ADDRESSES ───────────────────────────────────────────────────
 
 const addressSchema = z.object({
@@ -3010,7 +3300,7 @@ apiRouter.put('/orders/:id/status', authMiddleware, requireRole(['ADMIN', 'STAFF
   try {
     const id = req.params.id as string
     const schema = z.object({
-      status: z.enum(['PENDING', 'CONFIRMED', 'PACKING', 'PACKED', 'ASSIGNED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED']),
+      status: z.enum(['PENDING', 'CONFIRMED', 'PACKING', 'PACKED', 'ASSIGNED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED', 'RETURNED']),
       note: z.string().optional()
     })
     const { status, note } = schema.parse(req.body)
@@ -3028,7 +3318,25 @@ apiRouter.put('/orders/:id/status', authMiddleware, requireRole(['ADMIN', 'STAFF
       else if (status === 'DELIVERED') {
         timestampData.deliveredAt = new Date()
         timestampData.paymentStatus = 'PAID'
-      } else if (status === 'CANCELLED') {
+
+        // Log DISPATCH movement on successful delivery if not previously logged
+        const items = await tx.orderItem.findMany({ where: { orderId: id } })
+        for (const item of items) {
+          const variant = await tx.productVariant.findUnique({ where: { id: item.variantId } })
+          if (variant) {
+            await tx.stockMovement.create({
+              data: {
+                variantId: item.variantId,
+                type: 'DISPATCH',
+                quantity: item.quantity,
+                balanceAfter: variant.stockCount,
+                reason: `Order #${currentOrder.orderNumber} successfully delivered`,
+                performedBy: req.user!.id as string,
+              }
+            })
+          }
+        }
+      } else if (status === 'CANCELLED' || status === 'RETURNED') {
         // Return credit if paid via credit account — inside transaction
         if (currentOrder.paymentMethod === 'CREDIT_ACCOUNT' && currentOrder.userId) {
           await tx.user.update({
@@ -3037,13 +3345,26 @@ apiRouter.put('/orders/:id/status', authMiddleware, requireRole(['ADMIN', 'STAFF
           })
         }
 
-        // Restock all items — inside transaction
-        // If the order update below fails, these increments roll back too.
+        // Restock all items and log RETURN movement — inside transaction
         const items = await tx.orderItem.findMany({ where: { orderId: id } })
         for (const item of items) {
-          await tx.productVariant.update({
+          const updatedVariant = await tx.productVariant.update({
             where: { id: item.variantId },
             data: { stockCount: { increment: item.quantity } },
+          })
+
+          await tx.stockMovement.create({
+            data: {
+              variantId: item.variantId,
+              type: 'RETURN',
+              quantity: item.quantity,
+              balanceAfter: updatedVariant.stockCount,
+              reason: status === 'RETURNED' 
+                ? `Delivery unsuccessful / Product returned (Order #${currentOrder.orderNumber})` 
+                : `Order #${currentOrder.orderNumber} cancelled`,
+              notes: note || undefined,
+              performedBy: req.user!.id as string,
+            }
           })
         }
       }

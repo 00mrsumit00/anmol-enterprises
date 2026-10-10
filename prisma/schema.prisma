@@ -178,25 +178,72 @@ model Product {
 // ─── PRODUCT VARIANTS ─────────────────────────────────────────────────────────
 
 model ProductVariant {
-  id              String        @id @default(cuid())
+  id              String          @id @default(cuid())
   productId       String
-  packagingType   String        // SINGLE, BOX, CARTON
-  unitsInPack     Int           // 1 for SINGLE, 10 for BOX, 50 for CARTON
-  weightGrams     Int           // weight of the pack in grams
-  skuCode         String        @unique
-  retailPrice     Float         // price for B2C / small qty
-  b2bPrice        Float         // price for B2B / bulk orders
-  stockCount      Int           @default(0)
-  minOrderQty     Int           @default(1)
-  isActive        Boolean       @default(true)
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  packagingType   String          // SINGLE, BOX, CARTON
+  unitsInPack     Int             // 1 for SINGLE, 10 for BOX, 50 for CARTON
+  weightGrams     Int             // weight of the pack in grams
+  skuCode         String          @unique
+  retailPrice     Float           // price for B2C / small qty
+  b2bPrice        Float           // price for B2B / bulk orders
+  unitCost        Float           @default(0) // Purchase / cost price from supplier
+  stockCount      Int             @default(0) // Physical count in Cold Room
+  reorderLevel    Int             @default(5) // Low stock alert threshold
+  minOrderQty     Int             @default(1)
+  isActive        Boolean         @default(true)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
 
-  product         Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product         Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
   orderItems      OrderItem[]
+  batches         InventoryBatch[]
+  movements       StockMovement[]
 
   @@unique([productId, packagingType])
   @@map("product_variants")
+}
+
+// ─── INVENTORY BATCHES (Cold Chain FEFO / Expiry Tracking) ───────────────────
+
+model InventoryBatch {
+  id             String         @id @default(cuid())
+  variantId      String
+  batchNumber    String
+  supplier       String         @default("McCain Foods India")
+  invoiceNo      String?
+  mfgDate        DateTime?
+  expiryDate     DateTime
+  quantity       Int            // Current available in this batch
+  initialQty     Int            // Qty received on delivery
+  unitCost       Float          @default(0)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  variant        ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@index([variantId, expiryDate])
+  @@map("inventory_batches")
+}
+
+// ─── STOCK MOVEMENT AUDIT TRAIL ──────────────────────────────────────────────
+
+model StockMovement {
+  id             String         @id @default(cuid())
+  variantId      String
+  type           String         // RECEIVE (In), ISSUE (Out/Damage/Sampling), DISPATCH (Delivered), RETURN (Unsuccessful delivery/Customer return), ADJUSTMENT (Audit)
+  quantity       Int            // Positive number
+  balanceAfter   Int            // Physical stock snapshot after movement
+  batchNumber    String?
+  invoiceNo      String?
+  reason         String?        // e.g. "Customer delivery return", "Cold chain damage", "Defrosted", "Shipment arrival"
+  notes          String?
+  performedBy    String?        // User / Admin ID or "system"
+  createdAt      DateTime       @default(now())
+
+  variant        ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@index([variantId, createdAt])
+  @@map("stock_movements")
 }
 
 // ─── DRIVERS (Phase 1 dispatch) ───────────────────────────────────────────────
