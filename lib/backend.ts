@@ -3656,13 +3656,14 @@ apiRouter.post('/admin/users', authMiddleware, requireRole(['ADMIN']), async (re
       name: z.string().min(2, 'Name must be at least 2 characters'),
       phone: z.string().regex(/^\d{10}$/, 'Phone must be exactly 10 digits').optional().or(z.literal('')),
       email: z.string().email('Invalid email').optional().or(z.literal('')),
+      password: z.string().min(6, 'Password must be at least 6 characters').optional().or(z.literal('')),
       role: z.enum(['CUSTOMER', 'STAFF', 'ADMIN']).default('CUSTOMER'),
       isB2B: z.boolean().default(false),
     }).refine(data => (data.phone && data.phone.trim()) || (data.email && data.email.trim()), {
       message: 'Either a 10-digit mobile number or an email address is required',
       path: ['phone']
     })
-    const { name, phone, email, role, isB2B } = schema.parse(req.body)
+    const { name, phone, email, password, role, isB2B } = schema.parse(req.body)
 
     // Only SUPER_ADMIN can create ADMIN accounts
     if (role === 'ADMIN' && req.user?.role !== 'SUPER_ADMIN') {
@@ -3684,11 +3685,14 @@ apiRouter.post('/admin/users', authMiddleware, requireRole(['ADMIN']), async (re
       if (existingEmail) return res.status(409).json({ error: 'A user with this email already exists.' })
     }
 
+    const passwordHash = password && password.trim() ? await bcrypt.hash(password.trim(), 10) : null
+
     const user = await prisma.user.create({
       data: {
         name,
         phone: cleanPhone,
         email: cleanEmail,
+        passwordHash,
         role,
         isB2B,
         phoneVerified: false,
@@ -3706,7 +3710,7 @@ apiRouter.post('/admin/users', authMiddleware, requireRole(['ADMIN']), async (re
   }
 })
 
-// ─── UPDATE USER BASIC INFO & ROLE (Admin & Super Admin) ──────────────────────────
+// ─── UPDATE USER BASIC INFO & ROLE & PASSWORD (Admin & Super Admin) ──────────────────────────
 apiRouter.patch('/admin/users/:id', authMiddleware, requireRole(['ADMIN']), async (req: Request, res: Response) => {
   try {
     const userId = req.params.id as string
@@ -3714,6 +3718,7 @@ apiRouter.patch('/admin/users/:id', authMiddleware, requireRole(['ADMIN']), asyn
       name: z.string().min(2).optional(),
       phone: z.string().regex(/^\d{10}$/, 'Phone must be exactly 10 digits').optional(),
       email: z.string().email('Invalid email').optional().or(z.literal('')),
+      password: z.string().min(6, 'Password must be at least 6 characters').optional().or(z.literal('')),
       role: z.enum(['CUSTOMER', 'STAFF', 'ADMIN']).optional(),
     })
     const updates = schema.parse(req.body)
@@ -3748,6 +3753,11 @@ apiRouter.patch('/admin/users/:id', authMiddleware, requireRole(['ADMIN']), asyn
       if (clash) return res.status(409).json({ error: 'Another user already has this email.' })
     }
 
+    let passwordHash: string | undefined = undefined
+    if (updates.password && updates.password.trim()) {
+      passwordHash = await bcrypt.hash(updates.password.trim(), 10)
+    }
+
     const updated = await prisma.user.update({
       where: { id: userId },
       data: {
@@ -3755,6 +3765,7 @@ apiRouter.patch('/admin/users/:id', authMiddleware, requireRole(['ADMIN']), asyn
         ...(updates.phone && { phone: updates.phone }),
         ...(updates.email !== undefined && { email: updates.email || null }),
         ...(updates.role && { role: updates.role }),
+        ...(passwordHash && { passwordHash }),
       }
     })
 

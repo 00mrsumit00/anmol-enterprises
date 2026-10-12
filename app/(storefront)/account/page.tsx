@@ -552,11 +552,16 @@ export default function AccountPage() {
 
             <div className="flex items-center justify-center gap-2 mt-2">
               <span className={`text-[10px] font-black uppercase px-3 py-1 rounded-full ${
+                user.role === 'SUPER_ADMIN' ? 'bg-amber-100 text-amber-900 border border-amber-400 font-extrabold' :
                 user.role === 'ADMIN' ? 'bg-amber-100 text-amber-800 border border-amber-300' :
+                user.role === 'STAFF' ? 'bg-blue-100 text-blue-800 border border-blue-300' :
                 user.isB2B ? 'bg-purple-100 text-purple-900 border border-purple-300 shadow-xs' :
                 'bg-emerald-100 text-emerald-800 border border-emerald-300'
               }`}>
-                {user.role === 'ADMIN' ? '👑 Admin Privileges' : user.isB2B ? '💼 B2B Commercial Partner' : '👤 Retail Express Customer'}
+                {user.role === 'SUPER_ADMIN' ? '👑 Super Admin Master' :
+                 user.role === 'ADMIN' ? '👑 Admin Privileges' :
+                 user.role === 'STAFF' ? '🚚 Staff / Dispatch Manager' :
+                 user.isB2B ? '💼 B2B Commercial Partner' : '👤 Retail Express Customer'}
               </span>
             </div>
           </div>
@@ -608,7 +613,7 @@ export default function AccountPage() {
           </div>
 
           {/* ==================== ADMIN & STAFF CONTROL CENTER ==================== */}
-          {(user.role === 'ADMIN' || user.role === 'STAFF') && (
+          {['SUPER_ADMIN', 'ADMIN', 'STAFF'].includes(user.role) && (
             <div className="bg-gradient-to-br from-brand-charcoal via-slate-900 to-brand-charcoal text-white rounded-3xl p-6 shadow-xl border border-white/10 flex flex-col gap-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
@@ -625,7 +630,7 @@ export default function AccountPage() {
                   </div>
                 </div>
                 <span className="text-[10px] bg-brand-orange/20 text-brand-yellow font-black px-2.5 py-1 rounded-full border border-brand-yellow/30 uppercase tracking-wider">
-                  {user.role} ACCESS
+                  {user.role === 'SUPER_ADMIN' ? 'SUPER ADMIN' : user.role} ACCESS
                 </span>
               </div>
 

@@ -20,8 +20,16 @@ export default function AdminLayout({
   const [admin, setAdmin] = useState<any>(null)
   const [loading, setLoading] = useState(true)
 
-  // Verify Admin privileges
+  const isLoginPage = pathname === '/admin/login'
+  const isInvoicePage = pathname.includes('/invoice')
+
+  // Verify Admin privileges — skip entirely for login page and invoice print
   useEffect(() => {
+    if (isLoginPage || isInvoicePage) {
+      setLoading(false)
+      return
+    }
+
     fetch('/api/auth/me')
       .then((res) => res.json())
       .then((data) => {
@@ -38,15 +46,15 @@ export default function AdminLayout({
       .finally(() => {
         setLoading(false)
       })
-  }, [router, showToast])
+  }, [router, showToast, isLoginPage, isInvoicePage])
 
   // Connect Socket.io client and join admin room
   const socket = useSocket()
   useEffect(() => {
-    if (socket) {
+    if (socket && admin) {
       socket.emit('join_admin')
     }
-  }, [socket])
+  }, [socket, admin])
 
   const handleLogout = async () => {
     try {
@@ -70,13 +78,27 @@ export default function AdminLayout({
     }
   }
 
-  const navLinks = [
+  // Filter nav links based on role: STAFF only sees operational modules
+  const allNavLinks = [
     { name: 'Orders Dispatch', path: '/admin/orders', icon: ClipboardList },
-    { name: 'Registered Users', path: '/admin/business-accounts', icon: Users },
+    { name: 'Registered Users', path: '/admin/business-accounts', icon: Users, minRole: 'ADMIN' },
     { name: 'Product List', path: '/admin/products', icon: Package },
     { name: 'Inventory Manager', path: '/admin/inventory', icon: BarChart3 },
     { name: 'Driver List', path: '/admin/drivers', icon: Truck },
   ]
+
+  const navLinks = allNavLinks.filter((link) => {
+    if (!link.minRole) return true
+    if (link.minRole === 'ADMIN') {
+      return admin?.role === 'SUPER_ADMIN' || admin?.role === 'ADMIN'
+    }
+    return true
+  })
+
+  // Login page & invoice print: Render raw children directly without sidebar or auth gate
+  if (isLoginPage || isInvoicePage) {
+    return <>{children}</>
+  }
 
   if (loading) {
     return (
@@ -90,13 +112,6 @@ export default function AdminLayout({
   }
 
   if (!admin) return null
-
-  // Don't show admin layouts for invoice pages under media print
-  const isInvoicePage = pathname.includes('/invoice')
-
-  if (isInvoicePage) {
-    return <>{children}</>
-  }
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex flex-col md:flex-row font-sans">

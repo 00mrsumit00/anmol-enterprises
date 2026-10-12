@@ -143,7 +143,7 @@ export default function AdminLoginPage() {
     fetch('/api/auth/me')
       .then((res) => res.json())
       .then((data) => {
-        if (data.user && (data.user.role === 'ADMIN' || data.user.role === 'STAFF')) {
+        if (data.user && ['SUPER_ADMIN', 'ADMIN', 'STAFF'].includes(data.user.role)) {
           router.push('/admin/orders')
         }
       })
@@ -164,7 +164,7 @@ export default function AdminLoginPage() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Login failed')
-      if (data.user.role !== 'ADMIN' && data.user.role !== 'STAFF') {
+      if (!['SUPER_ADMIN', 'ADMIN', 'STAFF'].includes(data.user.role)) {
         throw new Error('Access denied. Administrator privileges required.')
       }
       showToast('Welcome back! Redirecting…', 'success')

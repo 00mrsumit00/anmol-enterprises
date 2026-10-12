@@ -29,6 +29,7 @@ export default function AdminUsersAndAccountsPage() {
   const [editName, setEditName] = useState<string>('')
   const [editPhone, setEditPhone] = useState<string>('')
   const [editEmail, setEditEmail] = useState<string>('')
+  const [editPassword, setEditPassword] = useState<string>('')
   const [editRole, setEditRole] = useState<'CUSTOMER' | 'STAFF' | 'ADMIN'>('CUSTOMER')
   const [editIsB2B, setEditIsB2B] = useState<boolean>(false)
   const [editBusinessName, setEditBusinessName] = useState<string>('')
@@ -44,6 +45,7 @@ export default function AdminUsersAndAccountsPage() {
   const [createName, setCreateName] = useState<string>('')
   const [createPhone, setCreatePhone] = useState<string>('')
   const [createEmail, setCreateEmail] = useState<string>('')
+  const [createPassword, setCreatePassword] = useState<string>('')
   const [createRole, setCreateRole] = useState<'CUSTOMER' | 'STAFF' | 'ADMIN'>('CUSTOMER')
   const [createIsB2B, setCreateIsB2B] = useState<boolean>(false)
 
@@ -179,13 +181,13 @@ export default function AdminUsersAndAccountsPage() {
     }
   })
 
-  // Update basic user info
+  // Update basic user info & password
   const updateUserInfoMutation = useMutation({
-    mutationFn: async ({ userId, name, phone, email, role }: any) => {
+    mutationFn: async ({ userId, name, phone, email, role, password }: any) => {
       const res = await fetch(`/api/admin/users/${userId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, phone, email, role })
+        body: JSON.stringify({ name, phone, email, role, password: password || undefined })
       })
       const resData = await res.json()
       if (!res.ok) throw new Error(resData.error || 'Failed to update user info')
@@ -193,6 +195,7 @@ export default function AdminUsersAndAccountsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-users'] })
+      setEditPassword('')
     },
     onError: (err: any) => {
       showToast(err.message || 'Action failed', 'error')
@@ -238,6 +241,7 @@ export default function AdminUsersAndAccountsPage() {
       setCreateName('')
       setCreatePhone('')
       setCreateEmail('')
+      setCreatePassword('')
       setCreateRole('CUSTOMER')
       setCreateIsB2B(false)
     },
@@ -265,10 +269,15 @@ export default function AdminUsersAndAccountsPage() {
       showToast('Please enter a valid 10-digit mobile number', 'error')
       return
     }
+    if ((createRole === 'STAFF' || createRole === 'ADMIN') && createPassword && createPassword.length < 6) {
+      showToast('Password must be at least 6 characters for staff/admin accounts', 'error')
+      return
+    }
     createMutation.mutate({
       name: createName.trim(),
       phone: createPhone.trim() || undefined,
       email: createEmail.trim() || undefined,
+      password: createPassword.trim() || undefined,
       role: createRole,
       isB2B: createIsB2B
     })
@@ -280,6 +289,7 @@ export default function AdminUsersAndAccountsPage() {
     setEditName(user.name || '')
     setEditPhone(user.phone || '')
     setEditEmail(user.email || '')
+    setEditPassword('')
     setEditRole(user.role || 'CUSTOMER')
     setEditIsB2B(user.isB2B)
     setEditBusinessName(user.businessName || user.businessProfile?.businessName || '')
@@ -296,12 +306,13 @@ export default function AdminUsersAndAccountsPage() {
     if (!selectedUser) return
 
     try {
-      // 1. Update basic info and role if changed
+      // 1. Update basic info, role, and password if changed
       if (
         editName !== selectedUser.name || 
         editPhone !== selectedUser.phone || 
         editEmail !== (selectedUser.email || '') ||
-        editRole !== selectedUser.role
+        editRole !== selectedUser.role ||
+        Boolean(editPassword.trim())
       ) {
         await updateUserInfoMutation.mutateAsync({
           userId: selectedUser.id,
@@ -309,6 +320,7 @@ export default function AdminUsersAndAccountsPage() {
           phone: editPhone,
           email: editEmail,
           role: editRole,
+          password: editPassword.trim() || undefined,
         })
       }
 
@@ -883,6 +895,22 @@ export default function AdminUsersAndAccountsPage() {
                 </div>
               </div>
 
+              {/* Password Reset Field (Only for Admin / Super Admin managing staff/users) */}
+              {isAdmin && (
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Reset Password (leave empty to keep current password)
+                  </label>
+                  <input 
+                    type="password" 
+                    value={editPassword} 
+                    onChange={(e) => setEditPassword(e.target.value)} 
+                    placeholder="Enter new password (min. 6 chars)" 
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500" 
+                  />
+                </div>
+              )}
+
               {/* Role Management */}
               {isAdmin && selectedUser.role !== 'SUPER_ADMIN' && (
                 <div>
@@ -1012,6 +1040,18 @@ export default function AdminUsersAndAccountsPage() {
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1.5">Email Address (optional if Phone provided)</label>
                 <input type="email" value={createEmail} onChange={(e) => setCreateEmail(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500" placeholder="rahul@example.com" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Password (required for Staff / Admin, min. 6 chars)
+                </label>
+                <input 
+                  type="password" 
+                  value={createPassword} 
+                  onChange={(e) => setCreatePassword(e.target.value)} 
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500" 
+                  placeholder="Set account login password" 
+                />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>

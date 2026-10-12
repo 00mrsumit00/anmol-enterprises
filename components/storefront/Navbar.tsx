@@ -248,8 +248,8 @@ function NavbarContent() {
                 <span>₹0</span>
               </Link>
 
-              {/* Admin Button — only for admin/staff */}
-              {user && (user.role === 'ADMIN' || user.role === 'STAFF') && (
+              {/* Admin Button — visible for super admin, admin, and staff */}
+              {user && ['SUPER_ADMIN', 'ADMIN', 'STAFF'].includes(user.role) && (
                 <Link
                   href="/admin/products"
                   className="hidden md:flex items-center gap-1 bg-amber-500 hover:bg-amber-600 text-white font-black text-xs px-3 py-1.5 rounded-2xl shadow-sm transition-all active:scale-95"
@@ -303,14 +303,14 @@ function NavbarContent() {
                             <p className="font-black text-gray-900 truncate text-sm">{user.name}</p>
                             <p className="text-[10px] text-gray-500 font-bold">+91 {user.phone}</p>
                             <span className="inline-block text-[9px] bg-emerald-100 text-emerald-800 font-black px-2 py-0.5 rounded-full uppercase mt-0.5">
-                              {user.role}{user.isB2B ? ' · B2B' : ''}
+                              {user.role === 'SUPER_ADMIN' ? 'SUPER ADMIN' : user.role}{user.isB2B ? ' · B2B' : ''}
                             </span>
                           </div>
                         </div>
                       </div>
 
                       {/* Admin links */}
-                      {(user.role === 'ADMIN' || user.role === 'STAFF') && (
+                      {['SUPER_ADMIN', 'ADMIN', 'STAFF'].includes(user.role) && (
                         <>
                           <Link
                             href="/admin/products"
