@@ -4058,10 +4058,10 @@ apiRouter.get('/admin/credit-audit-logs', authMiddleware, requireRole(['ADMIN'])
   }
 })
 
-// ─── SUB-ADMIN & STAFF ACCESS MANAGEMENT (Super Admin Only) ─────────────────
+// ─── SUB-ADMIN & STAFF ACCESS MANAGEMENT ─────────────────
 
 // GET /admin/sub-admins — fetch all Sub-Admin & Staff accounts with permissions
-apiRouter.get('/admin/sub-admins', authMiddleware, requireRole(['SUPER_ADMIN']), async (_req: Request, res: Response) => {
+apiRouter.get('/admin/sub-admins', authMiddleware, requireRole(['SUPER_ADMIN', 'ADMIN']), async (_req: Request, res: Response) => {
   try {
     const staffMembers = await prisma.user.findMany({
       where: {
@@ -4089,8 +4089,10 @@ apiRouter.get('/admin/sub-admins', authMiddleware, requireRole(['SUPER_ADMIN']),
 })
 
 // POST /admin/sub-admins — create new Sub-Admin / Staff account with permissions
-apiRouter.post('/admin/sub-admins', authMiddleware, requireRole(['SUPER_ADMIN']), async (req: Request, res: Response) => {
+apiRouter.post('/admin/sub-admins', authMiddleware, requireRole(['SUPER_ADMIN', 'ADMIN']), async (req: Request, res: Response) => {
   try {
+    const callerRole = req.user!.role
+
     const schema = z.object({
       name: z.string().min(2, 'Name must be at least 2 characters'),
       phone: z.string().regex(/^\d{10}$/, 'Phone must be exactly 10 digits'),
@@ -4101,6 +4103,11 @@ apiRouter.post('/admin/sub-admins', authMiddleware, requireRole(['SUPER_ADMIN'])
     })
 
     const body = schema.parse(req.body)
+
+    // Security check: Sub-admin (ADMIN) can ONLY create operational STAFF, cannot create ADMIN or SUPER_ADMIN
+    if (callerRole === 'ADMIN' && body.role !== 'STAFF') {
+      return res.status(403).json({ error: 'Sub-Admins can only create Staff Dispatch Manager accounts.' })
+    }
 
     const existingPhone = await prisma.user.findUnique({ where: { phone: body.phone } })
     if (existingPhone) {
@@ -4143,7 +4150,7 @@ apiRouter.post('/admin/sub-admins', authMiddleware, requireRole(['SUPER_ADMIN'])
     })
 
     return res.status(201).json({
-      message: `Sub-admin "${newStaff.name}" created successfully.`,
+      message: `${newStaff.role === 'ADMIN' ? 'Sub-admin' : 'Staff'} "${newStaff.name}" created successfully.`,
       staff: newStaff
     })
   } catch (error: any) {
@@ -4156,8 +4163,9 @@ apiRouter.post('/admin/sub-admins', authMiddleware, requireRole(['SUPER_ADMIN'])
 })
 
 // PUT /admin/sub-admins/:id/permissions — update module permissions
-apiRouter.put('/admin/sub-admins/:id/permissions', authMiddleware, requireRole(['SUPER_ADMIN']), async (req: Request, res: Response) => {
+apiRouter.put('/admin/sub-admins/:id/permissions', authMiddleware, requireRole(['SUPER_ADMIN', 'ADMIN']), async (req: Request, res: Response) => {
   try {
+    const callerRole = req.user!.role
     const id = req.params.id as string
     const schema = z.object({
       permissions: z.array(z.string()),
@@ -4167,8 +4175,14 @@ apiRouter.put('/admin/sub-admins/:id/permissions', authMiddleware, requireRole([
     const targetUser = await prisma.user.findUnique({ where: { id } })
     if (!targetUser) return res.status(404).json({ error: 'User not found' })
 
+    // Strict guard: No one can edit a SUPER_ADMIN's permissions
     if (targetUser.role === 'SUPER_ADMIN') {
       return res.status(403).json({ error: 'Super Admin permissions are master-level and cannot be modified.' })
+    }
+
+    // Strict guard: Sub-admin (ADMIN) can only edit permissions of STAFF
+    if (callerRole === 'ADMIN' && targetUser.role === 'ADMIN' && targetUser.id !== req.user!.id) {
+      return res.status(403).json({ error: 'Sub-Admins can only modify permissions for Staff Dispatch Managers.' })
     }
 
     const oldPerms = targetUser.permissions.join(', ') || 'none'
@@ -4212,14 +4226,21 @@ apiRouter.put('/admin/sub-admins/:id/permissions', authMiddleware, requireRole([
 })
 
 // PUT /admin/sub-admins/:id/status — toggle active / disabled status
-apiRouter.put('/admin/sub-admins/:id/status', authMiddleware, requireRole(['SUPER_ADMIN']), async (req: Request, res: Response) => {
+apiRouter.put('/admin/sub-admins/:id/status', authMiddleware, requireRole(['SUPER_ADMIN', 'ADMIN']), async (req: Request, res: Response) => {
   try {
+    const callerRole = req.user!.role
     const id = req.params.id as string
     const targetUser = await prisma.user.findUnique({ where: { id } })
     if (!targetUser) return res.status(404).json({ error: 'User not found' })
 
+    // Strict guard: Super Admin account can NEVER be disabled
     if (targetUser.role === 'SUPER_ADMIN') {
       return res.status(403).json({ error: 'Super Admin account cannot be disabled.' })
+    }
+
+    // Strict guard: Sub-admin (ADMIN) cannot disable another ADMIN or themselves
+    if (callerRole === 'ADMIN' && targetUser.role === 'ADMIN') {
+      return res.status(403).json({ error: 'Sub-Admins cannot disable other Sub-Admin accounts.' })
     }
 
     const newStatus = !targetUser.isActive
@@ -4254,14 +4275,21 @@ apiRouter.put('/admin/sub-admins/:id/status', authMiddleware, requireRole(['SUPE
 })
 
 // DELETE /admin/sub-admins/:id — delete a sub-admin / staff member
-apiRouter.delete('/admin/sub-admins/:id', authMiddleware, requireRole(['SUPER_ADMIN']), async (req: Request, res: Response) => {
+apiRouter.delete('/admin/sub-admins/:id', authMiddleware, requireRole(['SUPER_ADMIN', 'ADMIN']), async (req: Request, res: Response) => {
   try {
+    const callerRole = req.user!.role
     const id = req.params.id as string
     const targetUser = await prisma.user.findUnique({ where: { id } })
     if (!targetUser) return res.status(404).json({ error: 'User not found' })
 
+    // Strict guard: Super Admin account can NEVER be deleted
     if (targetUser.role === 'SUPER_ADMIN') {
       return res.status(403).json({ error: 'Super Admin account cannot be deleted.' })
+    }
+
+    // Strict guard: Sub-admin (ADMIN) can only delete STAFF, never an ADMIN
+    if (callerRole === 'ADMIN' && targetUser.role === 'ADMIN') {
+      return res.status(403).json({ error: 'Sub-Admins cannot delete Sub-Admin accounts. Only Super Admin has this right.' })
     }
 
     await prisma.user.delete({ where: { id } })
@@ -4289,7 +4317,7 @@ apiRouter.delete('/admin/sub-admins/:id', authMiddleware, requireRole(['SUPER_AD
 })
 
 // GET /admin/audit-logs — fetch security audit logs
-apiRouter.get('/admin/audit-logs', authMiddleware, requireRole(['SUPER_ADMIN']), async (req: Request, res: Response) => {
+apiRouter.get('/admin/audit-logs', authMiddleware, requireRole(['SUPER_ADMIN', 'ADMIN']), async (req: Request, res: Response) => {
   try {
     const limit = Math.min(100, parseInt(req.query.limit as string) || 50)
     const logs = await prisma.adminAuditLog.findMany({

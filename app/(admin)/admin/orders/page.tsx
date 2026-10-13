@@ -26,8 +26,6 @@ export default function AdminOrdersPage() {
   })
   const [toDate, setToDate] = useState(new Date().toISOString().slice(0, 10))
   
-  const [assigningOrder, setAssigningOrder] = useState<string | null>(null)
-  
   // Interactive Modal States
   const [selectedSummaryOrder, setSelectedSummaryOrder] = useState<any | null>(null)
   const [whatsAppModalOrder, setWhatsAppModalOrder] = useState<any | null>(null)
@@ -43,16 +41,6 @@ export default function AdminOrdersPage() {
     queryFn: async () => {
       const res = await fetch('/api/orders/all')
       if (!res.ok) throw new Error('Failed to fetch orders')
-      return res.json()
-    }
-  })
-
-  // Fetch active drivers
-  const { data: drivers = [] } = useQuery({
-    queryKey: ['admin-drivers'],
-    queryFn: async () => {
-      const res = await fetch('/api/drivers')
-      if (!res.ok) throw new Error('Failed to fetch drivers')
       return res.json()
     }
   })
@@ -122,30 +110,6 @@ export default function AdminOrdersPage() {
       }
     } catch (err: any) {
       showToast(err.message || 'Action failed', 'error')
-    }
-  }
-
-  // Assign driver API trigger
-  const assignDriver = async (orderId: string, driverId: string) => {
-    try {
-      const res = await fetch(`/api/orders/${orderId}/assign`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ driverId })
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Failed to assign driver')
-      
-      showToast('Driver assigned successfully', 'success')
-      setAssigningOrder(null)
-      queryClient.invalidateQueries({ queryKey: ['admin-orders'] })
-
-      const assignedD = drivers.find((d: any) => d.id === driverId)
-      if (selectedSummaryOrder && selectedSummaryOrder.id === orderId && assignedD) {
-        setSelectedSummaryOrder((prev: any) => ({ ...prev, driver: assignedD, driverId }))
-      }
-    } catch (err: any) {
-      showToast(err.message || 'Assignment failed', 'error')
     }
   }
 
@@ -534,14 +498,13 @@ export default function AdminOrdersPage() {
                 <th className="px-5 py-3.5 text-xs font-bold text-slate-500 uppercase tracking-wider">Items Summary</th>
                 <th className="px-5 py-3.5 text-xs font-bold text-slate-500 uppercase tracking-wider">Amount</th>
                 <th className="px-5 py-3.5 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
-                <th className="px-5 py-3.5 text-xs font-bold text-slate-500 uppercase tracking-wider">Driver</th>
                 <th className="px-5 py-3.5 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {ordersLoading ? (
                 <tr>
-                  <td colSpan={7} className="px-5 py-16 text-center">
+                  <td colSpan={6} className="px-5 py-16 text-center">
                     <div className="flex flex-col items-center justify-center gap-3 text-slate-400">
                       <div className="w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
                       <span className="text-xs font-medium">Loading orders dispatch list...</span>
@@ -550,7 +513,7 @@ export default function AdminOrdersPage() {
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-5 py-16 text-center text-slate-400">
+                  <td colSpan={6} className="px-5 py-16 text-center text-slate-400">
                     <Package className="w-8 h-8 mx-auto mb-2 opacity-40" />
                     <p className="text-sm font-medium">No orders found matching your search or filters.</p>
                   </td>
@@ -668,20 +631,6 @@ export default function AdminOrdersPage() {
                         </span>
                       </td>
 
-                      {/* Driver */}
-                      <td className="px-5 py-4">
-                        {order.driver ? (
-                          <div className="flex flex-col text-xs">
-                            <span className="font-bold text-slate-900">{order.driver.name}</span>
-                            <span className="text-[10px] text-slate-500 font-mono">{order.driver.vehicleNumber}</span>
-                          </div>
-                        ) : (
-                          <span className="text-xs text-amber-700 font-bold bg-amber-50 px-2 py-0.5 rounded-md">
-                            Unassigned
-                          </span>
-                        )}
-                      </td>
-
                       {/* Actions Column: Invoice Bill + WhatsApp Chat with Templates + Call + Single Workflow Button */}
                       <td className="px-5 py-4 text-right">
                         <div className="inline-flex items-center gap-1.5 justify-end">
@@ -747,37 +696,7 @@ export default function AdminOrdersPage() {
                             </button>
                           )}
 
-                          {order.status === 'PACKED' && (
-                            <div className="relative">
-                              <button
-                                onClick={() => setAssigningOrder(assigningOrder === order.id ? null : order.id)}
-                                className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-xl text-xs shadow-xs transition-all active:scale-95"
-                              >
-                                Assign driver
-                              </button>
-
-                              {/* Dropdown for drivers */}
-                              {assigningOrder === order.id && (
-                                <div className="absolute right-0 mt-2 w-52 bg-white border border-slate-200 rounded-2xl shadow-2xl py-1.5 z-50 text-left">
-                                  <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
-                                    Select Driver
-                                  </div>
-                                  {drivers.filter((d: any) => d.isActive).map((driver: any) => (
-                                    <button
-                                      key={driver.id}
-                                      onClick={() => assignDriver(order.id, driver.id)}
-                                      className="w-full px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 text-left truncate flex items-center justify-between"
-                                    >
-                                      <span>{driver.name}</span>
-                                      <span className="text-[10px] text-slate-400 font-mono">{driver.vehicleNumber}</span>
-                                    </button>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          )}
-
-                          {order.status === 'ASSIGNED' && (
+                          {(order.status === 'PACKED' || order.status === 'ASSIGNED') && (
                             <button
                               onClick={() => updateStatus(order.id, 'OUT_FOR_DELIVERY')}
                               className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white font-extrabold rounded-xl text-xs shadow-xs transition-all active:scale-95"

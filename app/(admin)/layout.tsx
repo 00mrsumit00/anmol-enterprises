@@ -84,18 +84,21 @@ export default function AdminLayout({
     { name: 'Registered Users', path: '/admin/business-accounts', icon: Users, perm: 'users' },
     { name: 'Product List', path: '/admin/products', icon: Package, perm: 'products' },
     { name: 'Inventory Manager', path: '/admin/inventory', icon: BarChart3, perm: 'inventory' },
-    { name: 'Driver List', path: '/admin/drivers', icon: Truck, perm: 'drivers' },
-    { name: 'Sub-Admins', path: '/admin/sub-admins', icon: Shield, superAdminOnly: true },
-    { name: 'Audit Logs', path: '/admin/audit-logs', icon: Activity, superAdminOnly: true },
+    { name: 'Staff Management', path: '/admin/sub-admins', icon: Shield, minRole: 'ADMIN' },
+    { name: 'Audit Logs', path: '/admin/audit-logs', icon: Activity, minRole: 'ADMIN' },
   ]
 
   // Filter nav links:
   // 1. SUPER_ADMIN gets unrestricted access to all links
-  // 2. Others cannot see superAdminOnly tabs (Sub-Admins, Audit Logs)
-  // 3. For standard modules, check if the module's perm key exists in admin.permissions
+  // 2. ADMIN (Sub-Admin) can access Staff Management and Audit Logs + their allowed modules
+  // 3. STAFF only sees operational modules permitted to them
   const navLinks = allNavLinks.filter((link) => {
     if (admin?.role === 'SUPER_ADMIN') return true
-    if (link.superAdminOnly) return false
+    
+    // Check role gate if defined (ADMIN or higher)
+    if (link.minRole === 'ADMIN') {
+      return admin?.role === 'ADMIN' || admin?.role === 'SUPER_ADMIN'
+    }
     
     // If permissions array is configured on the user, check permission
     if (admin?.permissions && Array.isArray(admin.permissions)) {
@@ -103,7 +106,6 @@ export default function AdminLayout({
     }
     
     // Default fallback for legacy staff accounts without permissions array:
-    // STAFF can see orders, products, inventory, drivers
     return link.perm !== 'users'
   })
 

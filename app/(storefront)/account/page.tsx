@@ -715,22 +715,6 @@ export default function AccountPage() {
                   </div>
                   <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-white group-hover:translate-x-0.5 transition-all" />
                 </Link>
-
-                <Link
-                  href="/admin/drivers"
-                  className="bg-white/10 hover:bg-brand-orange text-white p-3.5 rounded-2xl border border-white/10 flex items-center justify-between group transition-all tap-scale"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center group-hover:bg-white/20">
-                      <Truck className="w-4 h-4 text-amber-400 group-hover:text-white" />
-                    </div>
-                    <div className="text-left">
-                      <span className="font-display text-xs font-black block">Delivery Drivers</span>
-                      <span className="text-[10px] text-gray-300 font-semibold block">Manage drivers & vehicle numbers</span>
-                    </div>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-white group-hover:translate-x-0.5 transition-all" />
-                </Link>
               </div>
             </div>
           )}
