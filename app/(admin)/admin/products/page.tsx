@@ -430,20 +430,20 @@ export default function AdminProductsPage() {
   })
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8 flex flex-col gap-6 font-sans">
+    <div className="max-w-7xl mx-auto px-4 py-8 flex flex-col gap-6 font-sans text-white">
       
       {/* Top Header Row */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-gray-200/80 pb-5">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-800 pb-5">
         <div>
           <div className="flex items-center gap-2">
-            <div className="p-2 bg-[#0c831f] text-white rounded-xl shadow-xs">
+            <div className="p-2 bg-amber-500/10 border border-amber-500/30 text-amber-400 rounded-xl shadow-xs">
               <Package className="w-5 h-5" />
             </div>
-            <h1 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight">
+            <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">
               Product & Image Catalog Manager
             </h1>
           </div>
-          <p className="text-xs text-gray-500 font-medium mt-1">
+          <p className="text-xs text-slate-400 font-medium mt-1">
             Manage McCain official product packets, multi-image galleries, and wholesale pricing.
           </p>
         </div>
@@ -451,15 +451,15 @@ export default function AdminProductsPage() {
         <div className="flex items-center gap-3">
           <Link
             href="/admin/products/bulk-import"
-            className="flex items-center gap-1.5 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold text-xs px-4 py-2.5 rounded-2xl transition-all"
+            className="flex items-center gap-1.5 bg-[#111625] hover:bg-slate-800 text-slate-300 font-bold text-xs px-4 py-2.5 rounded-2xl border border-slate-800 transition-all"
           >
-            <UploadCloud className="w-4 h-4 text-purple-700" />
+            <UploadCloud className="w-4 h-4 text-purple-400" />
             <span>Bulk JSON Sync</span>
           </Link>
 
           <button
             onClick={openAddModal}
-            className="flex items-center gap-1.5 bg-[#0c831f] hover:bg-[#0a6d19] text-white font-black text-xs px-5 py-2.5 rounded-2xl shadow-md shadow-[#0c831f]/20 transition-all active:scale-95"
+            className="flex items-center gap-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs px-5 py-2.5 rounded-2xl shadow-lg shadow-amber-500/20 transition-all active:scale-95"
           >
             <Plus className="w-4 h-4" />
             <span>Add New Product</span>
@@ -468,27 +468,27 @@ export default function AdminProductsPage() {
       </div>
 
       {/* Search & Category Filter Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-gray-200/80 shadow-xs">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-[#111625] p-3 rounded-2xl border border-slate-800/80 shadow-xl">
         
         {/* Search */}
         <div className="relative flex-1">
-          <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             placeholder="Search products by name, slug or keyword..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-[#f8f9fa] border border-gray-200/80 text-xs rounded-xl pl-9 pr-4 py-2.5 focus:outline-none focus:border-[#0c831f] focus:bg-white transition-all font-medium"
+            className="w-full bg-[#0B0F19] border border-slate-800 text-xs text-white placeholder-slate-500 rounded-xl pl-9 pr-4 py-2.5 focus:outline-none focus:border-amber-500 transition-all font-medium"
           />
         </div>
 
         {/* Category Filter */}
         <div className="flex items-center gap-2">
-          <Filter className="w-4 h-4 text-gray-400" />
+          <Filter className="w-4 h-4 text-slate-500" />
           <select
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
-            className="bg-[#f8f9fa] border border-gray-200/80 text-xs rounded-xl px-3 py-2.5 font-bold text-gray-700 cursor-pointer focus:outline-none focus:border-[#0c831f]"
+            className="bg-[#0B0F19] border border-slate-800 text-xs rounded-xl px-3 py-2.5 font-bold text-slate-300 cursor-pointer focus:outline-none focus:border-amber-500"
           >
             <option value="ALL">All Categories ({products.length})</option>
             {categories.map((cat: any) => (
@@ -499,17 +499,17 @@ export default function AdminProductsPage() {
           </select>
 
           {/* View Mode Toggle */}
-          <div className="flex items-center bg-gray-100 p-1 rounded-xl">
+          <div className="flex items-center bg-[#0B0F19] p-1 rounded-xl border border-slate-800">
             <button
               onClick={() => setViewMode('grid')}
-              className={`p-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === 'grid' ? 'bg-white text-[#0c831f] shadow-xs' : 'text-gray-500'}`}
+              className={`p-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === 'grid' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-xs' : 'text-slate-500 hover:text-slate-300'}`}
               title="Grid View"
             >
               <LayoutGrid className="w-4 h-4" />
             </button>
             <button
               onClick={() => setViewMode('table')}
-              className={`p-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === 'table' ? 'bg-white text-[#0c831f] shadow-xs' : 'text-gray-500'}`}
+              className={`p-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === 'table' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-xs' : 'text-slate-500 hover:text-slate-300'}`}
               title="Table View"
             >
               <List className="w-4 h-4" />
@@ -521,8 +521,8 @@ export default function AdminProductsPage() {
 
       {/* Loading state */}
       {isProductsLoading && (
-        <div className="py-20 flex flex-col items-center justify-center gap-3 text-gray-400">
-          <div className="w-10 h-10 border-4 border-[#0c831f] border-t-transparent rounded-full animate-spin" />
+        <div className="py-20 flex flex-col items-center justify-center gap-3 text-slate-500">
+          <div className="w-10 h-10 border-4 border-amber-500 border-t-transparent rounded-full animate-spin" />
           <p className="text-xs font-bold">Loading product catalog...</p>
         </div>
       )}
@@ -537,25 +537,25 @@ export default function AdminProductsPage() {
             return (
               <div
                 key={product.id}
-                className={`bg-white border rounded-3xl p-4 flex flex-col justify-between shadow-xs hover:shadow-md transition-all ${
-                  product.isActive ? 'border-gray-200/90' : 'border-rose-200 bg-rose-50/20 opacity-75'
+                className={`bg-[#111625] border rounded-3xl p-4 flex flex-col justify-between shadow-xl transition-all ${
+                  product.isActive ? 'border-slate-800/80 hover:border-slate-700' : 'border-rose-900/50 bg-rose-950/20 opacity-75'
                 }`}
               >
                 {/* Top Row: Status & Actions */}
                 <div className="flex items-center justify-between mb-2">
                   <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md ${
-                    product.isActive ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                    product.isActive ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
                   }`}>
                     {product.isActive ? 'Active' : 'Inactive'}
                   </span>
 
-                  <span className="text-[10px] font-bold text-gray-400">
+                  <span className="text-[10px] font-bold text-slate-400">
                     🖼️ {galleryCount} {galleryCount === 1 ? 'image' : 'images'}
                   </span>
                 </div>
 
                 {/* Packet Image */}
-                <div className="w-full aspect-square bg-[#fbfbfb] rounded-2xl p-2 flex items-center justify-center mb-3 border border-gray-100">
+                <div className="w-full aspect-square bg-[#0B0F19] rounded-2xl p-2 flex items-center justify-center mb-3 border border-slate-800">
                   <img
                     src={product.imageUrl || '/images/products/mccain-smiles.jpg'}
                     alt={product.name}
@@ -565,31 +565,31 @@ export default function AdminProductsPage() {
 
                 {/* Meta */}
                 <div>
-                  <span className="text-[10px] font-bold text-gray-400 uppercase">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">
                     {product.category?.name || 'McCain Foods'}
                   </span>
-                  <h3 className="font-black text-sm text-gray-900 line-clamp-1 leading-snug">
+                  <h3 className="font-black text-sm text-white line-clamp-1 leading-snug">
                     {product.name}
                   </h3>
                   
                   {/* Prices */}
-                  <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-100 text-xs">
+                  <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-800 text-xs">
                     <div>
-                      <span className="text-[9px] text-gray-400 font-bold block">Retail (MRP)</span>
-                      <span className="font-black text-gray-900">₹{singleVar.retailPrice || 0}</span>
+                      <span className="text-[9px] text-slate-400 font-bold block">Retail (MRP)</span>
+                      <span className="font-black text-white">₹{singleVar.retailPrice || 0}</span>
                     </div>
                     <div className="text-right">
-                      <span className="text-[9px] text-purple-700 font-bold block">B2B Wholesale</span>
-                      <span className="font-black text-purple-900">₹{singleVar.b2bPrice || 0}</span>
+                      <span className="text-[9px] text-purple-400 font-bold block">B2B Wholesale</span>
+                      <span className="font-black text-purple-300">₹{singleVar.b2bPrice || 0}</span>
                     </div>
                   </div>
                 </div>
 
                 {/* Action Buttons */}
-                <div className="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-gray-100">
+                <div className="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-slate-800">
                   <button
                     onClick={() => openEditModal(product)}
-                    className="flex items-center justify-center gap-1 bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-bold py-2 rounded-xl transition-all"
+                    className="flex items-center justify-center gap-1 bg-[#0B0F19] hover:bg-slate-800 text-slate-300 text-xs font-bold py-2 rounded-xl border border-slate-800 transition-all"
                   >
                     <Edit3 className="w-3.5 h-3.5" />
                     <span>Edit</span>
@@ -597,7 +597,7 @@ export default function AdminProductsPage() {
 
                   <button
                     onClick={() => handleToggleActive(product)}
-                    className="flex items-center justify-center gap-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold py-2 rounded-xl transition-all"
+                    className="flex items-center justify-center gap-1 bg-[#0B0F19] hover:bg-slate-800 text-slate-300 text-xs font-bold py-2 rounded-xl border border-slate-800 transition-all"
                     title="Toggle Active Status"
                   >
                     {product.isActive ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
@@ -605,7 +605,7 @@ export default function AdminProductsPage() {
 
                   <button
                     onClick={() => handleDelete(product)}
-                    className="flex items-center justify-center gap-1 bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-bold py-2 rounded-xl transition-all"
+                    className="flex items-center justify-center gap-1 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-xs font-bold py-2 rounded-xl border border-rose-500/30 transition-all"
                     title="Delete Product"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -620,9 +620,9 @@ export default function AdminProductsPage() {
 
       {/* Table View */}
       {!isProductsLoading && viewMode === 'table' && (
-        <div className="bg-white rounded-3xl border border-gray-200/90 overflow-hidden shadow-xs">
+        <div className="bg-[#111625] rounded-3xl border border-slate-800/80 overflow-hidden shadow-xl">
           <table className="w-full text-left text-xs">
-            <thead className="bg-[#f8f9fa] border-b border-gray-200 text-gray-500 font-bold uppercase text-[10px]">
+            <thead className="bg-[#0E1320] border-b border-slate-800 text-slate-400 font-bold uppercase text-[10px]">
               <tr>
                 <th className="p-4">Packet Image</th>
                 <th className="p-4">Product Name</th>
@@ -634,13 +634,13 @@ export default function AdminProductsPage() {
                 <th className="p-4 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-slate-800/60">
               {filteredProducts.map((product: any) => {
                 const singleVar = product.variants?.find((v: any) => v.packagingType === 'SINGLE') || {}
                 return (
-                  <tr key={product.id} className="hover:bg-gray-50/50">
+                  <tr key={product.id} className="hover:bg-slate-800/40">
                     <td className="p-4">
-                      <div className="w-12 h-12 bg-white rounded-xl border border-gray-200 p-1 flex items-center justify-center">
+                      <div className="w-12 h-12 bg-[#0B0F19] rounded-xl border border-slate-800 p-1 flex items-center justify-center">
                         <img
                           src={product.imageUrl || '/images/products/mccain-smiles.jpg'}
                           alt={product.name}
@@ -648,14 +648,14 @@ export default function AdminProductsPage() {
                         />
                       </div>
                     </td>
-                    <td className="p-4 font-black text-gray-900">{product.name}</td>
-                    <td className="p-4 text-gray-500">{product.category?.name}</td>
-                    <td className="p-4 text-gray-600 font-bold">{product.galleryImages?.length || 1} images</td>
-                    <td className="p-4 font-black text-gray-900">₹{singleVar.retailPrice || 0}</td>
-                    <td className="p-4 font-black text-purple-900">₹{singleVar.b2bPrice || 0}</td>
+                    <td className="p-4 font-black text-white">{product.name}</td>
+                    <td className="p-4 text-slate-400">{product.category?.name}</td>
+                    <td className="p-4 text-slate-300 font-bold">{product.galleryImages?.length || 1} images</td>
+                    <td className="p-4 font-black text-white">₹{singleVar.retailPrice || 0}</td>
+                    <td className="p-4 font-black text-purple-300">₹{singleVar.b2bPrice || 0}</td>
                     <td className="p-4">
                       <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md ${
-                        product.isActive ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                        product.isActive ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
                       }`}>
                         {product.isActive ? 'Active' : 'Inactive'}
                       </span>
@@ -664,21 +664,21 @@ export default function AdminProductsPage() {
                       <div className="flex items-center justify-end gap-2">
                         <button
                           onClick={() => openEditModal(product)}
-                          className="p-2 bg-gray-100 hover:bg-gray-200 rounded-xl"
+                          className="p-2 bg-[#0B0F19] hover:bg-slate-800 text-slate-300 rounded-xl border border-slate-800"
                           title="Edit"
                         >
                           <Edit3 className="w-3.5 h-3.5" />
                         </button>
                         <button
                           onClick={() => handleToggleActive(product)}
-                          className="p-2 bg-gray-100 hover:bg-gray-200 rounded-xl"
+                          className="p-2 bg-[#0B0F19] hover:bg-slate-800 text-slate-300 rounded-xl border border-slate-800"
                           title="Toggle Status"
                         >
                           {product.isActive ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                         </button>
                         <button
                           onClick={() => handleDelete(product)}
-                          className="p-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl"
+                          className="p-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-xl border border-rose-500/30"
                           title="Delete"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -697,22 +697,22 @@ export default function AdminProductsPage() {
       {/* ============ LIVE MULTI-IMAGE GALLERY ADD / EDIT PRODUCT MODAL ============ */}
       {/* ========================================================================= */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-4xl w-full p-6 sm:p-8 shadow-2xl flex flex-col gap-6 animate-scale-up my-auto max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-[#111625] rounded-3xl max-w-4xl w-full p-6 sm:p-8 shadow-2xl flex flex-col gap-6 animate-scale-up my-auto max-h-[90vh] overflow-y-auto border border-slate-800">
             
             {/* Modal Header */}
-            <div className="flex items-center justify-between border-b border-gray-100 pb-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
               <div>
-                <h3 className="font-black text-lg text-gray-900">
+                <h3 className="font-black text-lg text-white">
                   {editingProduct ? `Edit Product: ${editingProduct.name}` : 'Add New McCain Product'}
                 </h3>
-                <p className="text-xs text-gray-500 font-medium mt-0.5">
+                <p className="text-xs text-slate-400 font-medium mt-0.5">
                   Upload multiple product gallery images, set the primary packet photo, and configure pricing.
                 </p>
               </div>
               <button 
                 onClick={closeModal}
-                className="w-9 h-9 rounded-2xl bg-gray-100 hover:bg-gray-200 text-gray-500 font-bold flex items-center justify-center transition-all"
+                className="w-9 h-9 rounded-2xl bg-[#0B0F19] hover:bg-slate-800 text-slate-400 hover:text-white font-bold flex items-center justify-center border border-slate-800 transition-all"
               >
                 ✕
               </button>
@@ -724,33 +724,33 @@ export default function AdminProductsPage() {
               {/* 1. PRODUCT DETAILS */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1">
-                  <label className="text-[11px] font-bold uppercase tracking-wider text-gray-700">Product Name *</label>
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Product Name *</label>
                   <input
                     type="text"
                     placeholder="e.g. McCain Smiles"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full bg-gray-50 border border-gray-200 text-xs sm:text-sm rounded-2xl px-4 py-3 font-semibold focus:outline-none focus:border-[#0c831f] focus:bg-white"
+                    className="w-full bg-[#0B0F19] border border-slate-800 text-xs sm:text-sm text-white rounded-2xl px-4 py-3 font-semibold focus:outline-none focus:border-amber-500"
                     required
                   />
                 </div>
 
                 <div className="flex flex-col gap-1">
                   <div className="flex items-center justify-between">
-                    <label className="text-[11px] font-bold uppercase tracking-wider text-gray-700">Category *</label>
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Category *</label>
                     <button
                       type="button"
                       onClick={() => setShowAddCategoryInline(!showAddCategoryInline)}
-                      className="text-[11px] font-bold text-amber-600 hover:text-amber-700 hover:underline flex items-center gap-1 cursor-pointer"
+                      className="text-[11px] font-bold text-amber-400 hover:text-amber-300 hover:underline flex items-center gap-1 cursor-pointer"
                     >
                       {showAddCategoryInline ? '✕ Use Existing' : '+ Add New Category'}
                     </button>
                   </div>
 
                   {showAddCategoryInline ? (
-                    <div className="p-3 bg-amber-50/80 border border-amber-200 rounded-2xl flex flex-col gap-2.5 my-0.5">
+                    <div className="p-3 bg-[#0B0F19] border border-amber-500/30 rounded-2xl flex flex-col gap-2.5 my-0.5">
                       <div className="flex items-center justify-between flex-wrap gap-1">
-                        <span className="text-[11px] font-bold text-amber-900">New Category Details</span>
+                        <span className="text-[11px] font-bold text-amber-300">New Category Details</span>
                         <div className="flex gap-1 flex-wrap">
                           {['🍟', '🧀', '🌯', '🌽', '✨', '🍕', '🍔', '🥟', '🥤', '📦'].map((em) => (
                             <button
@@ -758,7 +758,7 @@ export default function AdminProductsPage() {
                               type="button"
                               onClick={() => setNewCategoryEmoji(em)}
                               className={`w-6 h-6 text-xs rounded-md flex items-center justify-center transition-all ${
-                                newCategoryEmoji === em ? 'bg-amber-500 text-white scale-110 shadow-xs' : 'bg-white hover:bg-amber-100 border border-amber-200'
+                                newCategoryEmoji === em ? 'bg-amber-500 text-slate-950 scale-110 shadow-xs' : 'bg-slate-800 hover:bg-slate-700 text-white'
                               }`}
                             >
                               {em}
@@ -772,13 +772,13 @@ export default function AdminProductsPage() {
                           placeholder="e.g. Party Platters or Kids Special"
                           value={newCategoryName}
                           onChange={(e) => setNewCategoryName(e.target.value)}
-                          className="flex-1 bg-white border border-amber-300 text-xs sm:text-sm rounded-xl px-3 py-2 font-medium focus:outline-none focus:ring-2 focus:ring-amber-500"
+                          className="flex-1 bg-[#111625] border border-slate-800 text-xs sm:text-sm text-white rounded-xl px-3 py-2 font-medium focus:outline-none focus:border-amber-500"
                         />
                         <button
                           type="button"
                           onClick={handleCreateCategoryInline}
                           disabled={isCreatingCategory}
-                          className="px-3.5 py-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-xs transition-all active:scale-95 shrink-0"
+                          className="px-3.5 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 disabled:opacity-50 text-slate-950 text-xs font-bold rounded-xl shadow-xs transition-all active:scale-95 shrink-0"
                         >
                           {isCreatingCategory ? 'Adding...' : 'Save & Select'}
                         </button>
@@ -788,11 +788,11 @@ export default function AdminProductsPage() {
                     <select
                       value={formData.categoryId}
                       onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
-                      className="w-full bg-gray-50 border border-gray-200 text-xs sm:text-sm rounded-2xl px-4 py-3 font-semibold text-gray-900 cursor-pointer focus:outline-none focus:border-[#0c831f]"
+                      className="w-full bg-[#0B0F19] border border-slate-800 text-xs sm:text-sm rounded-2xl px-4 py-3 font-semibold text-white cursor-pointer focus:outline-none focus:border-amber-500"
                       required
                     >
                       {categories.map((cat: any) => (
-                        <option key={cat.id} value={cat.id}>
+                        <option key={cat.id} value={cat.id} className="bg-[#111625] text-white">
                           {cat.emoji} {cat.name}
                         </option>
                       ))}
@@ -802,27 +802,27 @@ export default function AdminProductsPage() {
               </div>
 
               <div className="flex flex-col gap-1">
-                <label className="text-[11px] font-bold uppercase tracking-wider text-gray-700">Summary Description *</label>
+                <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Summary Description *</label>
                 <textarea
                   rows={2}
                   placeholder="Crispy on the outside, mashed potato happiness inside. A classic teatime and party snack."
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full bg-gray-50 border border-gray-200 text-xs rounded-2xl p-3 font-semibold focus:outline-none focus:border-[#0c831f] focus:bg-white"
+                  className="w-full bg-[#0B0F19] border border-slate-800 text-xs text-white rounded-2xl p-3 font-semibold focus:outline-none focus:border-amber-500"
                   required
                 />
               </div>
 
               {/* 2. MULTI-IMAGE GALLERY MANAGER (Auto-Scroll Carousel Builder) */}
-              <div className="p-4 bg-[#f8f9fa] rounded-3xl border border-gray-200/90 flex flex-col gap-4">
+              <div className="p-4 bg-[#0B0F19] rounded-3xl border border-slate-800 flex flex-col gap-4">
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <div className="flex items-center gap-2">
-                    <ImageIcon className="w-5 h-5 text-[#0c831f]" />
-                    <h4 className="font-black text-sm text-gray-900">
+                    <ImageIcon className="w-5 h-5 text-amber-400" />
+                    <h4 className="font-black text-sm text-white">
                       Product Gallery & Auto-Scroll Carousel ({formData.galleryImages.length} images)
                     </h4>
                   </div>
-                  <span className="text-[10px] text-gray-500 font-bold">
+                  <span className="text-[10px] text-slate-400 font-bold">
                     ⭐ First image is the Primary Packet Image shown on cards
                   </span>
                 </div>
@@ -832,7 +832,7 @@ export default function AdminProductsPage() {
                   
                   {/* File Upload Button */}
                   <label className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-black cursor-pointer transition-all ${
-                    isUploading ? 'bg-gray-200 text-gray-500' : 'bg-[#0c831f] hover:bg-[#0a6d19] text-white shadow-xs'
+                    isUploading ? 'bg-slate-800 text-slate-500' : 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 shadow-xs'
                   }`}>
                     <Upload className="w-4 h-4" />
                     <span>{isUploading ? 'Uploading...' : 'Upload Images from Device'}</span>
@@ -853,12 +853,12 @@ export default function AdminProductsPage() {
                       placeholder="Or paste image URL (e.g. /images/products/mccain-smiles.jpg)"
                       value={customImageUrlInput}
                       onChange={(e) => setCustomImageUrlInput(e.target.value)}
-                      className="flex-1 bg-white border border-gray-200 text-xs rounded-2xl px-3 py-2.5 font-medium focus:outline-none focus:border-[#0c831f]"
+                      className="flex-1 bg-[#111625] border border-slate-800 text-xs text-white placeholder-slate-500 rounded-2xl px-3 py-2.5 font-medium focus:outline-none focus:border-amber-500"
                     />
                     <button
                       type="button"
                       onClick={handleAddImageUrl}
-                      className="bg-gray-900 hover:bg-black text-white text-xs font-black px-3.5 py-2.5 rounded-2xl transition-all"
+                      className="bg-slate-800 hover:bg-slate-700 text-white text-xs font-black px-3.5 py-2.5 rounded-2xl transition-all border border-slate-700"
                     >
                       + Add
                     </button>
@@ -867,7 +867,7 @@ export default function AdminProductsPage() {
 
                 {/* Quick Presets Strip */}
                 <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                  <span className="text-[10px] text-gray-400 font-bold">Quick Presets:</span>
+                  <span className="text-[10px] text-slate-500 font-bold">Quick Presets:</span>
                   {PRESET_OFFICIAL_IMAGES.slice(0, 7).map((preset) => (
                     <button
                       key={preset.name}
@@ -880,7 +880,7 @@ export default function AdminProductsPage() {
                           })
                         }
                       }}
-                      className="text-[9px] bg-white hover:bg-emerald-50 text-gray-700 hover:text-[#0c831f] font-bold px-2.5 py-1 rounded-xl border border-gray-200/80 transition-all"
+                      className="text-[9px] bg-[#111625] hover:bg-amber-500/10 text-slate-300 hover:text-amber-300 font-bold px-2.5 py-1 rounded-xl border border-slate-800 transition-all"
                     >
                       + {preset.name}
                     </button>
@@ -894,37 +894,37 @@ export default function AdminProductsPage() {
                     return (
                       <div
                         key={idx}
-                        className={`relative bg-white rounded-2xl p-2 border-2 flex flex-col items-center gap-1 shadow-2xs group ${
-                          isPrimary ? 'border-[#0c831f] bg-emerald-50/20 ring-2 ring-[#0c831f]/20' : 'border-gray-200'
+                        className={`relative bg-[#111625] rounded-2xl p-2 border-2 flex flex-col items-center gap-1 shadow-2xs group ${
+                          isPrimary ? 'border-amber-500 bg-amber-500/10 ring-2 ring-amber-500/20' : 'border-slate-800'
                         }`}
                       >
                         {/* Primary Badge */}
                         {isPrimary && (
-                          <span className="absolute -top-2 left-2 bg-[#0c831f] text-white text-[8px] font-black px-1.5 py-0.2 rounded-md shadow-2xs flex items-center gap-0.5 z-10">
-                            <Star className="w-2.5 h-2.5 fill-white" /> PACKET
+                          <span className="absolute -top-2 left-2 bg-amber-500 text-slate-950 text-[8px] font-black px-1.5 py-0.2 rounded-md shadow-2xs flex items-center gap-0.5 z-10">
+                            <Star className="w-2.5 h-2.5 fill-slate-950" /> PACKET
                           </span>
                         )}
 
                         {/* Image Preview */}
-                        <div className="w-full aspect-square flex items-center justify-center p-1.5 rounded-xl overflow-hidden bg-[#fbfbfb] border border-gray-100">
+                        <div className="w-full aspect-square flex items-center justify-center p-1.5 rounded-xl overflow-hidden bg-[#0B0F19] border border-slate-800">
                           <img src={normalizeImageUrl(url)} alt={`Slide ${idx + 1}`} className="w-full h-full object-contain drop-shadow-2xs" />
                         </div>
 
-                        <span className="text-[9px] font-bold text-gray-500">Slide {idx + 1}</span>
+                        <span className="text-[9px] font-bold text-slate-400">Slide {idx + 1}</span>
 
                         {/* Actions */}
-                        <div className="flex items-center gap-1 w-full justify-between pt-1 border-t border-gray-100">
+                        <div className="flex items-center gap-1 w-full justify-between pt-1 border-t border-slate-800">
                           {!isPrimary ? (
                             <button
                               type="button"
                               onClick={() => handleSetPrimary(url)}
-                              className="text-[8px] bg-emerald-50 hover:bg-emerald-100 text-[#0c831f] font-black px-1.5 py-0.5 rounded"
+                              className="text-[8px] bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 font-black px-1.5 py-0.5 rounded border border-amber-500/30"
                               title="Make Primary Packet Image"
                             >
                               ⭐ Set
                             </button>
                           ) : (
-                            <span className="text-[8px] text-[#0c831f] font-bold">Primary</span>
+                            <span className="text-[8px] text-amber-400 font-bold">Primary</span>
                           )}
 
                           <div className="flex items-center gap-0.5">
@@ -932,7 +932,7 @@ export default function AdminProductsPage() {
                               <button
                                 type="button"
                                 onClick={() => handleMoveImage(idx, idx - 1)}
-                                className="p-0.5 text-gray-400 hover:text-black text-[10px]"
+                                className="p-0.5 text-slate-400 hover:text-white text-[10px]"
                                 title="Move Left"
                               >
                                 ◀
@@ -942,7 +942,7 @@ export default function AdminProductsPage() {
                               <button
                                 type="button"
                                 onClick={() => handleMoveImage(idx, idx + 1)}
-                                className="p-0.5 text-gray-400 hover:text-black text-[10px]"
+                                className="p-0.5 text-slate-400 hover:text-white text-[10px]"
                                 title="Move Right"
                               >
                                 ▶
@@ -951,7 +951,7 @@ export default function AdminProductsPage() {
                             <button
                               type="button"
                               onClick={() => handleRemoveImage(url)}
-                              className="p-0.5 text-rose-500 hover:text-rose-700 text-xs font-bold"
+                              className="p-0.5 text-rose-400 hover:text-rose-300 text-xs font-bold"
                               title="Delete Image"
                             >
                               ✕
@@ -967,79 +967,79 @@ export default function AdminProductsPage() {
               </div>
 
               {/* 3. PACKAGING VARIANTS & PRICING */}
-              <div className="p-4 bg-gray-50 rounded-3xl border border-gray-200/80 flex flex-col gap-3">
-                <h4 className="text-xs font-black uppercase tracking-wider text-gray-900">
+              <div className="p-4 bg-[#0B0F19] rounded-3xl border border-slate-800 flex flex-col gap-3">
+                <h4 className="text-xs font-black uppercase tracking-wider text-white">
                   Pricing & Packaging Variants (₹)
                 </h4>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="bg-white p-3 rounded-2xl border border-gray-200">
-                    <span className="text-[10px] font-black text-gray-400 uppercase block mb-1">Single Retail Pack (400g)</span>
+                  <div className="bg-[#111625] p-3 rounded-2xl border border-slate-800">
+                    <span className="text-[10px] font-black text-slate-400 uppercase block mb-1">Single Retail Pack (400g)</span>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="text-[9px] font-bold text-gray-500">Retail MRP</label>
+                        <label className="text-[9px] font-bold text-slate-400">Retail MRP</label>
                         <input
                           type="number"
                           value={formData.singlePrice}
                           onChange={(e) => setFormData({ ...formData, singlePrice: parseFloat(e.target.value) || 0 })}
-                          className="w-full border rounded-xl p-2 text-xs font-black"
+                          className="w-full bg-[#0B0F19] border border-slate-800 rounded-xl p-2 text-xs font-black text-white focus:outline-none focus:border-amber-500"
                         />
                       </div>
                       <div>
-                        <label className="text-[9px] font-bold text-purple-700">B2B Wholesale</label>
+                        <label className="text-[9px] font-bold text-purple-400">B2B Wholesale</label>
                         <input
                           type="number"
                           value={formData.singleB2bPrice}
                           onChange={(e) => setFormData({ ...formData, singleB2bPrice: parseFloat(e.target.value) || 0 })}
-                          className="w-full border rounded-xl p-2 text-xs font-black text-purple-900"
+                          className="w-full bg-[#0B0F19] border border-slate-800 rounded-xl p-2 text-xs font-black text-purple-300 focus:outline-none focus:border-purple-500"
                         />
                       </div>
                     </div>
                   </div>
 
-                  <div className="bg-white p-3 rounded-2xl border border-gray-200">
-                    <span className="text-[10px] font-black text-gray-400 uppercase block mb-1">Box Pack (10 Units)</span>
+                  <div className="bg-[#111625] p-3 rounded-2xl border border-slate-800">
+                    <span className="text-[10px] font-black text-slate-400 uppercase block mb-1">Box Pack (10 Units)</span>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="text-[9px] font-bold text-gray-500">Retail Box</label>
+                        <label className="text-[9px] font-bold text-slate-400">Retail Box</label>
                         <input
                           type="number"
                           value={formData.boxPrice}
                           onChange={(e) => setFormData({ ...formData, boxPrice: parseFloat(e.target.value) || 0 })}
-                          className="w-full border rounded-xl p-2 text-xs font-black"
+                          className="w-full bg-[#0B0F19] border border-slate-800 rounded-xl p-2 text-xs font-black text-white focus:outline-none focus:border-amber-500"
                         />
                       </div>
                       <div>
-                        <label className="text-[9px] font-bold text-purple-700">B2B Box</label>
+                        <label className="text-[9px] font-bold text-purple-400">B2B Box</label>
                         <input
                           type="number"
                           value={formData.boxB2bPrice}
                           onChange={(e) => setFormData({ ...formData, boxB2bPrice: parseFloat(e.target.value) || 0 })}
-                          className="w-full border rounded-xl p-2 text-xs font-black text-purple-900"
+                          className="w-full bg-[#0B0F19] border border-slate-800 rounded-xl p-2 text-xs font-black text-purple-300 focus:outline-none focus:border-purple-500"
                         />
                       </div>
                     </div>
                   </div>
 
-                  <div className="bg-white p-3 rounded-2xl border border-gray-200">
-                    <span className="text-[10px] font-black text-gray-400 uppercase block mb-1">Bulk Carton (50 Units)</span>
+                  <div className="bg-[#111625] p-3 rounded-2xl border border-slate-800">
+                    <span className="text-[10px] font-black text-slate-400 uppercase block mb-1">Bulk Carton (50 Units)</span>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="text-[9px] font-bold text-gray-500">Retail Carton</label>
+                        <label className="text-[9px] font-bold text-slate-400">Retail Carton</label>
                         <input
                           type="number"
                           value={formData.cartonPrice}
                           onChange={(e) => setFormData({ ...formData, cartonPrice: parseFloat(e.target.value) || 0 })}
-                          className="w-full border rounded-xl p-2 text-xs font-black"
+                          className="w-full bg-[#0B0F19] border border-slate-800 rounded-xl p-2 text-xs font-black text-white focus:outline-none focus:border-amber-500"
                         />
                       </div>
                       <div>
-                        <label className="text-[9px] font-bold text-purple-700">B2B Carton</label>
+                        <label className="text-[9px] font-bold text-purple-400">B2B Carton</label>
                         <input
                           type="number"
                           value={formData.cartonB2bPrice}
                           onChange={(e) => setFormData({ ...formData, cartonB2bPrice: parseFloat(e.target.value) || 0 })}
-                          className="w-full border rounded-xl p-2 text-xs font-black text-purple-900"
+                          className="w-full bg-[#0B0F19] border border-slate-800 rounded-xl p-2 text-xs font-black text-purple-300 focus:outline-none focus:border-purple-500"
                         />
                       </div>
                     </div>
@@ -1049,18 +1049,18 @@ export default function AdminProductsPage() {
               </div>
 
               {/* Submit Buttons */}
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-100">
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
                 <button
                   type="button"
                   onClick={closeModal}
-                  className="px-5 py-3 rounded-2xl text-xs font-bold text-gray-600 hover:bg-gray-100 transition-all"
+                  className="px-5 py-3 rounded-2xl text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition-all"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={createMutation.isPending || updateMutation.isPending}
-                  className="bg-[#0c831f] hover:bg-[#0a6d19] text-white font-black text-xs px-7 py-3.5 rounded-2xl shadow-md shadow-[#0c831f]/20 transition-all active:scale-95 flex items-center gap-2"
+                  className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs px-7 py-3.5 rounded-2xl shadow-lg shadow-amber-500/20 transition-all active:scale-95 flex items-center gap-2"
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   <span>{editingProduct ? 'Save Changes' : 'Create Product'}</span>

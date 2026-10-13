@@ -128,10 +128,10 @@ export default function AdminLayout({
   if (!admin) return null
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] flex flex-col md:flex-row font-sans">
+    <div className="min-h-screen bg-[#0B0F19] flex flex-col md:flex-row font-sans text-white">
       
       {/* 1. Sidebar (Desktop, 256px / w-64) */}
-      <aside className="hidden md:flex flex-col justify-between w-64 bg-[#0F1117] text-white shrink-0 relative no-print">
+      <aside className="hidden md:flex flex-col justify-between w-64 bg-[#0F1117] text-white shrink-0 relative no-print border-r border-slate-800/80">
         {/* Subtle top accent bar */}
         <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-[#F59E0B] to-[#D97706]" />
         
@@ -233,33 +233,33 @@ export default function AdminLayout({
       </nav>
 
       {/* 3. Main Dashboard Workspace Content */}
-      <div className="flex-1 flex flex-col min-w-0 pb-[60px] md:pb-0 h-screen">
+      <div className="flex-1 flex flex-col min-w-0 pb-[60px] md:pb-0 h-screen bg-[#0B0F19]">
         
         {/* Top Header */}
-        <header className="bg-white border-b border-[#E2E8F0] h-[60px] flex items-center justify-between px-6 shrink-0 no-print">
-          <h1 className="text-lg font-semibold text-slate-800 capitalize">
+        <header className="bg-[#111625] border-b border-slate-800/80 h-[60px] flex items-center justify-between px-6 shrink-0 no-print">
+          <h1 className="text-lg font-semibold text-white capitalize">
             {pathname.split('/').pop()?.replace(/-/g, ' ') || 'Admin Dashboard'}
           </h1>
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-100">
+            <div className="flex items-center gap-2 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
               </span>
-              <span className="text-[10px] font-semibold uppercase tracking-widest text-emerald-600">Live</span>
+              <span className="text-[10px] font-semibold uppercase tracking-widest text-emerald-400">Live</span>
             </div>
             
             <div className="hidden sm:flex items-center gap-3">
-              <div className="w-px h-6 bg-slate-200"></div>
+              <div className="w-px h-6 bg-slate-800"></div>
               <div className="flex flex-col items-end">
-                <span className="text-sm font-semibold text-slate-700 leading-none">{admin.name}</span>
+                <span className="text-sm font-semibold text-slate-200 leading-none">{admin.name}</span>
               </div>
               <span className={`text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider ${
                 admin.role === 'SUPER_ADMIN' 
-                  ? 'bg-amber-100 text-amber-800 border border-amber-300 font-extrabold shadow-xs' 
+                  ? 'bg-amber-400/20 text-amber-300 border border-amber-400/30 font-extrabold shadow-xs' 
                   : admin.role === 'ADMIN' 
-                    ? 'bg-red-50 text-red-600 border border-red-100' 
-                    : 'bg-blue-50 text-blue-600 border border-blue-100'
+                    ? 'bg-red-500/20 text-red-400 border border-red-500/30' 
+                    : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
               }`}>
                 {admin.role === 'SUPER_ADMIN' ? 'SUPER ADMIN' : admin.role}
               </span>
@@ -268,7 +268,7 @@ export default function AdminLayout({
         </header>
 
         {/* Dashboard Workspace */}
-        <main className="flex-1 p-5 md:p-7 overflow-y-auto bg-[#F8FAFC]">
+        <main className="flex-1 p-5 md:p-7 overflow-y-auto bg-[#0B0F19]">
           <div className="max-w-[1600px] mx-auto w-full">
             {children}
           </div>

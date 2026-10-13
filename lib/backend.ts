@@ -3461,16 +3461,9 @@ apiRouter.get('/admin/users', authMiddleware, requireRole(['ADMIN', 'STAFF']), a
 
     const whereClause: any = {}
 
-    // Role-based visibility isolation:
-    // STAFF can ONLY see customer and B2B client accounts (never Admin or Super Admin)
-    // ADMIN can see Staff, Customers, and other Admins (never Super Admin)
-    // SUPER_ADMIN can see everyone
-    let roleCondition: any = {}
-    if (req.user?.role === 'STAFF') {
-      roleCondition = { role: 'CUSTOMER' }
-    } else if (req.user?.role === 'ADMIN') {
-      roleCondition = { role: { not: 'SUPER_ADMIN' } }
-    }
+    // Registered Users list is strictly for actual customers (Retail & B2B).
+    // Admins, Sub-Admins, and Staff are managed exclusively in Staff Management.
+    const roleCondition = { role: 'CUSTOMER' }
 
     // Filter by type: RETAIL vs B2B vs ALL
     if (typeFilter === 'RETAIL') {
@@ -4159,6 +4152,109 @@ apiRouter.post('/admin/sub-admins', authMiddleware, requireRole(['SUPER_ADMIN', 
     }
     console.error('Create sub-admin error:', error)
     return res.status(500).json({ error: error.message || 'Failed to create sub-admin' })
+  }
+})
+
+// PUT /admin/sub-admins/:id — update staff profile details (name, phone, email, password, role)
+apiRouter.put('/admin/sub-admins/:id', authMiddleware, requireRole(['SUPER_ADMIN', 'ADMIN']), async (req: Request, res: Response) => {
+  try {
+    const callerRole = req.user!.role
+    const id = req.params.id as string
+
+    const targetUser = await prisma.user.findUnique({ where: { id } })
+    if (!targetUser) return res.status(404).json({ error: 'User not found' })
+
+    // Strict guard: No one can edit a SUPER_ADMIN via this endpoint
+    if (targetUser.role === 'SUPER_ADMIN') {
+      return res.status(403).json({ error: 'Super Admin credentials cannot be modified by staff.' })
+    }
+
+    // Strict guard: Sub-admin (ADMIN) can only edit STAFF
+    if (callerRole === 'ADMIN' && targetUser.role === 'ADMIN' && targetUser.id !== req.user!.id) {
+      return res.status(403).json({ error: 'Sub-Admins can only edit Staff Dispatch Manager accounts.' })
+    }
+
+    const schema = z.object({
+      name: z.string().min(2, 'Name must be at least 2 characters').optional(),
+      phone: z.string().regex(/^\d{10}$/, 'Phone must be exactly 10 digits').optional(),
+      email: z.string().email('Invalid email').optional().or(z.literal('')),
+      password: z.string().min(6, 'Password must be at least 6 characters').optional().or(z.literal('')),
+      role: z.enum(['STAFF', 'ADMIN']).optional(),
+    })
+
+    const body = schema.parse(req.body)
+
+    // Security check: Sub-admin cannot promote anyone to ADMIN or SUPER_ADMIN
+    if (callerRole === 'ADMIN' && body.role && body.role !== 'STAFF') {
+      return res.status(403).json({ error: 'Sub-Admins cannot change role to Sub-Admin.' })
+    }
+
+    // Check duplicate phone if phone changed
+    if (body.phone && body.phone !== targetUser.phone) {
+      const existingPhone = await prisma.user.findUnique({ where: { phone: body.phone } })
+      if (existingPhone && existingPhone.id !== id) {
+        return res.status(409).json({ error: 'A staff member with this phone number already exists.' })
+      }
+    }
+
+    // Check duplicate email if email changed
+    if (body.email && body.email.trim() && body.email.trim().toLowerCase() !== targetUser.email) {
+      const existingEmail = await prisma.user.findUnique({ where: { email: body.email.trim().toLowerCase() } })
+      if (existingEmail && existingEmail.id !== id) {
+        return res.status(409).json({ error: 'A staff member with this email address already exists.' })
+      }
+    }
+
+    const updateData: any = {}
+    if (body.name) updateData.name = body.name
+    if (body.phone) updateData.phone = body.phone
+    if (body.email !== undefined) {
+      updateData.email = body.email && body.email.trim() ? body.email.trim().toLowerCase() : null
+    }
+    if (body.role && callerRole === 'SUPER_ADMIN') {
+      updateData.role = body.role
+    }
+    if (body.password && body.password.trim()) {
+      updateData.passwordHash = await bcrypt.hash(body.password, 10)
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id },
+      data: updateData,
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        email: true,
+        role: true,
+        permissions: true,
+        isActive: true,
+      }
+    })
+
+    // Log security audit event
+    await prisma.adminAuditLog.create({
+      data: {
+        adminId: req.user!.id,
+        adminName: req.user!.name,
+        adminRole: req.user!.role,
+        action: 'UPDATE_STAFF',
+        targetId: targetUser.id,
+        targetName: updatedUser.name,
+        details: `Updated details for ${updatedUser.name} (${updatedUser.role}, +91 ${updatedUser.phone})`,
+      }
+    })
+
+    return res.json({
+      message: `Staff member "${updatedUser.name}" updated successfully.`,
+      user: updatedUser
+    })
+  } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: getZodErrorMessage(error) })
+    }
+    console.error('Update sub-admin error:', error)
+    return res.status(500).json({ error: error.message || 'Failed to update staff member' })
   }
 })
 

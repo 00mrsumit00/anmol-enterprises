@@ -6,6 +6,7 @@ import {
   Shield, 
   UserPlus, 
   Trash2, 
+  Edit3,
   Check, 
   X, 
   ClipboardList, 
@@ -33,7 +34,7 @@ interface StaffMember {
   updatedAt: string
 }
 
-// 4 core business modules (Driver List removed completely)
+// 4 core business modules
 const AVAILABLE_PERMISSIONS = [
   { id: 'orders', label: 'Orders Dispatch', icon: ClipboardList, desc: 'Manage orders, accept & dispatch' },
   { id: 'users', label: 'Registered Users', icon: Users, desc: 'View B2B & retail clients, credit limits' },
@@ -45,7 +46,7 @@ export default function SubAdminsPage() {
   const { showToast } = useToast()
   const queryClient = useQueryClient()
 
-  // Modal State
+  // Create Modal State
   const [showAddModal, setShowAddModal] = useState(false)
   const [newName, setNewName] = useState('')
   const [newPhone, setNewPhone] = useState('')
@@ -54,11 +55,19 @@ export default function SubAdminsPage() {
   const [newRole, setNewRole] = useState<'STAFF' | 'ADMIN'>('STAFF')
   const [newPermissions, setNewPermissions] = useState<string[]>(['orders', 'inventory'])
 
+  // Edit Modal State
+  const [editingMember, setEditingMember] = useState<StaffMember | null>(null)
+  const [editName, setEditName] = useState('')
+  const [editPhone, setEditPhone] = useState('')
+  const [editEmail, setEditEmail] = useState('')
+  const [editPassword, setEditPassword] = useState('')
+  const [editRole, setEditRole] = useState<'STAFF' | 'ADMIN'>('STAFF')
+
   // Local permissions editing state per user (userId -> string[])
   const [userPermsDraft, setUserPermsDraft] = useState<Record<string, string[]>>({})
   const [savingUserId, setSavingUserId] = useState<string | null>(null)
 
-  // Fetch current logged in admin to distinguish SUPER_ADMIN vs ADMIN
+  // Fetch current logged in admin
   const { data: meData } = useQuery({
     queryKey: ['auth-me'],
     queryFn: async () => {
@@ -103,7 +112,6 @@ export default function SubAdminsPage() {
       showToast(resData.message || 'Permissions updated successfully', 'success')
       queryClient.invalidateQueries({ queryKey: ['sub-admins'] })
       queryClient.invalidateQueries({ queryKey: ['audit-logs'] })
-      // Clear draft for this user so it syncs with remote
       setUserPermsDraft((prev) => {
         const copy = { ...prev }
         delete copy[vars.userId]
@@ -193,6 +201,31 @@ export default function SubAdminsPage() {
     },
   })
 
+  // 6. Mutation: Edit Sub-Admin / Staff Details
+  const editSubAdminMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      const res = await fetch(`/api/admin/sub-admins/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}))
+        throw new Error(errData.error || 'Failed to update account')
+      }
+      return res.json()
+    },
+    onSuccess: (resData) => {
+      showToast(resData.message || 'Staff member updated successfully!', 'success')
+      setEditingMember(null)
+      queryClient.invalidateQueries({ queryKey: ['sub-admins'] })
+      queryClient.invalidateQueries({ queryKey: ['audit-logs'] })
+    },
+    onError: (err: any) => {
+      showToast(err.message || 'Failed to update account', 'error')
+    },
+  })
+
   // Helper to toggle permission in draft state
   const handleTogglePerm = (userId: string, currentRemotePerms: string[], permId: string) => {
     const activePerms = userPermsDraft[userId] ?? currentRemotePerms
@@ -219,7 +252,6 @@ export default function SubAdminsPage() {
     if (!/^\d{10}$/.test(newPhone.trim())) return showToast('Phone must be 10 digits', 'error')
     if (newPassword.length < 6) return showToast('Password must be at least 6 characters', 'error')
     
-    // Sub-Admin can only create STAFF
     const roleToAssign = isSuperAdmin ? newRole : 'STAFF'
 
     createSubAdminMutation.mutate({
@@ -232,10 +264,39 @@ export default function SubAdminsPage() {
     })
   }
 
+  // Open Edit Modal with member details
+  const handleOpenEdit = (member: StaffMember) => {
+    setEditingMember(member)
+    setEditName(member.name)
+    setEditPhone(member.phone)
+    setEditEmail(member.email || '')
+    setEditPassword('')
+    setEditRole(member.role)
+  }
+
+  const handleEditSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingMember) return
+    if (!editName.trim()) return showToast('Please enter full name', 'error')
+    if (!/^\d{10}$/.test(editPhone.trim())) return showToast('Phone must be 10 digits', 'error')
+    if (editPassword && editPassword.length < 6) return showToast('Password must be at least 6 characters', 'error')
+
+    editSubAdminMutation.mutate({
+      id: editingMember.id,
+      data: {
+        name: editName.trim(),
+        phone: editPhone.trim(),
+        email: editEmail.trim() || undefined,
+        password: editPassword.trim() || undefined,
+        role: isSuperAdmin ? editRole : undefined,
+      }
+    })
+  }
+
   const staffMembers = data?.staffMembers || []
 
   return (
-    <div className="min-h-[85vh] -m-5 md:-m-7 p-6 md:p-8 bg-[#0B0F19] text-white">
+    <div className="min-h-[85vh] p-2 md:p-4 bg-[#0B0F19] text-white">
       {/* Header Bar */}
       <div className="max-w-7xl mx-auto flex flex-col items-center text-center gap-3 mb-10">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-semibold uppercase tracking-wider">
@@ -284,7 +345,7 @@ export default function SubAdminsPage() {
             </p>
             <button
               onClick={() => setShowAddModal(true)}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-sm transition-all"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-sm transition-all cursor-pointer"
             >
               <UserPlus className="w-4 h-4" />
               <span>Add Staff</span>
@@ -298,7 +359,7 @@ export default function SubAdminsPage() {
                 JSON.stringify([...userPermsDraft[member.id]].sort()) !== JSON.stringify([...member.permissions].sort())
               const isSaving = savingUserId === member.id
 
-              // Security rule: Sub-Admins cannot delete or disable other Sub-Admins
+              // Security rule: Sub-Admins cannot delete or modify other Sub-Admins
               const canModifyThisUser = isSuperAdmin || member.role === 'STAFF'
 
               return (
@@ -343,20 +404,32 @@ export default function SubAdminsPage() {
                         </div>
                       </div>
 
-                      {/* Right: Trash / Delete Action */}
+                      {/* Right: Actions (Edit & Delete side-by-side) */}
                       {canModifyThisUser ? (
-                        <button
-                          onClick={() => {
-                            if (confirm(`Are you sure you want to delete account "${member.name}"? This action cannot be undone.`)) {
-                              deleteSubAdminMutation.mutate(member.id)
-                            }
-                          }}
-                          disabled={deleteSubAdminMutation.isPending}
-                          className="text-slate-500 hover:text-rose-400 p-2 rounded-lg hover:bg-rose-500/10 transition-colors cursor-pointer"
-                          title="Delete Account"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        <div className="flex items-center gap-1">
+                          {/* ✏️ EDIT BUTTON BESIDE DELETE BUTTON */}
+                          <button
+                            onClick={() => handleOpenEdit(member)}
+                            className="text-slate-400 hover:text-amber-400 p-2 rounded-lg hover:bg-amber-500/10 transition-colors cursor-pointer"
+                            title="Edit Staff Member"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+
+                          {/* 🗑️ DELETE BUTTON */}
+                          <button
+                            onClick={() => {
+                              if (confirm(`Are you sure you want to delete account "${member.name}"? This action cannot be undone.`)) {
+                                deleteSubAdminMutation.mutate(member.id)
+                              }
+                            }}
+                            disabled={deleteSubAdminMutation.isPending}
+                            className="text-slate-400 hover:text-rose-400 p-2 rounded-lg hover:bg-rose-500/10 transition-colors cursor-pointer"
+                            title="Delete Account"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       ) : (
                         <span className="text-[10px] text-slate-600 bg-slate-900 px-2 py-1 rounded border border-slate-800">
                           Protected
@@ -476,7 +549,164 @@ export default function SubAdminsPage() {
         )}
       </div>
 
-      {/* Add New Staff / Sub-Admin Modal */}
+      {/* ✏️ Edit Staff Member Modal */}
+      {editingMember && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#111625] border border-slate-800 rounded-3xl w-full max-w-lg p-6 md:p-8 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
+            {/* Close Button */}
+            <button
+              onClick={() => setEditingMember(null)}
+              className="absolute top-5 right-5 text-slate-400 hover:text-white p-2 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Header */}
+            <div className="mb-6">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[11px] font-semibold uppercase tracking-wider mb-2">
+                <Edit3 className="w-3 h-3" />
+                <span>Update Credentials</span>
+              </div>
+              <h2 className="text-xl font-bold text-white">Edit Staff Member</h2>
+              <p className="text-xs text-slate-400 mt-1">
+                Update account details, phone number, email, or reset their login password.
+              </p>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleEditSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                  Full Name *
+                </label>
+                <div className="relative">
+                  <UserCheck className="w-4 h-4 absolute left-3.5 top-3 text-slate-500" />
+                  <input
+                    type="text"
+                    required
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    placeholder="Full name"
+                    className="w-full bg-[#0B0F19] border border-slate-800 rounded-xl pl-10 pr-3.5 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                    Phone (10 Digits) *
+                  </label>
+                  <div className="relative">
+                    <Phone className="w-4 h-4 absolute left-3.5 top-3 text-slate-500" />
+                    <input
+                      type="tel"
+                      required
+                      maxLength={10}
+                      value={editPhone}
+                      onChange={(e) => setEditPhone(e.target.value.replace(/\D/g, ''))}
+                      placeholder="9876543210"
+                      className="w-full bg-[#0B0F19] border border-slate-800 rounded-xl pl-10 pr-3.5 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-amber-500 font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                    New Password
+                  </label>
+                  <div className="relative">
+                    <Lock className="w-4 h-4 absolute left-3.5 top-3 text-slate-500" />
+                    <input
+                      type="password"
+                      minLength={6}
+                      value={editPassword}
+                      onChange={(e) => setEditPassword(e.target.value)}
+                      placeholder="Leave blank to keep current"
+                      className="w-full bg-[#0B0F19] border border-slate-800 rounded-xl pl-10 pr-3.5 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-amber-500 text-xs"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                  Email Address
+                </label>
+                <div className="relative">
+                  <Mail className="w-4 h-4 absolute left-3.5 top-3 text-slate-500" />
+                  <input
+                    type="email"
+                    value={editEmail}
+                    onChange={(e) => setEditEmail(e.target.value)}
+                    placeholder="staff@anmolenterprises.com"
+                    className="w-full bg-[#0B0F19] border border-slate-800 rounded-xl pl-10 pr-3.5 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+              </div>
+
+              {isSuperAdmin && (
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                    Role Classification
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setEditRole('STAFF')}
+                      className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                        editRole === 'STAFF'
+                          ? 'bg-blue-500/20 border-blue-500 text-blue-300'
+                          : 'bg-[#0B0F19] border-slate-800 text-slate-500 hover:text-white'
+                      }`}
+                    >
+                      Staff Dispatch Manager
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditRole('ADMIN')}
+                      className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                        editRole === 'ADMIN'
+                          ? 'bg-amber-500/20 border-amber-500 text-amber-300'
+                          : 'bg-[#0B0F19] border-slate-800 text-slate-500 hover:text-white'
+                      }`}
+                    >
+                      Sub-Admin
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Submit Buttons */}
+              <div className="pt-4 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setEditingMember(null)}
+                  className="px-4 py-2.5 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 text-xs font-bold transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={editSubAdminMutation.isPending}
+                  className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs uppercase tracking-wider shadow-lg shadow-amber-500/20 active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
+                >
+                  {editSubAdminMutation.isPending ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                      <span>Saving...</span>
+                    </>
+                  ) : (
+                    <span>Save Changes</span>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add New Staff Modal */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-[#111625] border border-slate-800 rounded-3xl w-full max-w-lg p-6 md:p-8 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">

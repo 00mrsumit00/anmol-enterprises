@@ -303,34 +303,34 @@ export default function AdminOrdersPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6 font-sans">
+    <div className="flex flex-col gap-6 font-sans text-white">
       
       {/* 1. Header with Title, Date, and Export Button */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Orders dispatch</h1>
-            <span className="text-xs font-semibold text-slate-400 bg-slate-100 px-3 py-1 rounded-full">
+            <h1 className="text-2xl font-bold text-white tracking-tight">Orders dispatch</h1>
+            <span className="text-xs font-semibold text-slate-400 bg-[#111625] border border-slate-800 px-3 py-1 rounded-full">
               {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}
             </span>
           </div>
-          <p className="text-sm text-slate-500 mt-1">Real-time express dispatch management and cold-chain order logistics.</p>
+          <p className="text-sm text-slate-400 mt-1">Real-time express dispatch management and cold-chain order logistics.</p>
         </div>
 
         <div className="flex items-center gap-2.5">
           <button
             onClick={() => refetch()}
             disabled={isFetching}
-            className="p-2.5 bg-white border border-slate-200/80 rounded-xl hover:bg-slate-50 text-slate-600 transition-colors shadow-2xs"
+            className="p-2.5 bg-[#111625] border border-slate-800 rounded-xl hover:bg-slate-800/80 text-slate-300 transition-colors shadow-xl"
             title="Refresh Orders"
           >
-            <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin text-amber-500' : ''}`} />
+            <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin text-amber-400' : ''}`} />
           </button>
 
           {/* 📥 Top Bar Export Button */}
           <button
             onClick={exportToCSV}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-black text-white rounded-xl text-xs font-bold shadow-sm transition-all active:scale-95"
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 rounded-xl text-xs font-bold shadow-lg shadow-amber-500/20 transition-all active:scale-95"
             title="Export to Excel / CSV"
           >
             <Download className="w-4 h-4" />
@@ -342,19 +342,19 @@ export default function AdminOrdersPage() {
       {/* 2. Operational KPI Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
         {/* Total orders */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs flex flex-col justify-between">
+        <div className="bg-[#111625] p-4 rounded-2xl border border-slate-800/80 shadow-xl flex flex-col justify-between">
           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total orders</span>
           <div className="mt-2">
-            <span className="text-2xl font-black text-slate-900 leading-none">{totalTodayCount}</span>
+            <span className="text-2xl font-black text-white leading-none">{totalTodayCount}</span>
             <span className="text-[11px] text-slate-500 font-medium block mt-1">today</span>
           </div>
         </div>
 
         {/* Needs action */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs flex flex-col justify-between">
+        <div className="bg-[#111625] p-4 rounded-2xl border border-slate-800/80 shadow-xl flex flex-col justify-between">
           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Needs action</span>
           <div className="mt-2">
-            <span className={`text-2xl font-black leading-none ${needsActionCount > 0 ? 'text-amber-600' : 'text-slate-900'}`}>
+            <span className={`text-2xl font-black leading-none ${needsActionCount > 0 ? 'text-amber-400' : 'text-white'}`}>
               {needsActionCount}
             </span>
             <span className="text-[11px] text-slate-500 font-medium block mt-1">before dispatch</span>
@@ -362,10 +362,10 @@ export default function AdminOrdersPage() {
         </div>
 
         {/* Unassigned */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs flex flex-col justify-between">
+        <div className="bg-[#111625] p-4 rounded-2xl border border-slate-800/80 shadow-xl flex flex-col justify-between">
           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Unassigned</span>
           <div className="mt-2">
-            <span className={`text-2xl font-black leading-none ${unassignedCount > 0 ? 'text-rose-600' : 'text-slate-900'}`}>
+            <span className={`text-2xl font-black leading-none ${unassignedCount > 0 ? 'text-rose-400' : 'text-white'}`}>
               {unassignedCount}
             </span>
             <span className="text-[11px] text-slate-500 font-medium block mt-1">assign a driver</span>
@@ -373,51 +373,51 @@ export default function AdminOrdersPage() {
         </div>
 
         {/* Out for delivery */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs flex flex-col justify-between">
+        <div className="bg-[#111625] p-4 rounded-2xl border border-slate-800/80 shadow-xl flex flex-col justify-between">
           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Out for delivery</span>
           <div className="mt-2">
-            <span className="text-2xl font-black text-orange-600 leading-none">{outForDeliveryCount}</span>
+            <span className="text-2xl font-black text-orange-400 leading-none">{outForDeliveryCount}</span>
             <span className="text-[11px] text-slate-500 font-medium block mt-1">on the road</span>
           </div>
         </div>
 
         {/* Delivered */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs flex flex-col justify-between">
+        <div className="bg-[#111625] p-4 rounded-2xl border border-slate-800/80 shadow-xl flex flex-col justify-between">
           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Delivered</span>
           <div className="mt-2">
-            <span className="text-2xl font-black text-emerald-700 leading-none">{deliveredCount}</span>
-            <span className="text-[11px] text-emerald-600 font-semibold block mt-1">₹{deliveredEarned} earned</span>
+            <span className="text-2xl font-black text-emerald-400 leading-none">{deliveredCount}</span>
+            <span className="text-[11px] text-emerald-400 font-semibold block mt-1">₹{deliveredEarned} earned</span>
           </div>
         </div>
 
         {/* 💵 COD to collect */}
-        <div className="bg-white p-4 rounded-2xl border border-amber-200/80 shadow-2xs bg-gradient-to-br from-white to-amber-50/40 flex flex-col justify-between">
+        <div className="bg-[#111625] p-4 rounded-2xl border border-amber-500/30 shadow-xl bg-gradient-to-br from-[#111625] to-amber-950/20 flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black uppercase tracking-wider text-amber-700">COD to collect</span>
-            <DollarSign className="w-3.5 h-3.5 text-amber-600" />
+            <span className="text-[10px] font-black uppercase tracking-wider text-amber-400">COD to collect</span>
+            <DollarSign className="w-3.5 h-3.5 text-amber-400" />
           </div>
           <div className="mt-2">
-            <span className="text-2xl font-black text-slate-900 leading-none">₹{codAmount.toLocaleString('en-IN')}</span>
-            <span className="text-[11px] text-amber-800 font-medium block mt-1">across {codOrdersCount} orders</span>
+            <span className="text-2xl font-black text-white leading-none">₹{codAmount.toLocaleString('en-IN')}</span>
+            <span className="text-[11px] text-amber-300 font-medium block mt-1">across {codOrdersCount} orders</span>
           </div>
         </div>
       </div>
 
       {/* 3. Search Bar & Date Range Controls */}
-      <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 flex flex-col gap-3">
+      <div className="bg-[#111625] p-4 rounded-2xl shadow-xl border border-slate-800/80 flex flex-col gap-3">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
           {/* Search input */}
           <div className="relative flex-1">
-            <Search className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
+            <Search className="absolute left-3.5 top-3 w-4 h-4 text-slate-500" />
             <input
               type="text"
               placeholder="Search order number, customer, phone or area..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 font-medium"
+              className="w-full pl-10 pr-10 py-2.5 bg-[#0B0F19] border border-slate-800 text-white placeholder-slate-500 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 font-medium"
             />
             {searchQuery && (
-              <button onClick={() => setSearchQuery('')} className="absolute right-3.5 top-3 text-slate-400 hover:text-slate-600">
+              <button onClick={() => setSearchQuery('')} className="absolute right-3.5 top-3 text-slate-500 hover:text-slate-300">
                 <X className="w-4 h-4" />
               </button>
             )}
@@ -430,19 +430,19 @@ export default function AdminOrdersPage() {
               type="date"
               value={fromDate}
               onChange={(e) => setFromDate(e.target.value)}
-              className="bg-slate-50 border border-slate-200 text-slate-700 rounded-xl px-2.5 py-2 font-medium focus:outline-none"
+              className="bg-[#0B0F19] border border-slate-800 text-slate-300 rounded-xl px-2.5 py-2 font-medium focus:outline-none focus:border-amber-500"
             />
-            <span className="text-slate-400 font-bold">to</span>
+            <span className="text-slate-500 font-bold">to</span>
             <input
               type="date"
               value={toDate}
               onChange={(e) => setToDate(e.target.value)}
-              className="bg-slate-50 border border-slate-200 text-slate-700 rounded-xl px-2.5 py-2 font-medium focus:outline-none"
+              className="bg-[#0B0F19] border border-slate-800 text-slate-300 rounded-xl px-2.5 py-2 font-medium focus:outline-none focus:border-amber-500"
             />
             {(fromDate || toDate) && (
               <button
                 onClick={() => { setFromDate(''); setToDate('') }}
-                className="px-2.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-xl text-[11px]"
+                className="px-2.5 py-2 bg-slate-800 hover:bg-slate-750 text-slate-300 font-bold rounded-xl text-[11px] transition-colors"
                 title="Clear date filter"
               >
                 Clear
@@ -471,13 +471,13 @@ export default function AdminOrdersPage() {
                 onClick={() => setStatusFilter(pill.id)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
                   active 
-                    ? 'bg-slate-900 text-white shadow-xs' 
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200/80'
+                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-xs' 
+                    : 'bg-[#0B0F19] text-slate-400 hover:text-white border border-slate-800 hover:border-slate-700'
                 }`}
               >
                 <span>{pill.label}</span>
                 <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
-                  active ? 'bg-amber-400 text-slate-900' : 'bg-slate-200 text-slate-600'
+                  active ? 'bg-amber-400 text-slate-950' : 'bg-slate-800 text-slate-400'
                 }`}>
                   {pill.count}
                 </span>
@@ -488,24 +488,24 @@ export default function AdminOrdersPage() {
       </div>
 
       {/* 4. Orders Data Table with Vertical Scrolling & Sticky Header */}
-      <div className="bg-white border border-slate-200/80 shadow-sm rounded-2xl overflow-hidden">
+      <div className="bg-[#111625] border border-slate-800/80 shadow-xl rounded-2xl overflow-hidden">
         <div className="overflow-x-auto max-h-[calc(100vh-340px)] min-h-[380px] overflow-y-auto">
           <table className="w-full text-left border-collapse">
-            <thead className="sticky top-0 bg-slate-50 border-b border-slate-200 z-10 shadow-xs">
-              <tr className="bg-slate-50">
-                <th className="px-5 py-3.5 text-xs font-bold text-slate-500 uppercase tracking-wider">Order</th>
-                <th className="px-5 py-3.5 text-xs font-bold text-slate-500 uppercase tracking-wider">Customer</th>
-                <th className="px-5 py-3.5 text-xs font-bold text-slate-500 uppercase tracking-wider">Items Summary</th>
-                <th className="px-5 py-3.5 text-xs font-bold text-slate-500 uppercase tracking-wider">Amount</th>
-                <th className="px-5 py-3.5 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
-                <th className="px-5 py-3.5 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Actions</th>
+            <thead className="sticky top-0 bg-[#0E1320] border-b border-slate-800 z-10">
+              <tr>
+                <th className="px-5 py-3.5 text-xs font-bold text-slate-400 uppercase tracking-wider">Order</th>
+                <th className="px-5 py-3.5 text-xs font-bold text-slate-400 uppercase tracking-wider">Customer</th>
+                <th className="px-5 py-3.5 text-xs font-bold text-slate-400 uppercase tracking-wider">Items Summary</th>
+                <th className="px-5 py-3.5 text-xs font-bold text-slate-400 uppercase tracking-wider">Amount</th>
+                <th className="px-5 py-3.5 text-xs font-bold text-slate-400 uppercase tracking-wider">Status</th>
+                <th className="px-5 py-3.5 text-xs font-bold text-slate-400 uppercase tracking-wider text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-800/60">
               {ordersLoading ? (
                 <tr>
                   <td colSpan={6} className="px-5 py-16 text-center">
-                    <div className="flex flex-col items-center justify-center gap-3 text-slate-400">
+                    <div className="flex flex-col items-center justify-center gap-3 text-slate-500">
                       <div className="w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
                       <span className="text-xs font-medium">Loading orders dispatch list...</span>
                     </div>
@@ -513,9 +513,9 @@ export default function AdminOrdersPage() {
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-5 py-16 text-center text-slate-400">
-                    <Package className="w-8 h-8 mx-auto mb-2 opacity-40" />
-                    <p className="text-sm font-medium">No orders found matching your search or filters.</p>
+                  <td colSpan={6} className="px-5 py-16 text-center text-slate-500">
+                    <Package className="w-8 h-8 mx-auto mb-2 opacity-40 text-slate-400" />
+                    <p className="text-sm font-medium text-slate-400">No orders found matching your search or filters.</p>
                   </td>
                 </tr>
               ) : (
@@ -532,15 +532,15 @@ export default function AdminOrdersPage() {
                   return (
                     <tr 
                       key={order.id}
-                      className={`hover:bg-slate-50/70 transition-all ${
-                        isHighlighted ? 'bg-amber-50/60 border-l-4 border-l-amber-500' : ''
+                      className={`hover:bg-slate-800/40 transition-all ${
+                        isHighlighted ? 'bg-amber-500/10 border-l-4 border-l-amber-500' : ''
                       }`}
                     >
                       {/* Order info + Time in Stage */}
                       <td className="px-5 py-4">
                         <div className="flex flex-col">
-                          <span className="font-extrabold text-sm text-slate-900 font-mono">#{order.orderNumber}</span>
-                          <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full w-fit mt-1 border border-amber-200/60">
+                          <span className="font-extrabold text-sm text-white font-mono">#{order.orderNumber}</span>
+                          <span className="text-[10px] font-bold text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded-full w-fit mt-1 border border-amber-500/30">
                             {getTimeInStage(order.updatedAt || order.createdAt)}
                           </span>
                         </div>
@@ -549,12 +549,12 @@ export default function AdminOrdersPage() {
                       {/* Customer info + Locality Area */}
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-xs shrink-0">
+                          <div className="w-9 h-9 rounded-full bg-slate-800 border border-slate-700 text-slate-300 flex items-center justify-center font-bold text-xs shrink-0">
                             {initials}
                           </div>
                           <div>
-                            <span className="font-bold text-sm text-slate-900 leading-none block">{customerName}</span>
-                            <span className="text-[11px] text-slate-500 font-medium block mt-1 truncate max-w-[180px]">
+                            <span className="font-bold text-sm text-white leading-none block">{customerName}</span>
+                            <span className="text-[11px] text-slate-400 font-medium block mt-1 truncate max-w-[180px]">
                               {order.deliveryCity || 'Latur'} {customerPhone ? `· +91 ${customerPhone}` : ''}
                             </span>
                           </div>
@@ -566,7 +566,7 @@ export default function AdminOrdersPage() {
                         <div className="flex flex-col gap-1.5 items-start">
                           <button
                             onClick={() => setSelectedSummaryOrder(order)}
-                            className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-50 hover:bg-amber-50 text-slate-800 hover:text-amber-900 border border-slate-200/80 hover:border-amber-300 rounded-xl text-xs font-bold transition-all shadow-2xs group cursor-pointer text-left"
+                            className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#0B0F19] hover:bg-amber-500/10 text-slate-300 hover:text-amber-300 border border-slate-800 hover:border-amber-500/40 rounded-xl text-xs font-bold transition-all shadow-2xs group cursor-pointer text-left"
                             title="Click to view full Order Summary with product photos and prices"
                           >
                             {/* Product photo avatar bubbles stack */}
@@ -578,28 +578,28 @@ export default function AdminOrdersPage() {
                                     key={idx}
                                     src={photo}
                                     alt=""
-                                    className="w-5 h-5 rounded-full object-cover border-2 border-white shadow-2xs bg-white"
+                                    className="w-5 h-5 rounded-full object-cover border-2 border-[#111625] shadow-2xs bg-white"
                                     onError={(e: any) => { e.target.src = '/images/products/french-fries.jpg' }}
                                   />
                                 )
                               })}
                             </div>
                             <span>{order.items?.length || 0} {order.items?.length === 1 ? 'item' : 'items'}</span>
-                            <span className="text-[10px] text-amber-600 font-extrabold uppercase tracking-wide group-hover:underline flex items-center gap-0.5">
+                            <span className="text-[10px] text-amber-400 font-extrabold uppercase tracking-wide group-hover:underline flex items-center gap-0.5">
                               Summary <ChevronRight className="w-3 h-3 transition-transform group-hover:translate-x-0.5" />
                             </span>
                           </button>
 
                           {/* Quick first item preview line */}
                           {order.items?.[0] && (
-                            <span className="text-[11px] text-slate-500 truncate max-w-[190px] font-medium">
+                            <span className="text-[11px] text-slate-400 truncate max-w-[190px] font-medium">
                               {order.items[0].quantity}× {order.items[0].productName}
                               {order.items.length > 1 ? ` +${order.items.length - 1} more` : ''}
                             </span>
                           )}
 
-                          <span className="inline-flex items-center gap-1 text-[9px] font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-full border border-sky-200/60">
-                            <Snowflake className="w-3 h-3 text-sky-500" /> Keep frozen
+                          <span className="inline-flex items-center gap-1 text-[9px] font-bold text-sky-300 bg-sky-500/10 px-2 py-0.5 rounded-full border border-sky-500/30">
+                            <Snowflake className="w-3 h-3 text-sky-400" /> Keep frozen
                           </span>
                         </div>
                       </td>
@@ -607,9 +607,9 @@ export default function AdminOrdersPage() {
                       {/* Amount + COD vs Paid Online */}
                       <td className="px-5 py-4">
                         <div className="flex flex-col">
-                          <span className="font-black text-sm text-slate-900">₹{order.totalAmount}</span>
+                          <span className="font-black text-sm text-white">₹{order.totalAmount}</span>
                           <span className={`text-[10px] font-bold mt-0.5 ${
-                            isCOD ? 'text-amber-700' : 'text-emerald-700'
+                            isCOD ? 'text-amber-400' : 'text-emerald-400'
                           }`}>
                             {isCOD ? 'Collect cash' : 'Paid online'}
                           </span>
@@ -619,13 +619,13 @@ export default function AdminOrdersPage() {
                       {/* Status */}
                       <td className="px-5 py-4">
                         <span className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider ${
-                          order.status === 'CONFIRMED' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
-                          order.status === 'PACKING' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
-                          order.status === 'PACKED' ? 'bg-purple-50 text-purple-700 border border-purple-200' :
-                          order.status === 'ASSIGNED' ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' :
-                          order.status === 'OUT_FOR_DELIVERY' ? 'bg-orange-100 text-orange-800 border border-orange-200 animate-pulse' :
-                          order.status === 'DELIVERED' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
-                          'bg-slate-100 text-slate-600'
+                          order.status === 'CONFIRMED' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/30' :
+                          order.status === 'PACKING' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30' :
+                          order.status === 'PACKED' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/30' :
+                          order.status === 'ASSIGNED' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30' :
+                          order.status === 'OUT_FOR_DELIVERY' ? 'bg-orange-500/20 text-orange-300 border border-orange-500/40 animate-pulse' :
+                          order.status === 'DELIVERED' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' :
+                          'bg-slate-800 text-slate-300 border border-slate-700'
                         }`}>
                           {order.status}
                         </span>
@@ -640,7 +640,7 @@ export default function AdminOrdersPage() {
                             href={`/admin/orders/${order.id}/invoice`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="p-2 bg-slate-100 hover:bg-amber-50 text-slate-500 hover:text-amber-700 rounded-xl transition-all shadow-2xs"
+                            className="p-2 bg-[#0B0F19] hover:bg-amber-500/10 text-slate-400 hover:text-amber-300 border border-slate-800 rounded-xl transition-all shadow-2xs"
                             title="Print Invoice Bill"
                           >
                             <Printer className="w-4 h-4" />
@@ -650,10 +650,10 @@ export default function AdminOrdersPage() {
                           {cleanPhone && (
                             <button
                               onClick={() => handleOpenWhatsApp(order)}
-                              className="p-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-200 rounded-xl transition-all shadow-2xs active:scale-95 flex items-center justify-center cursor-pointer"
+                              className="p-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-xl transition-all shadow-2xs active:scale-95 flex items-center justify-center cursor-pointer"
                               title={`Chat on WhatsApp with templates (+91 ${cleanPhone})`}
                             >
-                              <MessageCircle className="w-4 h-4 fill-emerald-600/20" />
+                              <MessageCircle className="w-4 h-4 fill-emerald-400/20" />
                             </button>
                           )}
 
@@ -661,7 +661,7 @@ export default function AdminOrdersPage() {
                           {cleanPhone && (
                             <a
                               href={`tel:+91${cleanPhone}`}
-                              className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition-all shadow-2xs"
+                              className="p-2 bg-[#0B0F19] hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800 rounded-xl transition-all shadow-2xs"
                               title={`Call Customer +91 ${cleanPhone}`}
                             >
                               <Phone className="w-4 h-4" />
@@ -672,7 +672,7 @@ export default function AdminOrdersPage() {
                           {order.status === 'PENDING' && (
                             <button
                               onClick={() => updateStatus(order.id, 'CONFIRMED')}
-                              className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs shadow-xs transition-all active:scale-95"
+                              className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xs shadow-xs transition-all active:scale-95"
                             >
                               Approve
                             </button>
@@ -681,7 +681,7 @@ export default function AdminOrdersPage() {
                           {order.status === 'CONFIRMED' && (
                             <button
                               onClick={() => updateStatus(order.id, 'PACKING')}
-                              className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white font-extrabold rounded-xl text-xs shadow-xs transition-all active:scale-95"
+                              className="px-3.5 py-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-extrabold rounded-xl text-xs shadow-xs transition-all active:scale-95"
                             >
                               Start packing
                             </button>
@@ -690,7 +690,7 @@ export default function AdminOrdersPage() {
                           {order.status === 'PACKING' && (
                             <button
                               onClick={() => updateStatus(order.id, 'PACKED')}
-                              className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white font-extrabold rounded-xl text-xs shadow-xs transition-all active:scale-95"
+                              className="px-3.5 py-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-extrabold rounded-xl text-xs shadow-xs transition-all active:scale-95"
                             >
                               Mark packed
                             </button>
@@ -699,7 +699,7 @@ export default function AdminOrdersPage() {
                           {(order.status === 'PACKED' || order.status === 'ASSIGNED') && (
                             <button
                               onClick={() => updateStatus(order.id, 'OUT_FOR_DELIVERY')}
-                              className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white font-extrabold rounded-xl text-xs shadow-xs transition-all active:scale-95"
+                              className="px-3.5 py-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-extrabold rounded-xl text-xs shadow-xs transition-all active:scale-95"
                             >
                               Dispatch
                             </button>
@@ -709,7 +709,7 @@ export default function AdminOrdersPage() {
                             <div className="flex items-center gap-1.5">
                               <button
                                 onClick={() => updateStatus(order.id, 'DELIVERED')}
-                                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl text-xs shadow-xs transition-all active:scale-95 flex items-center gap-1"
+                                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold rounded-xl text-xs shadow-xs transition-all active:scale-95 flex items-center gap-1"
                               >
                                 <Check className="w-3.5 h-3.5" />
                                 <span>Delivered</span>
@@ -721,7 +721,7 @@ export default function AdminOrdersPage() {
                                     updateStatus(order.id, 'RETURNED', reason)
                                   }
                                 }}
-                                className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold rounded-xl text-xs transition-all active:scale-95"
+                                className="px-2.5 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 font-bold rounded-xl text-xs transition-all active:scale-95"
                                 title="Mark unsuccessful delivery & restock cold items"
                               >
                                 Return
@@ -731,7 +731,7 @@ export default function AdminOrdersPage() {
 
                           {order.status === 'DELIVERED' && (
                             <div className="flex items-center gap-1.5">
-                              <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-xl text-xs font-bold border border-emerald-200/60">
+                              <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-500/10 text-emerald-400 rounded-xl text-xs font-bold border border-emerald-500/30">
                                 <Check className="w-3.5 h-3.5" /> Delivered
                               </span>
                               <button
@@ -741,7 +741,7 @@ export default function AdminOrdersPage() {
                                     updateStatus(order.id, 'RETURNED', reason)
                                   }
                                 }}
-                                className="px-2 py-1 text-[11px] text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
+                                className="px-2 py-1 text-[11px] text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-all"
                                 title="Customer returned after delivery"
                               >
                                 Return
@@ -750,7 +750,7 @@ export default function AdminOrdersPage() {
                           )}
 
                           {order.status === 'RETURNED' && (
-                            <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-rose-50 text-rose-700 rounded-xl text-xs font-bold border border-rose-200/60">
+                            <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-rose-500/10 text-rose-400 rounded-xl text-xs font-bold border border-rose-500/30">
                               <XCircle className="w-3.5 h-3.5" /> Returned to Cold Room
                             </span>
                           )}
@@ -768,32 +768,32 @@ export default function AdminOrdersPage() {
 
       {/* 5. RICH ORDER SUMMARY MODAL (Product Photos, Prices, Cold Specs & Print Bill) */}
       {selectedSummaryOrder && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
-          <div className="bg-white rounded-3xl max-w-3xl w-full p-6 shadow-2xl flex flex-col gap-5 max-h-[90vh] overflow-hidden border border-slate-200">
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
+          <div className="bg-[#111625] rounded-3xl max-w-3xl w-full p-6 shadow-2xl flex flex-col gap-5 max-h-[90vh] overflow-hidden border border-slate-800">
             
             {/* Modal Top Header */}
-            <div className="flex items-start justify-between pb-3.5 border-b border-slate-100">
+            <div className="flex items-start justify-between pb-3.5 border-b border-slate-800">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center font-black text-lg shadow-sm">
+                <div className="w-12 h-12 rounded-2xl bg-amber-500 text-slate-950 flex items-center justify-center font-black text-lg shadow-sm">
                   📦
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="font-extrabold text-lg text-slate-900">
+                    <h3 className="font-extrabold text-lg text-white">
                       Order #{selectedSummaryOrder.orderNumber}
                     </h3>
                     <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
-                      selectedSummaryOrder.status === 'CONFIRMED' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
-                      selectedSummaryOrder.status === 'PACKING' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
-                      selectedSummaryOrder.status === 'PACKED' ? 'bg-purple-50 text-purple-700 border border-purple-200' :
-                      selectedSummaryOrder.status === 'OUT_FOR_DELIVERY' ? 'bg-orange-100 text-orange-800 border border-orange-200 animate-pulse' :
-                      selectedSummaryOrder.status === 'DELIVERED' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
-                      'bg-slate-100 text-slate-600'
+                      selectedSummaryOrder.status === 'CONFIRMED' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/30' :
+                      selectedSummaryOrder.status === 'PACKING' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30' :
+                      selectedSummaryOrder.status === 'PACKED' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/30' :
+                      selectedSummaryOrder.status === 'OUT_FOR_DELIVERY' ? 'bg-orange-500/20 text-orange-300 border border-orange-500/40 animate-pulse' :
+                      selectedSummaryOrder.status === 'DELIVERED' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' :
+                      'bg-slate-800 text-slate-300 border border-slate-700'
                     }`}>
                       {selectedSummaryOrder.status}
                     </span>
                   </div>
-                  <p className="text-xs text-slate-500 font-medium mt-0.5">
+                  <p className="text-xs text-slate-400 font-medium mt-0.5">
                     Placed on {new Date(selectedSummaryOrder.createdAt).toLocaleDateString('en-IN', {
                       weekday: 'short', day: 'numeric', month: 'short', year: 'numeric'
                     })} at {new Date(selectedSummaryOrder.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
@@ -803,57 +803,57 @@ export default function AdminOrdersPage() {
 
               <button 
                 onClick={() => setSelectedSummaryOrder(null)}
-                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center font-bold text-sm transition-all"
+                className="w-8 h-8 rounded-full bg-[#0B0F19] hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center font-bold text-sm border border-slate-800 transition-all"
               >
                 ✕
               </button>
             </div>
 
             {/* Customer & Delivery Context Bar */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 bg-slate-50 p-3.5 rounded-2xl border border-slate-100 text-xs">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 bg-[#0B0F19] p-3.5 rounded-2xl border border-slate-800 text-xs">
               {/* Customer */}
               <div className="flex flex-col gap-1">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Customer Details</span>
-                <span className="font-extrabold text-sm text-slate-900">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Customer Details</span>
+                <span className="font-extrabold text-sm text-white">
                   {selectedSummaryOrder.businessName ? `${selectedSummaryOrder.businessName} (${selectedSummaryOrder.guestName || selectedSummaryOrder.user?.name || 'Customer'})` : (selectedSummaryOrder.guestName || selectedSummaryOrder.user?.name || 'Customer')}
                 </span>
-                <span className="text-slate-600 font-medium flex items-center gap-1">
-                  <Phone className="w-3 h-3 text-slate-400" />
+                <span className="text-slate-300 font-medium flex items-center gap-1">
+                  <Phone className="w-3 h-3 text-slate-500" />
                   +91 {selectedSummaryOrder.guestPhone || selectedSummaryOrder.user?.phone || 'N/A'}
                 </span>
-                <span className="text-slate-500 font-medium flex items-start gap-1 mt-0.5">
-                  <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
+                <span className="text-slate-400 font-medium flex items-start gap-1 mt-0.5">
+                  <MapPin className="w-3.5 h-3.5 text-slate-500 shrink-0 mt-0.5" />
                   <span className="line-clamp-2">{selectedSummaryOrder.deliveryAddress}</span>
                 </span>
               </div>
 
               {/* Delivery Partner */}
-              <div className="flex flex-col gap-1 md:border-l md:border-slate-200 md:pl-4">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Dispatch & Driver</span>
+              <div className="flex flex-col gap-1 md:border-l md:border-slate-800 md:pl-4">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Dispatch & Driver</span>
                 {selectedSummaryOrder.driver ? (
                   <div className="flex flex-col gap-0.5 mt-0.5">
-                    <span className="font-bold text-sm text-slate-900 flex items-center gap-1.5">
-                      <Truck className="w-4 h-4 text-indigo-600" />
+                    <span className="font-bold text-sm text-white flex items-center gap-1.5">
+                      <Truck className="w-4 h-4 text-indigo-400" />
                       {selectedSummaryOrder.driver.name}
                     </span>
-                    <span className="text-slate-500 text-[11px] font-mono">Vehicle: {selectedSummaryOrder.driver.vehicleNumber}</span>
-                    <span className="text-slate-500 text-[11px]">Phone: +91 {selectedSummaryOrder.driver.phone}</span>
+                    <span className="text-slate-400 text-[11px] font-mono">Vehicle: {selectedSummaryOrder.driver.vehicleNumber}</span>
+                    <span className="text-slate-400 text-[11px]">Phone: +91 {selectedSummaryOrder.driver.phone}</span>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-1.5 text-amber-700 bg-amber-50 border border-amber-200/80 px-2.5 py-1.5 rounded-xl font-bold mt-1 w-fit">
-                    <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+                  <div className="flex items-center gap-1.5 text-amber-300 bg-amber-500/10 border border-amber-500/30 px-2.5 py-1.5 rounded-xl font-bold mt-1 w-fit">
+                    <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
                     <span>No delivery driver assigned yet</span>
                   </div>
                 )}
-                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-md w-fit mt-1 border border-sky-200/60">
-                  <Snowflake className="w-3 h-3 text-sky-500" /> Cold-Chain Express (-18°C)
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-sky-300 bg-sky-500/10 px-2 py-0.5 rounded-md w-fit mt-1 border border-sky-500/30">
+                  <Snowflake className="w-3 h-3 text-sky-400" /> Cold-Chain Express (-18°C)
                 </span>
               </div>
             </div>
 
             {/* Product Items Breakdown with Photos and Prices */}
             <div className="flex flex-col gap-2 overflow-y-auto max-h-[38vh] pr-1">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
                 Order Items ({selectedSummaryOrder.items?.length || 0})
               </span>
 
@@ -866,11 +866,11 @@ export default function AdminOrdersPage() {
                   return (
                     <div 
                       key={idx}
-                      className="bg-white border border-slate-200/90 rounded-2xl p-3 shadow-2xs flex items-center justify-between gap-3 hover:border-amber-300 transition-colors"
+                      className="bg-[#0B0F19] border border-slate-800 rounded-2xl p-3 shadow-2xs flex items-center justify-between gap-3 hover:border-amber-500/40 transition-colors"
                     >
                       {/* Product Image & Details */}
                       <div className="flex items-center gap-3.5 min-w-0">
-                        <div className="w-14 h-14 rounded-xl border border-slate-100 bg-slate-50 overflow-hidden shrink-0 flex items-center justify-center p-1">
+                        <div className="w-14 h-14 rounded-xl border border-slate-800 bg-[#111625] overflow-hidden shrink-0 flex items-center justify-center p-1">
                           <img
                             src={productPhoto}
                             alt={item.productName}
@@ -881,27 +881,27 @@ export default function AdminOrdersPage() {
 
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="font-extrabold text-sm text-slate-900 truncate">{item.productName}</span>
-                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
+                            <span className="font-extrabold text-sm text-white truncate">{item.productName}</span>
+                            <span className="text-[10px] font-bold text-emerald-300 bg-emerald-500/10 px-1.5 py-0.2 rounded border border-emerald-500/30">
                               🟢 100% Veg
                             </span>
                           </div>
 
-                          <div className="flex items-center gap-2 text-xs text-slate-500 mt-1 flex-wrap font-medium">
-                            <span className="bg-slate-100 text-slate-700 font-bold px-2 py-0.5 rounded-md text-[10px]">
+                          <div className="flex items-center gap-2 text-xs text-slate-400 mt-1 flex-wrap font-medium">
+                            <span className="bg-slate-800 text-slate-300 font-bold px-2 py-0.5 rounded-md text-[10px] border border-slate-700">
                               {item.packagingType}
                             </span>
                             {itemWeight && <span>Weight: {itemWeight}</span>}
                             <span>•</span>
-                            <span className="text-slate-700 font-semibold">₹{item.unitPrice} each</span>
+                            <span className="text-slate-300 font-semibold">₹{item.unitPrice} each</span>
                           </div>
                         </div>
                       </div>
 
                       {/* Quantity & Line Total */}
                       <div className="flex flex-col items-end shrink-0">
-                        <span className="text-xs font-bold text-slate-500">Qty: {item.quantity}</span>
-                        <span className="text-base font-black text-slate-900 mt-0.5">₹{itemLineTotal}</span>
+                        <span className="text-xs font-bold text-slate-400">Qty: {item.quantity}</span>
+                        <span className="text-base font-black text-white mt-0.5">₹{itemLineTotal}</span>
                       </div>
                     </div>
                   )
@@ -910,19 +910,19 @@ export default function AdminOrdersPage() {
             </div>
 
             {/* Financial Summary & Actions Bottom Bar */}
-            <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="pt-3 border-t border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               {/* Payment Status & Total */}
               <div className="flex items-center gap-4">
                 <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Amount</span>
-                  <span className="text-2xl font-black text-slate-900 leading-none mt-0.5 block">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Total Amount</span>
+                  <span className="text-2xl font-black text-white leading-none mt-0.5 block">
                     ₹{selectedSummaryOrder.totalAmount}
                   </span>
                 </div>
-                <div className="h-8 w-px bg-slate-200" />
+                <div className="h-8 w-px bg-slate-800" />
                 <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Payment</span>
-                  <span className="inline-flex items-center gap-1 text-xs font-bold text-slate-700 mt-0.5">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Payment</span>
+                  <span className="inline-flex items-center gap-1 text-xs font-bold text-slate-300 mt-0.5">
                     {selectedSummaryOrder.paymentMethod === 'CASH_ON_DELIVERY' ? '💵 Cash on Delivery' : selectedSummaryOrder.paymentMethod === 'CREDIT_ACCOUNT' ? '💼 B2B Credit' : '💳 Paid Online via Razorpay'}
                   </span>
                 </div>
@@ -935,10 +935,10 @@ export default function AdminOrdersPage() {
                   href={`/admin/orders/${selectedSummaryOrder.id}/invoice`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-slate-100 hover:bg-amber-50 text-slate-700 hover:text-amber-800 border border-slate-200 rounded-xl text-xs font-bold transition-all shadow-2xs active:scale-95"
+                  className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-[#0B0F19] hover:bg-amber-500/10 text-slate-300 hover:text-amber-300 border border-slate-800 hover:border-amber-500/40 rounded-xl text-xs font-bold transition-all shadow-2xs active:scale-95"
                   title="Print Official Tax Invoice"
                 >
-                  <Printer className="w-4 h-4 text-amber-600" />
+                  <Printer className="w-4 h-4 text-amber-400" />
                   <span>Print Tax Invoice</span>
                 </a>
 
@@ -949,7 +949,7 @@ export default function AdminOrdersPage() {
                     setSelectedSummaryOrder(null)
                     handleOpenWhatsApp(orderToChat)
                   }}
-                  className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition-all shadow-2xs active:scale-95 cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all shadow-2xs active:scale-95 cursor-pointer"
                 >
                   <MessageCircle className="w-4 h-4 fill-white/20" />
                   <span>Chat on WhatsApp</span>
@@ -958,7 +958,7 @@ export default function AdminOrdersPage() {
                 {/* Close */}
                 <button
                   onClick={() => setSelectedSummaryOrder(null)}
-                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition-all"
+                  className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-all"
                 >
                   Close
                 </button>
@@ -972,20 +972,20 @@ export default function AdminOrdersPage() {
 
       {/* 6. WHATSAPP QUICK TEMPLATES MODAL */}
       {whatsAppModalOrder && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
-          <div className="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl flex flex-col gap-4 border border-slate-200 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
+          <div className="bg-[#111625] rounded-3xl max-w-xl w-full p-6 shadow-2xl flex flex-col gap-4 border border-slate-800 max-h-[90vh] overflow-y-auto">
             
             {/* Header */}
-            <div className="flex items-start justify-between pb-3 border-b border-slate-100">
+            <div className="flex items-start justify-between pb-3 border-b border-slate-800">
               <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shadow-md shadow-emerald-500/20">
-                  <MessageCircle className="w-6 h-6 fill-white/20" />
+                <div className="w-11 h-11 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shadow-md">
+                  <MessageCircle className="w-6 h-6 fill-emerald-400/20" />
                 </div>
                 <div>
-                  <h3 className="font-extrabold text-base text-slate-900">
+                  <h3 className="font-extrabold text-base text-white">
                     WhatsApp Chat with Customer
                   </h3>
-                  <p className="text-xs text-slate-500 font-medium mt-0.5">
+                  <p className="text-xs text-slate-400 font-medium mt-0.5">
                     Order #{whatsAppModalOrder.orderNumber} • {whatsAppModalOrder.guestName || whatsAppModalOrder.user?.name || 'Customer'} (+91 {whatsAppModalOrder.guestPhone || whatsAppModalOrder.user?.phone})
                   </p>
                 </div>
@@ -993,7 +993,7 @@ export default function AdminOrdersPage() {
 
               <button 
                 onClick={() => setWhatsAppModalOrder(null)}
-                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center font-bold text-sm transition-all"
+                className="w-8 h-8 rounded-full bg-[#0B0F19] hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center font-bold text-sm border border-slate-800 transition-all"
               >
                 ✕
               </button>
@@ -1001,7 +1001,7 @@ export default function AdminOrdersPage() {
 
             {/* Predefined Templates Choice */}
             <div className="flex flex-col gap-2">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
                 Select Predefined Message Template
               </span>
 
@@ -1016,13 +1016,13 @@ export default function AdminOrdersPage() {
                       onClick={() => handleSelectTemplate(tpl)}
                       className={`p-3 rounded-2xl border text-left transition-all flex flex-col gap-1 cursor-pointer ${
                         isSelected 
-                          ? 'border-emerald-500 bg-emerald-50/70 ring-2 ring-emerald-500/20 shadow-xs' 
-                          : 'border-slate-200 bg-white hover:bg-slate-50'
+                          ? 'border-emerald-500 bg-emerald-500/10 ring-2 ring-emerald-500/20 shadow-xs' 
+                          : 'border-slate-800 bg-[#0B0F19] hover:bg-slate-800/60'
                       }`}
                     >
                       <div className="flex items-center justify-between">
-                        <span className="font-bold text-xs text-slate-900">{tpl.title}</span>
-                        {isSelected && <Check className="w-3.5 h-3.5 text-emerald-600" />}
+                        <span className="font-bold text-xs text-white">{tpl.title}</span>
+                        {isSelected && <Check className="w-3.5 h-3.5 text-emerald-400" />}
                       </div>
                       <span className="text-[10px] text-slate-400 font-medium">{tpl.badge}</span>
                     </button>
@@ -1034,14 +1034,14 @@ export default function AdminOrdersPage() {
             {/* Live Editable Text Area */}
             <div className="flex flex-col gap-1.5">
               <div className="flex items-center justify-between text-xs">
-                <span className="font-bold text-slate-600">Message Preview (Editable):</span>
-                <span className="text-[10px] text-slate-400">{whatsAppMessage.length} characters</span>
+                <span className="font-bold text-slate-300">Message Preview (Editable):</span>
+                <span className="text-[10px] text-slate-500">{whatsAppMessage.length} characters</span>
               </div>
               <textarea
                 rows={5}
                 value={whatsAppMessage}
                 onChange={(e) => setWhatsAppMessage(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 resize-none leading-relaxed"
+                className="w-full bg-[#0B0F19] border border-slate-800 rounded-2xl p-3 text-xs text-slate-200 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 resize-none leading-relaxed"
                 placeholder="Type your WhatsApp message..."
               />
             </div>
@@ -1051,7 +1051,7 @@ export default function AdminOrdersPage() {
               <button
                 type="button"
                 onClick={() => setWhatsAppModalOrder(null)}
-                className="px-4 py-2 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all"
+                className="px-4 py-2 text-xs font-bold text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-xl transition-all"
               >
                 Cancel
               </button>
@@ -1059,7 +1059,7 @@ export default function AdminOrdersPage() {
               <button
                 type="button"
                 onClick={handleSendWhatsApp}
-                className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-extrabold shadow-md shadow-emerald-600/20 transition-all active:scale-95 cursor-pointer"
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-extrabold shadow-md shadow-emerald-600/20 transition-all active:scale-95 cursor-pointer"
               >
                 <MessageCircle className="w-4 h-4 fill-white/20" />
                 <span>Send on WhatsApp</span>

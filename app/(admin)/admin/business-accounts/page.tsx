@@ -375,21 +375,21 @@ export default function AdminUsersAndAccountsPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6 font-sans">
+    <div className="flex flex-col gap-6 font-sans text-white">
       
       {/* 1. Header Banner & Action Button */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Users & Accounts</h1>
-          <p className="text-sm text-slate-500 mt-1">Manage your retail consumers, commercial partners, and internal staff.</p>
+          <h1 className="text-2xl font-extrabold text-white tracking-tight">Registered Customers & B2B Accounts</h1>
+          <p className="text-sm text-slate-400 mt-1">Manage verified retail consumers and commercial hotel/caterer partners.</p>
         </div>
         {!isStaff && (
           <button
             onClick={() => setShowCreateModal(true)}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-sm font-semibold shadow-sm transition-all active:scale-95 w-fit"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold rounded-xl text-xs uppercase tracking-wider shadow-lg shadow-amber-500/20 transition-all active:scale-95 w-fit cursor-pointer"
           >
             <Plus className="w-4 h-4" />
-            <span>Create User</span>
+            <span>+ Create Customer</span>
           </button>
         )}
       </div>
@@ -397,75 +397,75 @@ export default function AdminUsersAndAccountsPage() {
       {/* 2. Key Metrics Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Users */}
-        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 border-l-4 border-l-amber-500 flex flex-col justify-between">
+        <div className="bg-[#111625] p-5 rounded-2xl shadow-xl border border-slate-800/80 border-l-4 border-l-amber-500 flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Users</p>
-              <h3 className="text-2xl font-bold text-slate-900 mt-1">{stats.total}</h3>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Customers</p>
+              <h3 className="text-2xl font-bold text-white mt-1">{stats.total}</h3>
             </div>
-            <div className="p-2.5 bg-amber-50 rounded-xl"><Users className="w-5 h-5 text-amber-600" /></div>
+            <div className="p-2.5 bg-amber-500/10 rounded-xl"><Users className="w-5 h-5 text-amber-400" /></div>
           </div>
-          <span className="text-xs text-slate-400 mt-3 font-medium">All registered accounts</span>
+          <span className="text-xs text-slate-500 mt-3 font-medium">All registered buyers</span>
         </div>
 
         {/* Retail */}
-        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 border-l-4 border-l-emerald-500 flex flex-col justify-between">
+        <div className="bg-[#111625] p-5 rounded-2xl shadow-xl border border-slate-800/80 border-l-4 border-l-emerald-500 flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Retail</p>
-              <h3 className="text-2xl font-bold text-slate-900 mt-1">{stats.retailCount}</h3>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Retail</p>
+              <h3 className="text-2xl font-bold text-white mt-1">{stats.retailCount}</h3>
             </div>
-            <div className="p-2.5 bg-emerald-50 rounded-xl"><ShoppingBag className="w-5 h-5 text-emerald-600" /></div>
+            <div className="p-2.5 bg-emerald-500/10 rounded-xl"><ShoppingBag className="w-5 h-5 text-emerald-400" /></div>
           </div>
-          <span className="text-xs text-slate-400 mt-3 font-medium">Households & direct buyers</span>
+          <span className="text-xs text-slate-500 mt-3 font-medium">Households & direct buyers</span>
         </div>
 
         {/* B2B Partners */}
-        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 border-l-4 border-l-violet-500 flex flex-col justify-between">
+        <div className="bg-[#111625] p-5 rounded-2xl shadow-xl border border-slate-800/80 border-l-4 border-l-violet-500 flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">B2B Partners</p>
-              <h3 className="text-2xl font-bold text-slate-900 mt-1">{stats.b2bCount}</h3>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">B2B Partners</p>
+              <h3 className="text-2xl font-bold text-white mt-1">{stats.b2bCount}</h3>
             </div>
-            <div className="p-2.5 bg-violet-50 rounded-xl"><Building2 className="w-5 h-5 text-violet-600" /></div>
+            <div className="p-2.5 bg-violet-500/10 rounded-xl"><Building2 className="w-5 h-5 text-violet-400" /></div>
           </div>
-          <span className="text-xs text-slate-400 mt-3 font-medium">Hotels, Cafes & Caterers</span>
+          <span className="text-xs text-slate-500 mt-3 font-medium">Hotels, Cafes & Caterers</span>
         </div>
 
         {/* Credit Allocated */}
-        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 border-l-4 border-l-blue-500 flex flex-col justify-between">
+        <div className="bg-[#111625] p-5 rounded-2xl shadow-xl border border-slate-800/80 border-l-4 border-l-blue-500 flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Credit Active</p>
-              <h3 className="text-2xl font-bold text-slate-900 mt-1">₹{(stats.creditAllocated || 0).toLocaleString('en-IN')}</h3>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Credit Active</p>
+              <h3 className="text-2xl font-bold text-white mt-1">₹{(stats.creditAllocated || 0).toLocaleString('en-IN')}</h3>
             </div>
-            <div className="p-2.5 bg-blue-50 rounded-xl"><CreditCard className="w-5 h-5 text-blue-600" /></div>
+            <div className="p-2.5 bg-blue-500/10 rounded-xl"><CreditCard className="w-5 h-5 text-blue-400" /></div>
           </div>
           {stats.pendingB2bCount > 0 ? (
-            <p className="text-xs text-amber-600 font-medium mt-3 flex items-center gap-1">
+            <p className="text-xs text-amber-400 font-medium mt-3 flex items-center gap-1">
               <AlertTriangle className="w-3.5 h-3.5" />
               {stats.pendingB2bCount} pending approval
             </p>
           ) : (
-            <span className="text-xs text-slate-400 mt-3 font-medium">All applications reviewed</span>
+            <span className="text-xs text-slate-500 mt-3 font-medium">All applications reviewed</span>
           )}
         </div>
       </div>
 
       {/* 3. Controls: Search, Tabs, Filters */}
-      <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+      <div className="bg-[#111625] p-4 rounded-2xl shadow-xl border border-slate-800/80 flex flex-col xl:flex-row xl:items-center justify-between gap-4">
         {/* Search */}
         <div className="relative flex-1 max-w-2xl">
-          <Search className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
+          <Search className="absolute left-3.5 top-3 w-4 h-4 text-slate-500" />
           <input
             type="text"
             placeholder="Search by name, phone, email, GSTIN..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all font-medium"
+            className="w-full pl-10 pr-10 py-2.5 bg-[#0B0F19] border border-slate-800 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all font-medium"
           />
           {searchQuery && (
-            <button onClick={() => setSearchQuery('')} className="absolute right-3.5 top-3 text-slate-400 hover:text-slate-600">
+            <button onClick={() => setSearchQuery('')} className="absolute right-3.5 top-3 text-slate-500 hover:text-slate-300">
               <X className="w-4 h-4" />
             </button>
           )}
@@ -473,29 +473,29 @@ export default function AdminUsersAndAccountsPage() {
 
         {/* Tabs & Filters */}
         <div className="flex flex-wrap items-center gap-3">
-          <div className="flex bg-slate-100 p-1 rounded-xl">
+          <div className="flex bg-[#0B0F19] p-1 rounded-xl border border-slate-800">
             <button
               onClick={() => setActiveTab('ALL')}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${activeTab === 'ALL' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${activeTab === 'ALL' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30' : 'text-slate-400 hover:text-white'}`}
             >
               All ({stats.total})
             </button>
             <button
               onClick={() => setActiveTab('RETAIL')}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${activeTab === 'RETAIL' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${activeTab === 'RETAIL' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' : 'text-slate-400 hover:text-white'}`}
             >
               Retail
             </button>
             <button
               onClick={() => setActiveTab('B2B')}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${activeTab === 'B2B' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${activeTab === 'B2B' ? 'bg-violet-500/10 text-violet-400 border border-violet-500/30' : 'text-slate-400 hover:text-white'}`}
             >
               B2B
             </button>
             {stats.pendingB2bCount > 0 && (
               <button
                 onClick={() => setActiveTab('PENDING')}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${activeTab === 'PENDING' ? 'bg-amber-500 text-white shadow-sm' : 'text-amber-700 bg-amber-100'}`}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${activeTab === 'PENDING' ? 'bg-amber-500 text-slate-950 shadow-sm' : 'text-amber-400 bg-amber-500/10 border border-amber-500/30'}`}
               >
                 Pending ({stats.pendingB2bCount})
               </button>
@@ -505,7 +505,7 @@ export default function AdminUsersAndAccountsPage() {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as any)}
-            className="bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl px-3 py-2 focus:outline-none focus:border-amber-500"
+            className="bg-[#0B0F19] border border-slate-800 text-slate-300 text-xs font-semibold rounded-xl px-3 py-2 focus:outline-none focus:border-amber-500"
           >
             <option value="ALL">All Statuses</option>
             <option value="ACTIVE">Active</option>
@@ -514,43 +514,43 @@ export default function AdminUsersAndAccountsPage() {
             {activeTab !== 'RETAIL' && <option value="PENDING">Pending Approval</option>}
           </select>
 
-          <button onClick={() => refetch()} disabled={isFetching} className="p-2 bg-slate-50 border border-slate-200 rounded-xl hover:bg-slate-100 transition-colors" title="Reload list">
-            <RefreshCw className={`w-4 h-4 text-slate-600 ${isFetching ? 'animate-spin' : ''}`} />
+          <button onClick={() => refetch()} disabled={isFetching} className="p-2 bg-[#0B0F19] border border-slate-800 rounded-xl hover:bg-slate-800/60 transition-colors" title="Reload list">
+            <RefreshCw className={`w-4 h-4 text-slate-400 ${isFetching ? 'animate-spin' : ''}`} />
           </button>
         </div>
       </div>
 
       {/* 4. Data Table with Sticky Header & Vertical Scrolling */}
-      <div className="bg-white border border-slate-200/80 shadow-sm rounded-2xl overflow-hidden">
+      <div className="bg-[#111625] border border-slate-800/80 shadow-xl rounded-2xl overflow-hidden">
         {/* Scrollable viewport with maximum height */}
         <div className="overflow-x-auto max-h-[calc(100vh-320px)] min-h-[350px] overflow-y-auto">
           <table className="w-full text-left border-collapse">
-            <thead className="sticky top-0 bg-slate-50 border-b border-slate-200 z-10 shadow-xs">
-              <tr className="bg-slate-50">
-                <th className="px-5 py-3.5 text-xs font-bold text-slate-500 uppercase tracking-wider">User</th>
-                <th className="px-5 py-3.5 text-xs font-bold text-slate-500 uppercase tracking-wider">Type</th>
-                <th className="px-5 py-3.5 text-xs font-bold text-slate-500 uppercase tracking-wider">Contact</th>
-                <th className="px-5 py-3.5 text-xs font-bold text-slate-500 uppercase tracking-wider">Orders</th>
-                <th className="px-5 py-3.5 text-xs font-bold text-slate-500 uppercase tracking-wider">Joined</th>
-                <th className="px-5 py-3.5 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
-                <th className="px-5 py-3.5 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Actions</th>
+            <thead className="sticky top-0 bg-[#0E1320] border-b border-slate-800 z-10">
+              <tr>
+                <th className="px-5 py-3.5 text-xs font-bold text-slate-400 uppercase tracking-wider">User</th>
+                <th className="px-5 py-3.5 text-xs font-bold text-slate-400 uppercase tracking-wider">Type</th>
+                <th className="px-5 py-3.5 text-xs font-bold text-slate-400 uppercase tracking-wider">Contact</th>
+                <th className="px-5 py-3.5 text-xs font-bold text-slate-400 uppercase tracking-wider">Orders</th>
+                <th className="px-5 py-3.5 text-xs font-bold text-slate-400 uppercase tracking-wider">Joined</th>
+                <th className="px-5 py-3.5 text-xs font-bold text-slate-400 uppercase tracking-wider">Status</th>
+                <th className="px-5 py-3.5 text-xs font-bold text-slate-400 uppercase tracking-wider text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-800/60">
               {isLoading ? (
                 <tr>
                   <td colSpan={7} className="px-5 py-16 text-center">
-                    <div className="flex flex-col items-center justify-center gap-3 text-slate-400">
+                    <div className="flex flex-col items-center justify-center gap-3 text-slate-500">
                       <div className="w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
-                      <span className="text-xs font-medium">Loading registered users...</span>
+                      <span className="text-xs font-medium">Loading registered customers...</span>
                     </div>
                   </td>
                 </tr>
               ) : users.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-5 py-16 text-center text-slate-400">
-                    <Users className="w-8 h-8 mx-auto mb-2 opacity-40" />
-                    <p className="text-sm font-medium">No users found matching your filters.</p>
+                  <td colSpan={7} className="px-5 py-16 text-center text-slate-500">
+                    <Users className="w-8 h-8 mx-auto mb-2 opacity-40 text-slate-400" />
+                    <p className="text-sm font-medium text-slate-400">No customers found matching your filters.</p>
                   </td>
                 </tr>
               ) : (
@@ -559,23 +559,23 @@ export default function AdminUsersAndAccountsPage() {
                   const initials = (user.name || 'U').split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()
 
                   return (
-                    <tr key={user.id} className="hover:bg-slate-50/70 transition-colors">
+                    <tr key={user.id} className="hover:bg-slate-800/40 transition-colors">
                       {/* User Info */}
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-3">
                           <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs ${
-                            isB2B ? 'bg-violet-100 text-violet-700' : 'bg-emerald-100 text-emerald-700'
+                            isB2B ? 'bg-violet-500/15 text-violet-300 border border-violet-500/30' : 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
                           }`}>
                             {initials}
                           </div>
                           <div>
                             <div className="flex items-center gap-2">
-                              <span className="font-semibold text-sm text-slate-900 leading-none">{user.name}</span>
-                              {user.role === 'SUPER_ADMIN' && <span className="bg-amber-100 text-amber-800 text-[10px] font-extrabold px-1.5 py-0.5 rounded border border-amber-300">Super Admin</span>}
-                              {user.role === 'ADMIN' && <span className="bg-red-50 text-red-600 text-[10px] font-bold px-1.5 py-0.5 rounded border border-red-100">Admin</span>}
-                              {user.role === 'STAFF' && <span className="bg-blue-50 text-blue-600 text-[10px] font-bold px-1.5 py-0.5 rounded border border-blue-100">Staff</span>}
+                              <span className="font-semibold text-sm text-white leading-none">{user.name}</span>
+                              {user.role === 'SUPER_ADMIN' && <span className="bg-amber-500/20 text-amber-300 text-[10px] font-extrabold px-1.5 py-0.5 rounded border border-amber-500/30">Super Admin</span>}
+                              {user.role === 'ADMIN' && <span className="bg-red-500/20 text-red-300 text-[10px] font-bold px-1.5 py-0.5 rounded border border-red-500/30">Admin</span>}
+                              {user.role === 'STAFF' && <span className="bg-blue-500/20 text-blue-300 text-[10px] font-bold px-1.5 py-0.5 rounded border border-blue-500/30">Staff</span>}
                             </div>
-                            <span className="text-[11px] text-slate-400 font-medium">ID: {user.id.slice(-6)}</span>
+                            <span className="text-[11px] text-slate-500 font-medium">ID: {user.id.slice(-6)}</span>
                           </div>
                         </div>
                       </td>
@@ -584,15 +584,15 @@ export default function AdminUsersAndAccountsPage() {
                       <td className="px-5 py-4">
                         {isB2B ? (
                           <div className="flex flex-col">
-                            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-violet-700 bg-violet-50 border border-violet-200 px-2 py-0.5 rounded-md w-fit">
+                            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-violet-300 bg-violet-500/10 border border-violet-500/30 px-2 py-0.5 rounded-md w-fit">
                               <Building2 className="w-3 h-3" /> B2B
                             </span>
                             {user.businessName && (
-                              <span className="text-xs text-slate-500 mt-1 truncate max-w-[120px] font-medium">{user.businessName}</span>
+                              <span className="text-xs text-slate-400 mt-1 truncate max-w-[120px] font-medium">{user.businessName}</span>
                             )}
                           </div>
                         ) : (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-300 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-md">
                             <ShoppingBag className="w-3 h-3" /> Retail
                           </span>
                         )}
@@ -600,17 +600,17 @@ export default function AdminUsersAndAccountsPage() {
 
                       {/* Contact */}
                       <td className="px-5 py-4">
-                        <div className="flex flex-col gap-1 text-xs text-slate-600">
+                        <div className="flex flex-col gap-1 text-xs text-slate-300">
                           {user.phone && (
                             <div className="flex items-center gap-1.5">
-                              <Phone className="w-3 h-3 text-slate-400" />
-                              <span className="font-mono">+91 {user.phone}</span>
+                              <Phone className="w-3 h-3 text-slate-500" />
+                              <span className="font-mono text-slate-300">+91 {user.phone}</span>
                             </div>
                           )}
                           {user.email && (
                             <div className="flex items-center gap-1.5">
-                              <Mail className="w-3 h-3 text-slate-400" />
-                              <span className="truncate max-w-[140px]">{user.email}</span>
+                              <Mail className="w-3 h-3 text-slate-500" />
+                              <span className="truncate max-w-[140px] text-slate-400">{user.email}</span>
                             </div>
                           )}
                         </div>
@@ -620,17 +620,17 @@ export default function AdminUsersAndAccountsPage() {
                       <td className="px-5 py-4">
                         <button
                           onClick={() => setViewOrdersUser(user)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-amber-50 text-slate-700 hover:text-amber-800 rounded-lg text-xs font-bold transition-all active:scale-95 group shadow-2xs cursor-pointer"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#0B0F19] hover:bg-amber-500/10 text-slate-300 hover:text-amber-400 rounded-lg text-xs font-bold border border-slate-800 hover:border-amber-500/40 transition-all active:scale-95 group cursor-pointer"
                           title={`View ${user.name}'s orders`}
                         >
-                          <span className="font-extrabold text-amber-600">{user._count?.orders || 0}</span>
-                          <span className="text-[11px] font-medium text-slate-500 group-hover:text-amber-700">Orders</span>
-                          <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-amber-600" />
+                          <span className="font-extrabold text-amber-400">{user._count?.orders || 0}</span>
+                          <span className="text-[11px] font-medium text-slate-400 group-hover:text-amber-300">Orders</span>
+                          <ChevronRight className="w-3.5 h-3.5 text-slate-500 group-hover:text-amber-400" />
                         </button>
                       </td>
 
                       {/* Joined */}
-                      <td className="px-5 py-4 text-xs font-medium text-slate-500">
+                      <td className="px-5 py-4 text-xs font-medium text-slate-400">
                         {new Date(user.createdAt).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}
                       </td>
 
@@ -639,7 +639,7 @@ export default function AdminUsersAndAccountsPage() {
                         {isStaff ? (
                           <span
                             className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-md uppercase ${
-                              user.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
+                              user.isActive ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
                             }`}
                           >
                             {user.isActive ? <UserCheck className="w-3 h-3" /> : <UserX className="w-3 h-3" />}
@@ -650,7 +650,7 @@ export default function AdminUsersAndAccountsPage() {
                             onClick={() => toggleActiveMutation.mutate(user.id)}
                             disabled={user.role === 'SUPER_ADMIN' || (user.role === 'ADMIN' && !isSuperAdmin)}
                             className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-md uppercase transition-colors ${
-                              user.isActive ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-rose-100 text-rose-700 hover:bg-rose-200'
+                              user.isActive ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20'
                             } disabled:opacity-40 disabled:cursor-not-allowed`}
                             title={user.role === 'SUPER_ADMIN' ? 'Super Admin cannot be blocked' : (user.role === 'ADMIN' && !isSuperAdmin) ? 'Only Super Admin can block Admins' : 'Toggle status'}
                           >
@@ -667,7 +667,7 @@ export default function AdminUsersAndAccountsPage() {
                             {(isSuperAdmin || (user.role !== 'SUPER_ADMIN' && (user.role !== 'ADMIN' || currentUser?.id === user.id))) && (
                               <button
                                 onClick={() => handleOpenEdit(user)}
-                                className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-slate-100 rounded-lg transition-colors"
+                                className="p-1.5 text-slate-400 hover:text-amber-400 hover:bg-[#0B0F19] border border-transparent hover:border-slate-800 rounded-lg transition-colors"
                                 title="Manage Account"
                               >
                                 <Edit3 className="w-4 h-4" />
@@ -677,7 +677,7 @@ export default function AdminUsersAndAccountsPage() {
                               <button
                                 onClick={() => handleDeleteUser(user)}
                                 disabled={deleteMutation.isPending}
-                                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                                className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-[#0B0F19] border border-transparent hover:border-rose-900/40 rounded-lg transition-colors"
                                 title="Delete User"
                               >
                                 <Trash2 className="w-4 h-4" />
@@ -685,7 +685,7 @@ export default function AdminUsersAndAccountsPage() {
                             )}
                           </div>
                         ) : (
-                          <span className="text-xs text-slate-400 font-medium italic">Read-only</span>
+                          <span className="text-xs text-slate-500 font-medium italic">Read-only</span>
                         )}
                       </td>
                     </tr>
@@ -699,27 +699,27 @@ export default function AdminUsersAndAccountsPage() {
 
       {/* 5. CUSTOMER RECENT ORDERS POPUP MODAL (View Orders without leaving page) */}
       {viewOrdersUser && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
-          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl flex flex-col gap-4 max-h-[88vh] overflow-hidden border border-slate-200">
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
+          <div className="bg-[#111625] rounded-3xl max-w-2xl w-full p-6 shadow-2xl flex flex-col gap-4 max-h-[88vh] overflow-hidden border border-slate-800">
             
             {/* Modal Header */}
-            <div className="flex items-start justify-between pb-3 border-b border-slate-100">
+            <div className="flex items-start justify-between pb-3 border-b border-slate-800">
               <div className="flex items-center gap-3">
                 <div className={`w-11 h-11 rounded-2xl flex items-center justify-center font-bold text-sm ${
-                  viewOrdersUser.isB2B ? 'bg-violet-100 text-violet-700' : 'bg-emerald-100 text-emerald-700'
+                  viewOrdersUser.isB2B ? 'bg-violet-500/15 text-violet-300 border border-violet-500/30' : 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
                 }`}>
                   {(viewOrdersUser.name || 'U').slice(0, 2).toUpperCase()}
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="font-extrabold text-base text-slate-900">{viewOrdersUser.name}</h3>
+                    <h3 className="font-extrabold text-base text-white">{viewOrdersUser.name}</h3>
                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
-                      viewOrdersUser.isB2B ? 'bg-violet-100 text-violet-700' : 'bg-emerald-100 text-emerald-700'
+                      viewOrdersUser.isB2B ? 'bg-violet-500/20 text-violet-300 border border-violet-500/30' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
                     }`}>
                       {viewOrdersUser.isB2B ? 'B2B Partner' : 'Retail'}
                     </span>
                   </div>
-                  <p className="text-xs text-slate-500 font-medium mt-0.5">
+                  <p className="text-xs text-slate-400 font-medium mt-0.5">
                     📞 +91 {viewOrdersUser.phone || 'N/A'} {viewOrdersUser.email ? `• ${viewOrdersUser.email}` : ''}
                   </p>
                 </div>
@@ -727,29 +727,29 @@ export default function AdminUsersAndAccountsPage() {
 
               <button 
                 onClick={() => setViewOrdersUser(null)}
-                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center font-bold text-sm transition-all"
+                className="w-8 h-8 rounded-full bg-[#0B0F19] hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center font-bold text-sm border border-slate-800 transition-all"
               >
                 ✕
               </button>
             </div>
 
             {/* Quick Summary Row */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-slate-50 p-3 rounded-2xl border border-slate-100 text-xs">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-[#0B0F19] p-3 rounded-2xl border border-slate-800 text-xs">
               <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Total Orders</span>
-                <span className="text-base font-extrabold text-slate-900 mt-0.5 block">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">Total Orders</span>
+                <span className="text-base font-extrabold text-white mt-0.5 block">
                   {userOrdersData?.totalOrders ?? (viewOrdersUser._count?.orders || 0)}
                 </span>
               </div>
               <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Total Spent</span>
-                <span className="text-base font-extrabold text-emerald-700 mt-0.5 block">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">Total Spent</span>
+                <span className="text-base font-extrabold text-emerald-400 mt-0.5 block">
                   ₹{(userOrdersData?.totalSpent || 0).toLocaleString('en-IN')}
                 </span>
               </div>
               <div className="col-span-2 sm:col-span-1">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Customer Since</span>
-                <span className="text-xs font-semibold text-slate-700 mt-1 block">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">Customer Since</span>
+                <span className="text-xs font-semibold text-slate-300 mt-1 block">
                   {new Date(viewOrdersUser.createdAt).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}
                 </span>
               </div>
@@ -758,14 +758,14 @@ export default function AdminUsersAndAccountsPage() {
             {/* Orders List Container */}
             <div className="overflow-y-auto max-h-[50vh] pr-1 flex flex-col gap-3">
               {isLoadingOrders ? (
-                <div className="py-12 text-center text-slate-400 flex flex-col items-center gap-2">
+                <div className="py-12 text-center text-slate-500 flex flex-col items-center gap-2">
                   <div className="w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
-                  <span className="text-xs font-semibold">Loading orders history...</span>
+                  <span className="text-xs font-semibold text-slate-400">Loading orders history...</span>
                 </div>
               ) : !userOrdersData?.orders || userOrdersData.orders.length === 0 ? (
-                <div className="py-12 text-center text-slate-400">
-                  <Package className="w-8 h-8 mx-auto mb-2 opacity-40" />
-                  <p className="text-xs font-medium">No orders recorded for this customer yet.</p>
+                <div className="py-12 text-center text-slate-500">
+                  <Package className="w-8 h-8 mx-auto mb-2 opacity-40 text-slate-400" />
+                  <p className="text-xs font-medium text-slate-400">No orders recorded for this customer yet.</p>
                 </div>
               ) : (
                 userOrdersData.orders.map((order: any) => {
@@ -778,14 +778,14 @@ export default function AdminUsersAndAccountsPage() {
                   return (
                     <div 
                       key={order.id}
-                      className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-2xs flex flex-col gap-2.5 hover:border-amber-300 transition-colors"
+                      className="bg-[#0B0F19] border border-slate-800 rounded-2xl p-4 flex flex-col gap-2.5 hover:border-amber-500/40 transition-colors"
                     >
                       {/* Top Order Row: ID, Date, Amount, Status */}
                       <div className="flex items-center justify-between gap-2 flex-wrap">
                         <div className="flex items-center gap-2">
-                          <span className="font-extrabold text-sm text-slate-900">#{order.orderNumber}</span>
-                          <span className="text-slate-400 text-xs">•</span>
-                          <span className="text-xs text-slate-500 font-medium">
+                          <span className="font-extrabold text-sm text-white">#{order.orderNumber}</span>
+                          <span className="text-slate-600 text-xs">•</span>
+                          <span className="text-xs text-slate-400 font-medium">
                             {new Date(order.createdAt).toLocaleDateString('en-IN', {
                               day: 'numeric',
                               month: 'short',
@@ -798,20 +798,20 @@ export default function AdminUsersAndAccountsPage() {
                           <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full uppercase tracking-wider ${getOrderStatusBadge(order.status)}`}>
                             {order.status}
                           </span>
-                          <span className="text-sm font-black text-slate-900">
+                          <span className="text-sm font-black text-white">
                             ₹{order.totalAmount}
                           </span>
                         </div>
                       </div>
 
                       {/* Items List */}
-                      <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100 flex flex-col gap-1 text-xs">
+                      <div className="bg-[#111625] p-2.5 rounded-xl border border-slate-800/80 flex flex-col gap-1 text-xs">
                         {order.items?.map((item: any, idx: number) => (
-                          <div key={idx} className="flex items-center justify-between text-slate-700">
+                          <div key={idx} className="flex items-center justify-between text-slate-300">
                             <span className="font-medium truncate max-w-[320px]">
-                              <strong className="text-slate-900">{item.quantity}×</strong> {item.productName} ({item.packagingType})
+                              <strong className="text-white">{item.quantity}×</strong> {item.productName} ({item.packagingType})
                             </span>
-                            <span className="font-semibold text-slate-900">₹{item.lineTotal || (item.unitPrice * item.quantity)}</span>
+                            <span className="font-semibold text-white">₹{item.lineTotal || (item.unitPrice * item.quantity)}</span>
                           </div>
                         ))}
                       </div>
@@ -819,11 +819,11 @@ export default function AdminUsersAndAccountsPage() {
                       {/* Footer Row: Payment method, Delivery info, Print Bill */}
                       <div className="flex items-center justify-between pt-1 text-xs gap-2 flex-wrap">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="inline-flex items-center text-[10px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">
+                          <span className="inline-flex items-center text-[10px] font-bold text-slate-300 bg-slate-800 px-2 py-0.5 rounded-md border border-slate-700">
                             {paymentText}
                           </span>
                           {order.driver && (
-                            <span className="text-[11px] text-slate-500 font-medium">
+                            <span className="text-[11px] text-slate-400 font-medium">
                               🚚 {order.driver.name}
                             </span>
                           )}
@@ -834,10 +834,10 @@ export default function AdminUsersAndAccountsPage() {
                           href={`/admin/orders/${order.id}/invoice`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200/80 rounded-lg text-xs font-bold transition-all shadow-2xs active:scale-95"
+                          className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-lg text-xs font-bold transition-all shadow-2xs active:scale-95"
                           title="Print Tax Invoice / Bill"
                         >
-                          <Printer className="w-3.5 h-3.5 text-amber-600" />
+                          <Printer className="w-3.5 h-3.5 text-amber-400" />
                           <span>Print Bill</span>
                         </a>
                       </div>
@@ -849,10 +849,10 @@ export default function AdminUsersAndAccountsPage() {
             </div>
 
             {/* Modal Bottom Close */}
-            <div className="pt-3 border-t border-slate-100 flex justify-end">
+            <div className="pt-3 border-t border-slate-800 flex justify-end">
               <button
                 onClick={() => setViewOrdersUser(null)}
-                className="px-5 py-2 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all"
+                className="px-5 py-2 text-xs font-bold text-slate-300 bg-slate-800 hover:bg-slate-700 rounded-xl transition-all"
               >
                 Close
               </button>
@@ -864,41 +864,41 @@ export default function AdminUsersAndAccountsPage() {
 
       {/* 6. EDIT USER & COMMERCIAL ACCOUNT MODAL */}
       {selectedUser && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl flex flex-col gap-5 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-[#111625] rounded-2xl max-w-lg w-full p-6 shadow-2xl flex flex-col gap-5 max-h-[90vh] overflow-y-auto border border-slate-800">
             
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <div>
-                <h3 className="font-bold text-lg text-slate-900">Manage Account: {selectedUser.name}</h3>
-                <p className="text-xs text-slate-500 mt-0.5">Phone: +91 {selectedUser.phone || 'N/A'} • {selectedUser.email || 'No email'}</p>
+                <h3 className="font-bold text-lg text-white">Manage Account: {selectedUser.name}</h3>
+                <p className="text-xs text-slate-400 mt-0.5">Phone: +91 {selectedUser.phone || 'N/A'} • {selectedUser.email || 'No email'}</p>
               </div>
-              <button onClick={() => setSelectedUser(null)} className="text-slate-400 hover:text-slate-600 p-1">
+              <button onClick={() => setSelectedUser(null)} className="text-slate-400 hover:text-white p-1">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Basic Info */}
             <div className="flex flex-col gap-3">
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Basic Information</p>
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Basic Information</p>
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Full Name</label>
-                <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500" />
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Full Name</label>
+                <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} className="w-full bg-[#0B0F19] border border-slate-800 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Phone Number</label>
-                  <input type="text" maxLength={10} value={editPhone} onChange={(e) => setEditPhone(e.target.value.replace(/\D/g, ''))} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500" />
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Phone Number</label>
+                  <input type="text" maxLength={10} value={editPhone} onChange={(e) => setEditPhone(e.target.value.replace(/\D/g, ''))} className="w-full bg-[#0B0F19] border border-slate-800 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500" />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Email Address</label>
-                  <input type="email" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500" />
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Email Address</label>
+                  <input type="email" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} className="w-full bg-[#0B0F19] border border-slate-800 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500" />
                 </div>
               </div>
 
               {/* Password Reset Field (Only for Admin / Super Admin managing staff/users) */}
               {isAdmin && (
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
                     Reset Password (leave empty to keep current password)
                   </label>
                   <input 
@@ -906,7 +906,7 @@ export default function AdminUsersAndAccountsPage() {
                     value={editPassword} 
                     onChange={(e) => setEditPassword(e.target.value)} 
                     placeholder="Enter new password (min. 6 chars)" 
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500" 
+                    className="w-full bg-[#0B0F19] border border-slate-800 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 placeholder-slate-500" 
                   />
                 </div>
               )}
@@ -914,11 +914,11 @@ export default function AdminUsersAndAccountsPage() {
               {/* Role Management */}
               {isAdmin && selectedUser.role !== 'SUPER_ADMIN' && (
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Account Role</label>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Account Role</label>
                   <select
                     value={editRole}
                     onChange={(e) => setEditRole(e.target.value as any)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 font-semibold"
+                    className="w-full bg-[#0B0F19] border border-slate-800 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 font-semibold"
                   >
                     <option value="CUSTOMER">Customer (Retail / B2B)</option>
                     <option value="STAFF">Staff (Dispatch Manager)</option>
@@ -930,19 +930,19 @@ export default function AdminUsersAndAccountsPage() {
 
             {/* Account Classification */}
             <div className="flex flex-col gap-2">
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Account Classification</p>
-              <div className="grid grid-cols-2 gap-2 bg-slate-100 p-1 rounded-xl">
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Account Classification</p>
+              <div className="grid grid-cols-2 gap-2 bg-[#0B0F19] p-1 rounded-xl border border-slate-800">
                 <button
                   type="button"
                   onClick={() => setEditIsB2B(false)}
-                  className={`py-2 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${!editIsB2B ? 'bg-white text-emerald-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                  className={`py-2 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${!editIsB2B ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30' : 'text-slate-400 hover:text-white'}`}
                 >
                   <ShoppingBag className="w-3.5 h-3.5" /> Retail Customer
                 </button>
                 <button
                   type="button"
                   onClick={() => setEditIsB2B(true)}
-                  className={`py-2 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${editIsB2B ? 'bg-violet-700 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                  className={`py-2 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${editIsB2B ? 'bg-violet-500/20 text-violet-300 border border-violet-500/30' : 'text-slate-400 hover:text-white'}`}
                 >
                   <Building2 className="w-3.5 h-3.5" /> B2B Commercial
                 </button>
@@ -951,16 +951,16 @@ export default function AdminUsersAndAccountsPage() {
 
             {/* B2B Commercial Fields */}
             {editIsB2B && (
-              <div className="bg-violet-50/50 rounded-xl p-4 border border-violet-100 flex flex-col gap-3">
-                <p className="text-xs font-bold text-violet-900 uppercase tracking-wider">Commercial Credentials</p>
+              <div className="bg-[#0B0F19] rounded-xl p-4 border border-violet-500/20 flex flex-col gap-3">
+                <p className="text-xs font-bold text-violet-300 uppercase tracking-wider">Commercial Credentials</p>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Business Name</label>
-                  <input type="text" value={editBusinessName} onChange={(e) => setEditBusinessName(e.target.value)} placeholder="e.g. Grand Hotel Latur" className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-violet-600" />
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Business Name</label>
+                  <input type="text" value={editBusinessName} onChange={(e) => setEditBusinessName(e.target.value)} placeholder="e.g. Grand Hotel Latur" className="w-full bg-[#111625] border border-slate-800 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-violet-500 placeholder-slate-500" />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Business Type</label>
-                    <select value={editBusinessType} onChange={(e) => setEditBusinessType(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-violet-600 font-medium">
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">Business Type</label>
+                    <select value={editBusinessType} onChange={(e) => setEditBusinessType(e.target.value)} className="w-full bg-[#111625] border border-slate-800 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-violet-500 font-medium">
                       <option value="HOTEL">Hotel / Resort</option>
                       <option value="CAFE">Cafe / Fast Food</option>
                       <option value="RESTAURANT">Restaurant</option>
@@ -970,33 +970,33 @@ export default function AdminUsersAndAccountsPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">GSTIN Number</label>
-                    <input type="text" value={editGstin} onChange={(e) => setEditGstin(e.target.value.toUpperCase())} placeholder="27AAAAA0000A1Z5" className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm uppercase focus:outline-none focus:border-violet-600" />
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">GSTIN Number</label>
+                    <input type="text" value={editGstin} onChange={(e) => setEditGstin(e.target.value.toUpperCase())} placeholder="27AAAAA0000A1Z5" className="w-full bg-[#111625] border border-slate-800 text-white rounded-xl px-3 py-2 text-sm uppercase focus:outline-none focus:border-violet-500 placeholder-slate-500" />
                   </div>
                 </div>
 
-                <div className="pt-2 border-t border-violet-100 flex flex-col gap-3">
+                <div className="pt-2 border-t border-slate-800 flex flex-col gap-3">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-xs font-semibold text-slate-800">Credit Account Facility</p>
-                      <p className="text-[11px] text-slate-500">Allow placing orders on credit</p>
+                      <p className="text-xs font-semibold text-white">Credit Account Facility</p>
+                      <p className="text-[11px] text-slate-400">Allow placing orders on credit</p>
                     </div>
                     <button
                       type="button"
                       onClick={() => setEditCreditEnabled(!editCreditEnabled)}
-                      className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${editCreditEnabled ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-600'}`}
+                      className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${editCreditEnabled ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-slate-800 text-slate-400 border border-slate-700'}`}
                     >
                       {editCreditEnabled ? 'Enabled' : 'Disabled'}
                     </button>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">Credit Limit (₹)</label>
-                      <input type="number" value={editCreditLimit} onChange={(e) => setEditCreditLimit(Number(e.target.value))} step="5000" className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-violet-600" />
+                      <label className="block text-xs font-semibold text-slate-300 mb-1">Credit Limit (₹)</label>
+                      <input type="number" value={editCreditLimit} onChange={(e) => setEditCreditLimit(Number(e.target.value))} step="5000" className="w-full bg-[#111625] border border-slate-800 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-violet-500" />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">Status</label>
-                      <select value={editVerificationStatus} onChange={(e) => setEditVerificationStatus(e.target.value as any)} className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-violet-600 font-medium">
+                      <label className="block text-xs font-semibold text-slate-300 mb-1">Status</label>
+                      <select value={editVerificationStatus} onChange={(e) => setEditVerificationStatus(e.target.value as any)} className="w-full bg-[#111625] border border-slate-800 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-violet-500 font-medium">
                         <option value="VERIFIED">Verified</option>
                         <option value="PENDING">Pending Review</option>
                         <option value="REJECTED">Rejected</option>
@@ -1007,9 +1007,9 @@ export default function AdminUsersAndAccountsPage() {
               </div>
             )}
 
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
-              <button type="button" onClick={() => setSelectedUser(null)} className="px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-800">Cancel</button>
-              <button type="button" onClick={handleSaveModal} className="px-5 py-2 bg-amber-500 hover:bg-amber-600 text-white font-semibold text-sm rounded-xl shadow-sm transition-all active:scale-95">Save Changes</button>
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+              <button type="button" onClick={() => setSelectedUser(null)} className="px-4 py-2 text-sm font-semibold text-slate-400 hover:text-white transition-colors">Cancel</button>
+              <button type="button" onClick={handleSaveModal} className="px-5 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-sm rounded-xl shadow-lg shadow-amber-500/20 transition-all active:scale-95">Save Changes</button>
             </div>
 
           </div>
@@ -1018,53 +1018,53 @@ export default function AdminUsersAndAccountsPage() {
 
       {/* 7. CREATE USER MODAL */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl flex flex-col">
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-[#111625] rounded-2xl max-w-md w-full p-6 shadow-2xl flex flex-col border border-slate-800">
             
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-              <h3 className="font-bold text-lg text-slate-900">Create New User</h3>
-              <button onClick={() => setShowCreateModal(false)} className="text-slate-400 hover:text-slate-600 p-1">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+              <h3 className="font-bold text-lg text-white">Create New Customer</h3>
+              <button onClick={() => setShowCreateModal(false)} className="text-slate-400 hover:text-white p-1">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <div className="py-4 flex flex-col gap-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Full Name *</label>
-                <input type="text" value={createName} onChange={(e) => setCreateName(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500" placeholder="e.g. Rahul Sharma" />
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">Full Name *</label>
+                <input type="text" value={createName} onChange={(e) => setCreateName(e.target.value)} className="w-full bg-[#0B0F19] border border-slate-800 text-white placeholder-slate-500 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500" placeholder="e.g. Rahul Sharma" />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Phone Number (10-digit, optional if Email provided)</label>
-                <input type="text" maxLength={10} value={createPhone} onChange={(e) => setCreatePhone(e.target.value.replace(/\D/g, ''))} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500" placeholder="9876543210" />
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">Phone Number (10-digit, optional if Email provided)</label>
+                <input type="text" maxLength={10} value={createPhone} onChange={(e) => setCreatePhone(e.target.value.replace(/\D/g, ''))} className="w-full bg-[#0B0F19] border border-slate-800 text-white placeholder-slate-500 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500" placeholder="9876543210" />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Email Address (optional if Phone provided)</label>
-                <input type="email" value={createEmail} onChange={(e) => setCreateEmail(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500" placeholder="rahul@example.com" />
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">Email Address (optional if Phone provided)</label>
+                <input type="email" value={createEmail} onChange={(e) => setCreateEmail(e.target.value)} className="w-full bg-[#0B0F19] border border-slate-800 text-white placeholder-slate-500 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500" placeholder="rahul@example.com" />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
                   Password (required for Staff / Admin, min. 6 chars)
                 </label>
                 <input 
                   type="password" 
                   value={createPassword} 
                   onChange={(e) => setCreatePassword(e.target.value)} 
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500" 
+                  className="w-full bg-[#0B0F19] border border-slate-800 text-white placeholder-slate-500 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500" 
                   placeholder="Set account login password" 
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">Role</label>
-                  <select value={createRole} onChange={(e) => setCreateRole(e.target.value as any)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 font-semibold">
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">Role</label>
+                  <select value={createRole} onChange={(e) => setCreateRole(e.target.value as any)} className="w-full bg-[#0B0F19] border border-slate-800 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 font-semibold">
                     <option value="CUSTOMER">Customer</option>
                     <option value="STAFF">Staff (Dispatch)</option>
                     {isSuperAdmin && <option value="ADMIN">Admin</option>}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">Account Type</label>
-                  <select value={createIsB2B ? 'B2B' : 'RETAIL'} onChange={(e) => setCreateIsB2B(e.target.value === 'B2B')} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500">
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">Account Type</label>
+                  <select value={createIsB2B ? 'B2B' : 'RETAIL'} onChange={(e) => setCreateIsB2B(e.target.value === 'B2B')} className="w-full bg-[#0B0F19] border border-slate-800 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500">
                     <option value="RETAIL">Retail</option>
                     <option value="B2B">B2B Commercial</option>
                   </select>
@@ -1072,9 +1072,9 @@ export default function AdminUsersAndAccountsPage() {
               </div>
             </div>
 
-            <div className="pt-4 border-t border-slate-100 flex justify-end gap-3">
-              <button onClick={() => setShowCreateModal(false)} className="px-5 py-2 text-sm font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors">Cancel</button>
-              <button onClick={handleCreateUser} disabled={createMutation.isPending} className="px-5 py-2 text-sm font-semibold text-white bg-amber-500 hover:bg-amber-600 rounded-xl shadow-sm transition-colors disabled:opacity-50">Create User</button>
+            <div className="pt-4 border-t border-slate-800 flex justify-end gap-3">
+              <button onClick={() => setShowCreateModal(false)} className="px-5 py-2 text-sm font-semibold text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-xl transition-colors">Cancel</button>
+              <button onClick={handleCreateUser} disabled={createMutation.isPending} className="px-5 py-2 text-sm font-bold text-slate-950 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 rounded-xl shadow-lg shadow-amber-500/20 transition-all disabled:opacity-50">Create Customer</button>
             </div>
 
           </div>
