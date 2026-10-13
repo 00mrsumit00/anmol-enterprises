@@ -2124,6 +2124,8 @@ apiRouter.get('/inventory/full', authMiddleware, requireRole(['ADMIN', 'STAFF'])
           productId: p.id,
           productName: p.name,
           brand: p.brand,
+          imageUrl: p.imageUrl || (p.galleryImages && p.galleryImages[0]) || '/images/products/mccain-smiles.jpg',
+          galleryImages: p.galleryImages || [],
           categoryName: p.category?.name || 'Uncategorized',
           categoryEmoji: p.category?.emoji || '📦',
           variantId: v.id,
@@ -2321,6 +2323,199 @@ apiRouter.post('/inventory/issue', authMiddleware, requireRole(['ADMIN', 'STAFF'
     }
     console.error('Issue stock error:', error)
     return res.status(500).json({ error: error.message || 'Failed to issue stock' })
+  }
+})
+
+// POST /inventory/pos-sale — Universal Multi-item Store Counter Sale & Stock Issue with Bill/Invoice Generation
+apiRouter.post('/inventory/pos-sale', authMiddleware, requireRole(['ADMIN', 'STAFF']), async (req: Request, res: Response) => {
+  try {
+    const itemSchema = z.object({
+      variantId: z.string(),
+      quantity: z.number().int().positive('Quantity must be positive'),
+      unitPrice: z.number().nonnegative().optional(),
+    })
+
+    const schema = z.object({
+      actionType: z.enum(['SALE', 'DAMAGE', 'DEFROST', 'SAMPLING', 'RETURN_SUPPLIER', 'OTHER']),
+      customerName: z.string().optional(),
+      customerPhone: z.string().optional(),
+      paymentMethod: z.enum(['CASH_ON_DELIVERY', 'UPI', 'CREDIT_ACCOUNT']).default('CASH_ON_DELIVERY'),
+      notes: z.string().optional(),
+      items: z.array(itemSchema).min(1, 'At least 1 item is required'),
+    })
+
+    const body = schema.parse(req.body)
+
+    // Pre-fetch all variants with product and batches
+    const variantIds = body.items.map(i => i.variantId)
+    const variants = await prisma.productVariant.findMany({
+      where: { id: { in: variantIds } },
+      include: {
+        product: true,
+        batches: {
+          where: { quantity: { gt: 0 } },
+          orderBy: { expiryDate: 'asc' }
+        }
+      }
+    })
+
+    const variantMap = new Map(variants.map(v => [v.id, v]))
+
+    // Validate stock for all items
+    for (const item of body.items) {
+      const v = variantMap.get(item.variantId)
+      if (!v) {
+        return res.status(404).json({ error: `Product variant not found: ${item.variantId}` })
+      }
+      if (v.stockCount < item.quantity) {
+        return res.status(400).json({
+          error: `Insufficient stock for ${v.product.name} (${v.packagingType}). Available: ${v.stockCount}, Requested: ${item.quantity}`
+        })
+      }
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Deduct stock for each item using FEFO and record StockMovement
+      const updatedVariantsList: any[] = []
+      const movementList: any[] = []
+      let totalAmount = 0
+      const orderItemsData: any[] = []
+
+      for (const item of body.items) {
+        const v = variantMap.get(item.variantId)!
+        let remainingToDeduct = item.quantity
+
+        for (const batch of v.batches) {
+          if (remainingToDeduct <= 0) break
+          const deductFromBatch = Math.min(batch.quantity, remainingToDeduct)
+          await tx.inventoryBatch.update({
+            where: { id: batch.id },
+            data: { quantity: { decrement: deductFromBatch } }
+          })
+          remainingToDeduct -= deductFromBatch
+        }
+
+        const updatedVariant = await tx.productVariant.update({
+          where: { id: v.id },
+          data: { stockCount: { decrement: item.quantity } }
+        })
+        updatedVariantsList.push(updatedVariant)
+
+        const movementReason = body.actionType === 'SALE' 
+          ? `Store Counter Sale: ${body.customerName || 'Walk-in Customer'}` 
+          : `Stock Issue: ${body.actionType}`
+
+        const movement = await tx.stockMovement.create({
+          data: {
+            variantId: v.id,
+            type: 'ISSUE',
+            quantity: item.quantity,
+            balanceAfter: updatedVariant.stockCount,
+            reason: movementReason,
+            notes: body.notes || null,
+            performedBy: req.user!.id as string,
+          }
+        })
+        movementList.push(movement)
+
+        // Compute price for sale
+        const effectivePrice = item.unitPrice ?? v.retailPrice
+        const lineTotal = effectivePrice * item.quantity
+        totalAmount += lineTotal
+
+        orderItemsData.push({
+          productId: v.productId,
+          variantId: v.id,
+          productName: v.product.name,
+          variantSku: v.skuCode,
+          packagingType: v.packagingType,
+          weightGrams: v.weightGrams,
+          quantity: item.quantity,
+          unitPrice: effectivePrice,
+          lineTotal,
+        })
+      }
+
+      // 2. If it's a SALE, generate a real Order record so an official invoice/bill is generated
+      let createdOrder: any = null
+      if (body.actionType === 'SALE') {
+        const orderNumber = `POS-${Date.now().toString().slice(-6)}-${Math.floor(100 + Math.random() * 900)}`
+        
+        createdOrder = await tx.order.create({
+          data: {
+            orderNumber,
+            userId: null,
+            guestName: body.customerName?.trim() || 'Store Walk-in Customer',
+            guestPhone: body.customerPhone?.trim() || 'N/A',
+            deliveryAddress: 'Direct Store Pickup / Latur Counter',
+            deliveryCity: 'Latur',
+            deliveryPincode: '413512',
+            deliverySlot: 'IMMEDIATE',
+            deliveryDate: new Date(),
+            status: 'DELIVERED',
+            paymentMethod: body.paymentMethod,
+            paymentStatus: 'PAID',
+            subtotal: totalAmount,
+            deliveryFee: 0,
+            coldHandlingFee: 0,
+            discountAmount: 0,
+            totalAmount,
+            notes: body.notes ? `Counter POS Sale: ${body.notes}` : 'Direct Store Counter Sale',
+            packedAt: new Date(),
+            dispatchedAt: new Date(),
+            deliveredAt: new Date(),
+            items: {
+              create: orderItemsData
+            }
+          },
+          include: {
+            items: true
+          }
+        })
+
+        // Also add an order status log
+        await tx.orderStatusLog.create({
+          data: {
+            orderId: createdOrder.id,
+            toStatus: 'DELIVERED',
+            note: 'Order fulfilled directly at store counter',
+            changedBy: req.user!.id as string,
+          }
+        })
+      }
+
+      return { updatedVariantsList, movementList, createdOrder, totalAmount }
+    })
+
+    invalidateCatalogCache()
+    const io = ioInstance
+    if (io) {
+      result.updatedVariantsList.forEach(v => {
+        io.emit('stock_update', { variantId: v.id, stockCount: v.stockCount })
+      })
+      result.movementList.forEach(m => {
+        io.emit('inventory_movement_new', m)
+      })
+      if (result.createdOrder) {
+        io.emit('new_order', result.createdOrder)
+      }
+    }
+
+    return res.status(201).json({
+      success: true,
+      message: body.actionType === 'SALE'
+        ? `Store sale completed! Bill #${result.createdOrder?.orderNumber} generated for ₹${result.totalAmount}.`
+        : `Successfully issued ${body.items.length} items from stock for ${body.actionType}.`,
+      orderId: result.createdOrder?.id || null,
+      orderNumber: result.createdOrder?.orderNumber || null,
+      totalAmount: result.totalAmount,
+    })
+  } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: getZodErrorMessage(error) })
+    }
+    console.error('POS Sale / Issue stock error:', error)
+    return res.status(500).json({ error: error.message || 'Failed to process store sale/issue' })
   }
 })
 

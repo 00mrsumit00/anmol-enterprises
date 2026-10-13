@@ -6,10 +6,12 @@ import {
   BarChart3, Plus, Package, Edit3, Check, X, Search, RefreshCw,
   AlertTriangle, ArrowDownRight, ArrowUpRight, Clock, Calendar,
   FileText, ShieldAlert, CheckCircle2, DollarSign, Layers,
-  ChevronRight, Filter, AlertCircle, TrendingDown, Truck, Undo2
+  ChevronRight, Filter, AlertCircle, TrendingDown, Truck, Undo2,
+  LayoutGrid, List, ShoppingCart, Printer, Trash2, ArrowRight
 } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import { useSocket } from '@/hooks/useSocket'
+import Link from 'next/link'
 
 export default function AdminInventoryPage() {
   const queryClient = useQueryClient()
@@ -17,6 +19,9 @@ export default function AdminInventoryPage() {
 
   // Active Tab: Stock, Batches, Low stock alerts, Movement history
   const [activeTab, setActiveTab] = useState<'STOCK' | 'BATCHES' | 'LOW_STOCK' | 'MOVEMENTS'>('STOCK')
+
+  // View Mode: Table vs Grid (Like Product Catalog in Screenshot 2)
+  const [viewMode, setViewMode] = useState<'table' | 'grid'>('table')
 
   // Search & Filters
   const [searchQuery, setSearchQuery] = useState('')
@@ -27,6 +32,17 @@ export default function AdminInventoryPage() {
   const [receiveDrawerOpen, setReceiveDrawerOpen] = useState(false)
   const [issueDrawerOpen, setIssueDrawerOpen] = useState(false)
   const [selectedVariant, setSelectedVariant] = useState<any | null>(null)
+
+  // Universal POS Multi-Item Counter Sale / Issue Drawer
+  const [posDrawerOpen, setPosDrawerOpen] = useState(false)
+  const [posActionType, setPosActionType] = useState<'SALE' | 'DAMAGE' | 'DEFROST' | 'SAMPLING' | 'RETURN_SUPPLIER'>('SALE')
+  const [posCustomerName, setPosCustomerName] = useState('')
+  const [posCustomerPhone, setPosCustomerPhone] = useState('')
+  const [posPaymentMethod, setPosPaymentMethod] = useState<'CASH_ON_DELIVERY' | 'UPI' | 'CREDIT_ACCOUNT'>('CASH_ON_DELIVERY')
+  const [posNotes, setPosNotes] = useState('')
+  const [posItems, setPosItems] = useState<Array<{ variantId: string; quantity: number; unitPrice?: number }>>([])
+  const [isSubmittingPos, setIsSubmittingPos] = useState(false)
+  const [createdPosReceipt, setCreatedPosReceipt] = useState<{ orderId: string | null; orderNumber: string | null; totalAmount: number } | null>(null)
 
   // Quick edit state
   const [editingVariantId, setEditingVariantId] = useState<string | null>(null)
@@ -202,6 +218,131 @@ export default function AdminInventoryPage() {
       })
     }
     setIssueDrawerOpen(true)
+  }
+
+  // Open Universal POS Multi-Item Counter Sale / Issue Drawer
+  const openPosDrawer = (initialItem?: any, defaultAction: 'SALE' | 'DAMAGE' = 'SALE') => {
+    setPosActionType(defaultAction)
+    setPosCustomerName('')
+    setPosCustomerPhone('')
+    setPosPaymentMethod('CASH_ON_DELIVERY')
+    setPosNotes('')
+    setCreatedPosReceipt(null)
+
+    if (initialItem) {
+      setPosItems([{
+        variantId: initialItem.variantId,
+        quantity: 1,
+        unitPrice: initialItem.retailPrice
+      }])
+    } else if (inventoryItems.length > 0) {
+      setPosItems([{
+        variantId: inventoryItems[0].variantId,
+        quantity: 1,
+        unitPrice: inventoryItems[0].retailPrice
+      }])
+    } else {
+      setPosItems([])
+    }
+    setPosDrawerOpen(true)
+  }
+
+  // POS Helper functions
+  const addPosItem = () => {
+    if (inventoryItems.length === 0) return
+    setPosItems(prev => [
+      ...prev,
+      {
+        variantId: inventoryItems[0].variantId,
+        quantity: 1,
+        unitPrice: inventoryItems[0].retailPrice || 0
+      }
+    ])
+  }
+
+  const removePosItem = (index: number) => {
+    setPosItems(prev => prev.filter((_, idx) => idx !== index))
+  }
+
+  const updatePosItem = (index: number, updates: Partial<{ variantId: string; quantity: number; unitPrice: number }>) => {
+    setPosItems(prev => prev.map((item, idx) => {
+      if (idx !== index) return item
+      const next = { ...item, ...updates }
+      if (updates.variantId) {
+        const found = inventoryItems.find(i => i.variantId === updates.variantId)
+        if (found) {
+          next.unitPrice = found.retailPrice || 0
+        }
+      }
+      return next
+    }))
+  }
+
+  const posTotalAmount = useMemo(() => {
+    return posItems.reduce((acc, it) => acc + (it.quantity || 0) * (it.unitPrice || 0), 0)
+  }, [posItems])
+
+  // Handle Multi-Item POS Counter Sale / Issue Submission
+  const handlePosSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (posItems.length === 0) {
+      showToast('Please add at least one product item', 'error')
+      return
+    }
+
+    for (const it of posItems) {
+      if (!it.variantId) {
+        showToast('Please choose a valid product', 'error')
+        return
+      }
+      if (!it.quantity || it.quantity <= 0) {
+        showToast('Quantity must be greater than 0 for all items', 'error')
+        return
+      }
+    }
+
+    setIsSubmittingPos(true)
+    try {
+      const res = await fetch('/api/inventory/pos-sale', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          actionType: posActionType,
+          customerName: posCustomerName.trim() || undefined,
+          customerPhone: posCustomerPhone.trim() || undefined,
+          paymentMethod: posPaymentMethod,
+          notes: posNotes.trim() || undefined,
+          items: posItems.map(i => ({
+            variantId: i.variantId,
+            quantity: i.quantity,
+            unitPrice: i.unitPrice
+          }))
+        })
+      })
+
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to process store sale/issue')
+
+      showToast(data.message || 'Operation recorded successfully!', 'success')
+      queryClient.invalidateQueries({ queryKey: ['admin-inventory-full'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-inventory-batches'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-inventory-movements'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-orders'] })
+
+      if (posActionType === 'SALE' && data.orderId) {
+        setCreatedPosReceipt({
+          orderId: data.orderId,
+          orderNumber: data.orderNumber,
+          totalAmount: data.totalAmount
+        })
+      } else {
+        setPosDrawerOpen(false)
+      }
+    } catch (err: any) {
+      showToast(err.message || 'Failed to complete transaction', 'error')
+    } finally {
+      setIsSubmittingPos(false)
+    }
   }
 
   // Handle Receive Submit
@@ -477,12 +618,42 @@ export default function AdminInventoryPage() {
                 </button>
               )}
 
+              {/* View Mode Toggle: Grid vs Table */}
+              <div className="flex items-center bg-[#0D121F] p-1 rounded-xl border border-slate-800">
+                <button
+                  onClick={() => setViewMode('table')}
+                  className={`p-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === 'table' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-xs' : 'text-slate-500 hover:text-slate-300'}`}
+                  title="Table View (Dense data view)"
+                >
+                  <List className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setViewMode('grid')}
+                  className={`p-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === 'grid' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-xs' : 'text-slate-500 hover:text-slate-300'}`}
+                  title="Grid View (Official packet image cards)"
+                >
+                  <LayoutGrid className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Universal Receive (Purchase) Button */}
               <button
                 onClick={() => openReceiveDrawer()}
-                className="px-3.5 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black rounded-xl text-xs transition-all shadow-md flex items-center gap-1.5"
+                className="px-3.5 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black rounded-xl text-xs transition-all shadow-lg shadow-amber-500/20 flex items-center gap-1.5 active:scale-95"
+                title="Log purchase shipment received from McCain / supplier"
               >
                 <Plus className="w-3.5 h-3.5 stroke-[3]" />
-                Receive stock
+                <span>Receive (Purchase)</span>
+              </button>
+
+              {/* Universal Issue / Counter Sale (POS) Button */}
+              <button
+                onClick={() => openPosDrawer(undefined, 'SALE')}
+                className="px-3.5 py-2 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-slate-950 font-black rounded-xl text-xs transition-all shadow-lg shadow-emerald-500/20 flex items-center gap-1.5 active:scale-95"
+                title="Counter Sale to store customer with Instant Bill / Invoice or stock issue"
+              >
+                <ShoppingCart className="w-3.5 h-3.5" />
+                <span>Issue (Sale POS)</span>
               </button>
             </div>
           </div>
@@ -507,12 +678,12 @@ export default function AdminInventoryPage() {
                   Clear filters
                 </button>
               </div>
-            ) : (
+            ) : viewMode === 'table' ? (
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="border-b border-slate-800 bg-[#0E1320] text-slate-400 font-bold uppercase tracking-wider text-[11px] select-none">
-                      <th className="py-3.5 px-4">Product</th>
+                      <th className="py-3.5 px-4">Packet Image & Product</th>
                       <th className="py-3.5 px-4">Pack Size</th>
                       <th className="py-3.5 px-3 text-center">Physical</th>
                       <th className="py-3.5 px-3 text-center">Reserved</th>
@@ -536,16 +707,29 @@ export default function AdminInventoryPage() {
                           key={item.variantId} 
                           className="hover:bg-slate-800/30 transition-colors group"
                         >
-                          {/* Product */}
-                          <td className="py-3.5 px-4">
-                            <div className="flex items-center gap-2.5">
-                              <span className="text-base shrink-0">{item.categoryEmoji}</span>
+                          {/* Packet Image & Product Details */}
+                          <td className="py-3 px-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-12 h-12 bg-[#0B0F19] rounded-xl border border-slate-800 p-1 flex items-center justify-center shrink-0 overflow-hidden shadow-xs">
+                                <img
+                                  src={item.imageUrl || '/images/products/mccain-smiles.jpg'}
+                                  alt={item.productName}
+                                  className="max-h-full max-w-full object-contain"
+                                  onError={(e: any) => { e.target.src = '/images/products/mccain-smiles.jpg' }}
+                                />
+                              </div>
                               <div className="min-w-0">
-                                <div className="font-bold text-white text-xs truncate max-w-[200px]" title={item.productName}>
+                                <div className="font-bold text-white text-xs truncate max-w-[210px]" title={item.productName}>
                                   {item.productName}
                                 </div>
-                                <div className="text-[10px] text-slate-500 font-mono mt-0.5">
-                                  {item.skuCode}
+                                <div className="flex items-center gap-1.5 mt-0.5">
+                                  <span className="text-[10px] text-slate-400 font-medium">
+                                    {item.categoryEmoji} {item.categoryName}
+                                  </span>
+                                  <span className="text-slate-600 text-[10px]">•</span>
+                                  <span className="text-[10px] text-slate-500 font-mono">
+                                    {item.skuCode}
+                                  </span>
                                 </div>
                               </div>
                             </div>
@@ -677,14 +861,21 @@ export default function AdminInventoryPage() {
                             <div className="flex items-center justify-end gap-1.5">
                               <button
                                 onClick={() => openReceiveDrawer(item)}
-                                className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-lg text-[11px] font-bold transition-all border border-slate-700/60"
-                                title="Receive new shipment from McCain"
+                                className="px-2.5 py-1 bg-[#0B0F19] hover:bg-amber-500/10 text-slate-300 hover:text-amber-400 rounded-lg text-[11px] font-bold transition-all border border-slate-800 hover:border-amber-500/30"
+                                title="Receive purchase shipment from McCain"
                               >
                                 Receive
                               </button>
                               <button
+                                onClick={() => openPosDrawer(item, 'SALE')}
+                                className="px-2.5 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 hover:text-emerald-200 rounded-lg text-[11px] font-bold transition-all border border-emerald-500/30"
+                                title="Counter sale to walk-in customer with bill"
+                              >
+                                Sale Bill
+                              </button>
+                              <button
                                 onClick={() => openIssueDrawer(item)}
-                                className="px-2.5 py-1 bg-slate-800 hover:bg-rose-950/60 text-slate-300 hover:text-rose-400 rounded-lg text-[11px] font-bold transition-all border border-slate-700/60 hover:border-rose-800/40"
+                                className="px-2 py-1 bg-[#0B0F19] hover:bg-rose-950/60 text-slate-400 hover:text-rose-400 rounded-lg text-[11px] font-bold transition-all border border-slate-800 hover:border-rose-800/40"
                                 title="Issue stock (damages, defrosting, sampling)"
                               >
                                 Issue
@@ -696,6 +887,124 @@ export default function AdminInventoryPage() {
                     })}
                   </tbody>
                 </table>
+              </div>
+            ) : (
+              /* ── GRID VIEW (Prominent Product Image Cards matching Screenshot 2) ── */
+              <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {filteredItems.map((item) => {
+                  const expiry = getExpiryLabel(item.nextExpiry)
+                  const capacityPct = item.physical > 0 ? Math.min(100, Math.round((item.available / item.physical) * 100)) : 0
+
+                  return (
+                    <div
+                      key={item.variantId}
+                      className="bg-[#0B0F19] border border-slate-800 rounded-2xl p-4 flex flex-col justify-between hover:border-slate-700 transition-all shadow-md group"
+                    >
+                      {/* Top Badges */}
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md ${
+                          item.status === 'OUT_OF_STOCK' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/30' :
+                          item.status === 'LOW_STOCK' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30' :
+                          'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                        }`}>
+                          {item.status.replace(/_/g, ' ')}
+                        </span>
+
+                        <span className="text-[10px] text-slate-400 font-mono">
+                          {item.skuCode}
+                        </span>
+                      </div>
+
+                      {/* Official Packet Image */}
+                      <div className="w-full aspect-square bg-[#111625] rounded-xl p-2.5 flex items-center justify-center mb-3 border border-slate-800/80 group-hover:border-amber-500/30 transition-colors">
+                        <img
+                          src={item.imageUrl || '/images/products/mccain-smiles.jpg'}
+                          alt={item.productName}
+                          className="max-h-full max-w-full object-contain drop-shadow-md group-hover:scale-105 transition-transform"
+                          onError={(e: any) => { e.target.src = '/images/products/mccain-smiles.jpg' }}
+                        />
+                      </div>
+
+                      {/* Product Name & Category */}
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
+                          {item.categoryEmoji} {item.categoryName}
+                        </span>
+                        <h4 className="font-black text-sm text-white line-clamp-1 mt-0.5" title={item.productName}>
+                          {item.productName}
+                        </h4>
+
+                        {/* Pack size pill */}
+                        <div className="flex items-center gap-1.5 mt-1.5">
+                          <span className="px-2 py-0.5 bg-[#111625] border border-slate-800 text-slate-300 rounded text-[10px] font-bold">
+                            {item.packagingType} ({item.weightGrams}g)
+                          </span>
+                          <span className="text-[10px] text-slate-500">
+                            {item.unitsInPack} units
+                          </span>
+                        </div>
+
+                        {/* Stock Capacity Meter */}
+                        <div className="mt-3 p-2.5 bg-[#111625] rounded-xl border border-slate-800/80 flex flex-col gap-1.5">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-slate-400 text-[10px] font-semibold">Cold Room Stock:</span>
+                            <span className="font-black text-white text-xs">
+                              {item.available} / {item.physical} Available
+                            </span>
+                          </div>
+                          <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                            <div 
+                              className={`h-full rounded-full transition-all ${
+                                item.available === 0 ? 'bg-rose-500' :
+                                item.available <= item.reorderLevel ? 'bg-amber-400' : 'bg-emerald-400'
+                              }`} 
+                              style={{ width: `${capacityPct}%` }}
+                            />
+                          </div>
+                          <div className="flex items-center justify-between text-[10px] text-slate-500 pt-0.5">
+                            <span>Reserved: {item.reserved}</span>
+                            <span className={expiry.color}>{expiry.text}</span>
+                          </div>
+                        </div>
+
+                        {/* Prices Row */}
+                        <div className="flex items-center justify-between mt-3 pt-2 border-t border-slate-800 text-xs">
+                          <div>
+                            <span className="text-[9px] text-slate-500 font-bold block">Retail MRP</span>
+                            <span className="font-black text-white">₹{item.retailPrice}</span>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-[9px] text-purple-400 font-bold block">B2B Price</span>
+                            <span className="font-black text-purple-300">₹{item.b2bPrice}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="grid grid-cols-3 gap-1.5 mt-3 pt-2.5 border-t border-slate-800">
+                        <button
+                          onClick={() => openReceiveDrawer(item)}
+                          className="py-1.5 bg-[#111625] hover:bg-amber-500/10 text-slate-300 hover:text-amber-400 font-bold text-[10px] rounded-lg border border-slate-800 transition-all text-center"
+                        >
+                          Receive
+                        </button>
+                        <button
+                          onClick={() => openPosDrawer(item, 'SALE')}
+                          className="py-1.5 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 font-bold text-[10px] rounded-lg border border-emerald-500/30 transition-all text-center"
+                        >
+                          Sale Bill
+                        </button>
+                        <button
+                          onClick={() => openIssueDrawer(item)}
+                          className="py-1.5 bg-[#111625] hover:bg-rose-950/40 text-slate-400 hover:text-rose-400 font-bold text-[10px] rounded-lg border border-slate-800 transition-all text-center"
+                        >
+                          Issue
+                        </button>
+                      </div>
+
+                    </div>
+                  )
+                })}
               </div>
             )}
           </div>
@@ -1190,6 +1499,461 @@ export default function AdminInventoryPage() {
         </div>
       )}
 
+      {/* ─── 6. SLIDE-OUT DRAWER: UNIVERSAL POS COUNTER SALE / ISSUE (MULTI-ITEM) ─── */}
+      {posDrawerOpen && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/75 backdrop-blur-xs transition-opacity animate-fade-in">
+          <div className="w-full max-w-2xl bg-[#111625] border-l border-slate-800 h-full p-6 overflow-y-auto flex flex-col justify-between shadow-2xl">
+            <div>
+              {/* Drawer Header */}
+              <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+                    <ShoppingCart className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-black text-white">
+                      {posActionType === 'SALE' ? 'Counter Sale & Instant Bill (POS)' : 'Universal Stock Issue'}
+                    </h2>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      {posActionType === 'SALE' 
+                        ? 'Select products, quantity, customer details & generate tax invoice'
+                        : 'Manual multi-item write-off, tasting samples or vendor return'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPosDrawerOpen(false)}
+                  className="p-2 hover:bg-slate-800 text-slate-400 hover:text-white rounded-xl transition-all"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* SUCCESS RECEIPT / INVOICE VIEW */}
+              {createdPosReceipt ? (
+                <div className="py-8 space-y-6 text-center animate-fade-in">
+                  <div className="w-16 h-16 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 mx-auto flex items-center justify-center shadow-lg shadow-emerald-500/10">
+                    <CheckCircle2 className="w-9 h-9" />
+                  </div>
+
+                  <div>
+                    <h3 className="text-xl font-black text-white">Bill Generated Successfully!</h3>
+                    <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
+                      Inventory has been deducted via FEFO batches and order status is marked as delivered and paid.
+                    </p>
+                  </div>
+
+                  {/* Receipt Summary Card */}
+                  <div className="bg-[#0A0D17] border border-slate-800 rounded-2xl p-5 max-w-md mx-auto text-left space-y-3">
+                    <div className="flex items-center justify-between pb-3 border-b border-slate-800/80">
+                      <span className="text-xs text-slate-400 font-medium">Invoice / Order #</span>
+                      <span className="text-sm font-black text-amber-400 font-mono">
+                        #{createdPosReceipt.orderNumber || 'STORE-SALE'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between pb-3 border-b border-slate-800/80">
+                      <span className="text-xs text-slate-400 font-medium">Payment Status</span>
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        PAID & DELIVERED
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-slate-400 font-medium">Total Bill Amount</span>
+                      <span className="text-lg font-black text-white">
+                        ₹{createdPosReceipt.totalAmount.toLocaleString('en-IN')}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex flex-col sm:flex-row items-center justify-center gap-3 max-w-md mx-auto pt-2">
+                    {createdPosReceipt.orderId && (
+                      <Link
+                        href={`/admin/orders/${createdPosReceipt.orderId}/invoice`}
+                        target="_blank"
+                        className="w-full sm:flex-1 py-3 px-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 rounded-xl font-black text-xs shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 transition-all"
+                      >
+                        <Printer className="w-4 h-4" /> Print Tax Invoice
+                      </Link>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => openPosDrawer(undefined, 'SALE')}
+                      className="w-full sm:flex-1 py-3 px-4 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold text-xs transition-all"
+                    >
+                      New Sale
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPosDrawerOpen(false)}
+                      className="w-full sm:w-auto py-3 px-4 bg-slate-900 hover:bg-slate-800 text-slate-300 rounded-xl font-bold text-xs transition-all border border-slate-800"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                /* POS / ISSUE FORM */
+                <form onSubmit={handlePosSubmit} className="mt-5 space-y-5 text-xs">
+                  {/* Action / Reason Type Pills */}
+                  <div>
+                    <label className="block text-slate-300 font-bold mb-2">Transaction Purpose / Reason</label>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setPosActionType('SALE')}
+                        className={`p-2.5 rounded-xl border font-bold text-left transition-all flex flex-col gap-1 ${
+                          posActionType === 'SALE'
+                            ? 'bg-amber-500/15 border-amber-500 text-amber-300 shadow-sm'
+                            : 'bg-[#0D121F] border-slate-800 text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        <span className="text-[11px] font-black">🛒 Store Counter Sale</span>
+                        <span className="text-[9px] text-slate-400 font-normal">Generate customer invoice bill</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setPosActionType('DAMAGE')}
+                        className={`p-2.5 rounded-xl border font-bold text-left transition-all flex flex-col gap-1 ${
+                          posActionType === 'DAMAGE'
+                            ? 'bg-rose-500/15 border-rose-500 text-rose-300 shadow-sm'
+                            : 'bg-[#0D121F] border-slate-800 text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        <span className="text-[11px] font-black">⚠️ Damaged / Packet Leak</span>
+                        <span className="text-[9px] text-slate-400 font-normal">Cold-chain damage write-off</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setPosActionType('DEFROST')}
+                        className={`p-2.5 rounded-xl border font-bold text-left transition-all flex flex-col gap-1 ${
+                          posActionType === 'DEFROST'
+                            ? 'bg-blue-500/15 border-blue-500 text-blue-300 shadow-sm'
+                            : 'bg-[#0D121F] border-slate-800 text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        <span className="text-[11px] font-black">❄️ Defrost / Expired</span>
+                        <span className="text-[9px] text-slate-400 font-normal">Freezer failure or expiration</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setPosActionType('SAMPLING')}
+                        className={`p-2.5 rounded-xl border font-bold text-left transition-all flex flex-col gap-1 ${
+                          posActionType === 'SAMPLING'
+                            ? 'bg-purple-500/15 border-purple-500 text-purple-300 shadow-sm'
+                            : 'bg-[#0D121F] border-slate-800 text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        <span className="text-[11px] font-black">🍽️ Tasting / Sampling</span>
+                        <span className="text-[9px] text-slate-400 font-normal">Promotional chef demo & testing</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setPosActionType('RETURN_SUPPLIER')}
+                        className={`p-2.5 rounded-xl border font-bold text-left transition-all flex flex-col gap-1 col-span-2 sm:col-span-1 ${
+                          posActionType === 'RETURN_SUPPLIER'
+                            ? 'bg-yellow-500/15 border-yellow-500 text-yellow-300 shadow-sm'
+                            : 'bg-[#0D121F] border-slate-800 text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        <span className="text-[11px] font-black">↩️ Return to Supplier</span>
+                        <span className="text-[9px] text-slate-400 font-normal">McCain vendor return</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Customer & Billing Details (For Counter Sale) */}
+                  {posActionType === 'SALE' && (
+                    <div className="p-4 bg-[#0D121F] border border-slate-800 rounded-2xl space-y-3">
+                      <div className="flex items-center justify-between pb-2 border-b border-slate-800/80">
+                        <span className="font-bold text-white text-xs flex items-center gap-1.5">
+                          👤 Customer & Bill Information
+                        </span>
+                        <span className="text-[10px] text-slate-400">Optional for walk-in retail</span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-slate-400 font-medium mb-1">Customer Name</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. Walk-in Customer / Hotel Green"
+                            value={posCustomerName}
+                            onChange={(e) => setPosCustomerName(e.target.value)}
+                            className="w-full bg-[#111625] border border-slate-800 text-white rounded-xl px-3 py-2 text-xs font-medium focus:outline-none focus:border-amber-500"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-slate-400 font-medium mb-1">Contact Phone</label>
+                          <input
+                            type="tel"
+                            placeholder="e.g. 9876543210"
+                            value={posCustomerPhone}
+                            onChange={(e) => setPosCustomerPhone(e.target.value)}
+                            className="w-full bg-[#111625] border border-slate-800 text-white rounded-xl px-3 py-2 text-xs font-medium focus:outline-none focus:border-amber-500"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-400 font-medium mb-1.5">Payment Method</label>
+                        <div className="grid grid-cols-3 gap-2">
+                          {[
+                            { id: 'CASH_ON_DELIVERY', label: '💵 Cash' },
+                            { id: 'UPI', label: '📱 UPI / QR' },
+                            { id: 'CREDIT_ACCOUNT', label: '📑 Credit Account' }
+                          ].map(pm => (
+                            <button
+                              key={pm.id}
+                              type="button"
+                              onClick={() => setPosPaymentMethod(pm.id as any)}
+                              className={`py-2 px-3 rounded-xl border text-center font-bold text-xs transition-all ${
+                                posPaymentMethod === pm.id
+                                  ? 'bg-amber-500/20 border-amber-500 text-amber-300'
+                                  : 'bg-[#111625] border-slate-800 text-slate-400 hover:text-slate-200'
+                              }`}
+                            >
+                              {pm.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Multi-Item Product Cart List */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-slate-300 text-xs">Selected Items ({posItems.length})</span>
+                        <span className="text-[10px] text-slate-500">Auto-deducted earliest expiry first (FEFO)</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={addPosItem}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-xl font-bold text-xs transition-all"
+                      >
+                        <Plus className="w-3.5 h-3.5" /> Add Product
+                      </button>
+                    </div>
+
+                    {posItems.length === 0 ? (
+                      <div className="p-8 text-center bg-[#0D121F] border border-dashed border-slate-800 rounded-2xl">
+                        <Package className="w-8 h-8 text-slate-600 mx-auto mb-2" />
+                        <p className="text-slate-400 text-xs font-medium">No products added to this transaction</p>
+                        <button
+                          type="button"
+                          onClick={addPosItem}
+                          className="mt-3 px-4 py-2 bg-amber-500 text-slate-950 rounded-xl font-bold text-xs"
+                        >
+                          + Select First Product
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-2.5 max-h-[280px] overflow-y-auto pr-1">
+                        {posItems.map((item, idx) => {
+                          const matchedVariant = inventoryItems.find(v => v.variantId === item.variantId)
+                          const rowTotal = (item.quantity || 0) * (item.unitPrice || 0)
+
+                          return (
+                            <div
+                              key={idx}
+                              className="p-3 bg-[#0D121F] border border-slate-800 rounded-2xl flex flex-col sm:flex-row sm:items-center gap-3"
+                            >
+                              {/* Product Thumbnail & Selector */}
+                              <div className="flex-1 flex items-center gap-2.5 min-w-0">
+                                {matchedVariant?.imageUrl && (
+                                  <div className="w-10 h-10 rounded-lg bg-slate-950 border border-slate-800 p-1 shrink-0 flex items-center justify-center">
+                                    <img
+                                      src={matchedVariant.imageUrl}
+                                      alt=""
+                                      className="w-full h-full object-contain"
+                                      onError={(e: any) => { e.currentTarget.src = '/images/products/mccain-smiles.jpg' }}
+                                    />
+                                  </div>
+                                )}
+                                <div className="flex-1 min-w-0">
+                                  <select
+                                    value={item.variantId}
+                                    onChange={(e) => updatePosItem(idx, { variantId: e.target.value })}
+                                    className="w-full bg-[#111625] border border-slate-800 text-white rounded-xl px-2.5 py-1.5 text-xs font-medium focus:outline-none focus:border-amber-500 truncate"
+                                  >
+                                    {inventoryItems.map(inv => (
+                                      <option key={inv.variantId} value={inv.variantId}>
+                                        {inv.productName} ({inv.packagingType}) — Stock: {inv.available}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  {matchedVariant && (
+                                    <div className="flex items-center gap-2 mt-1 text-[10px] text-slate-400">
+                                      <span>Available: <strong className="text-emerald-400">{matchedVariant.available} pkts</strong></span>
+                                      <span>•</span>
+                                      <span>SKU: {matchedVariant.skuCode}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Price & Quantity Controls */}
+                              <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
+                                {/* Price per unit (For Sale) */}
+                                {posActionType === 'SALE' && (
+                                  <div className="w-20">
+                                    <label className="block text-[10px] text-slate-500 font-medium mb-0.5">Price (₹)</label>
+                                    <input
+                                      type="number"
+                                      step="any"
+                                      min="0"
+                                      value={item.unitPrice ?? ''}
+                                      onChange={(e) => updatePosItem(idx, { unitPrice: parseFloat(e.target.value) || 0 })}
+                                      className="w-full bg-[#111625] border border-slate-800 text-white rounded-xl px-2 py-1.5 text-xs font-bold focus:outline-none focus:border-amber-500 text-right"
+                                    />
+                                  </div>
+                                )}
+
+                                {/* Quantity Stepper */}
+                                <div className="w-24">
+                                  <label className="block text-[10px] text-slate-500 font-medium mb-0.5">Quantity</label>
+                                  <div className="flex items-center bg-[#111625] border border-slate-800 rounded-xl overflow-hidden">
+                                    <button
+                                      type="button"
+                                      onClick={() => updatePosItem(idx, { quantity: Math.max(1, (item.quantity || 1) - 1) })}
+                                      className="px-2 py-1.5 text-slate-400 hover:text-white font-bold transition-all"
+                                    >
+                                      -
+                                    </button>
+                                    <input
+                                      type="number"
+                                      min="1"
+                                      max={matchedVariant ? matchedVariant.available : 9999}
+                                      value={item.quantity || ''}
+                                      onChange={(e) => updatePosItem(idx, { quantity: parseInt(e.target.value) || 1 })}
+                                      className="w-full bg-transparent text-center text-white font-black text-xs focus:outline-none"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => updatePosItem(idx, { quantity: (item.quantity || 1) + 1 })}
+                                      className="px-2 py-1.5 text-slate-400 hover:text-white font-bold transition-all"
+                                    >
+                                      +
+                                    </button>
+                                  </div>
+                                </div>
+
+                                {/* Line Total (For Sale) */}
+                                {posActionType === 'SALE' && (
+                                  <div className="w-20 text-right">
+                                    <span className="block text-[10px] text-slate-500 font-medium mb-0.5">Line Total</span>
+                                    <span className="text-xs font-black text-white">
+                                      ₹{rowTotal.toLocaleString('en-IN')}
+                                    </span>
+                                  </div>
+                                )}
+
+                                {/* Remove Button */}
+                                <button
+                                  type="button"
+                                  onClick={() => removePosItem(idx)}
+                                  className="p-1.5 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-all"
+                                  title="Remove item"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Summary Bar for Counter Sale */}
+                  {posActionType === 'SALE' && posItems.length > 0 && (
+                    <div className="p-4 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/20 rounded-2xl flex items-center justify-between">
+                      <div>
+                        <span className="text-xs text-amber-300 font-medium">Grand Total Payable</span>
+                        <div className="text-[11px] text-slate-400 mt-0.5">
+                          {posItems.reduce((acc, it) => acc + (it.quantity || 0), 0)} packets across {posItems.length} items
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-xl font-black text-white">
+                          ₹{posTotalAmount.toLocaleString('en-IN')}
+                        </span>
+                        <span className="block text-[10px] text-emerald-400 font-semibold mt-0.5">
+                          ✓ Incl. All Taxes & FEFO Deduction
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Operational Notes */}
+                  <div>
+                    <label className="block text-slate-300 font-bold mb-1.5">Transaction Notes (Optional)</label>
+                    <textarea
+                      rows={2}
+                      placeholder="e.g. Customer walked in, paid via PhonePe QR scan / Freezer defrost inspection..."
+                      value={posNotes}
+                      onChange={(e) => setPosNotes(e.target.value)}
+                      className="w-full bg-[#0D121F] border border-slate-800 text-white rounded-xl px-3 py-2 text-xs font-medium focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+
+                  {/* Information banner */}
+                  <div className="p-3 bg-slate-900 border border-slate-800 rounded-xl text-slate-400 text-[11px] leading-relaxed flex items-start gap-2">
+                    <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                    <span>
+                      {posActionType === 'SALE'
+                        ? 'Submitting this will immediately deduct physical stock from batches using FIFO/FEFO rules, mark an order as delivered, and allow printing the official tax invoice bill.'
+                        : 'Manual deduction will update stock records in real-time and log an audit movement entry in the inventory ledger.'}
+                    </span>
+                  </div>
+
+                  {/* Drawer Footer Actions */}
+                  <div className="pt-3 flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setPosDrawerOpen(false)}
+                      className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-bold transition-all text-xs"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isSubmittingPos || posItems.length === 0}
+                      className={`flex-1 py-3 disabled:opacity-50 text-slate-950 rounded-xl font-black transition-all text-xs shadow-lg flex items-center justify-center gap-2 ${
+                        posActionType === 'SALE'
+                          ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-amber-500/20'
+                          : 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-600/20'
+                      }`}
+                    >
+                      {isSubmittingPos ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin" /> Processing...
+                        </>
+                      ) : posActionType === 'SALE' ? (
+                        <>
+                          <ShoppingCart className="w-4 h-4" /> Generate Bill & Deduct Stock (₹{posTotalAmount.toLocaleString('en-IN')})
+                        </>
+                      ) : (
+                        '⚠️ Deduct & Write-Off Stock'
+                      )}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }
+
