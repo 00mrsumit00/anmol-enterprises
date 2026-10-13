@@ -27,6 +27,7 @@ model User {
   emailVerified   Boolean   @default(false)
   emailVerifiedAt DateTime?
   isActive        Boolean   @default(true)
+  permissions     String[]  @default(["orders", "inventory"]) // orders, inventory, products, drivers, users
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
@@ -339,4 +340,21 @@ model OrderStatusLog {
   order      Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   @@map("order_status_logs")
+}
+
+// ─── ADMIN AUDIT LOGS (Security Trail & Admin Activity Tracking) ─────────────
+
+model AdminAuditLog {
+  id          String   @id @default(cuid())
+  adminId     String
+  adminName   String
+  adminRole   String
+  action      String   // UPDATE_PERMISSIONS, CREATE_STAFF, DELETE_STAFF, TOGGLE_STATUS, RESET_PASSWORD
+  targetId    String?
+  targetName  String?
+  details     String
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
+  @@map("admin_audit_logs")
 }

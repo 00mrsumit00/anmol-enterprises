@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { ClipboardList, Package, BarChart3, Truck, Home, LogOut, Users } from 'lucide-react'
+import { ClipboardList, Package, BarChart3, Truck, Home, LogOut, Users, Shield, Activity } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import { useSocket } from '@/hooks/useSocket'
 import AnimatedLogo from '@/components/storefront/AnimatedLogo'
@@ -78,21 +78,33 @@ export default function AdminLayout({
     }
   }
 
-  // Filter nav links based on role: STAFF only sees operational modules
+  // Define all available navigation modules with permission keys and role gates
   const allNavLinks = [
-    { name: 'Orders Dispatch', path: '/admin/orders', icon: ClipboardList },
-    { name: 'Registered Users', path: '/admin/business-accounts', icon: Users, minRole: 'ADMIN' },
-    { name: 'Product List', path: '/admin/products', icon: Package },
-    { name: 'Inventory Manager', path: '/admin/inventory', icon: BarChart3 },
-    { name: 'Driver List', path: '/admin/drivers', icon: Truck },
+    { name: 'Orders Dispatch', path: '/admin/orders', icon: ClipboardList, perm: 'orders' },
+    { name: 'Registered Users', path: '/admin/business-accounts', icon: Users, perm: 'users' },
+    { name: 'Product List', path: '/admin/products', icon: Package, perm: 'products' },
+    { name: 'Inventory Manager', path: '/admin/inventory', icon: BarChart3, perm: 'inventory' },
+    { name: 'Driver List', path: '/admin/drivers', icon: Truck, perm: 'drivers' },
+    { name: 'Sub-Admins', path: '/admin/sub-admins', icon: Shield, superAdminOnly: true },
+    { name: 'Audit Logs', path: '/admin/audit-logs', icon: Activity, superAdminOnly: true },
   ]
 
+  // Filter nav links:
+  // 1. SUPER_ADMIN gets unrestricted access to all links
+  // 2. Others cannot see superAdminOnly tabs (Sub-Admins, Audit Logs)
+  // 3. For standard modules, check if the module's perm key exists in admin.permissions
   const navLinks = allNavLinks.filter((link) => {
-    if (!link.minRole) return true
-    if (link.minRole === 'ADMIN') {
-      return admin?.role === 'SUPER_ADMIN' || admin?.role === 'ADMIN'
+    if (admin?.role === 'SUPER_ADMIN') return true
+    if (link.superAdminOnly) return false
+    
+    // If permissions array is configured on the user, check permission
+    if (admin?.permissions && Array.isArray(admin.permissions)) {
+      return admin.permissions.includes(link.perm)
     }
-    return true
+    
+    // Default fallback for legacy staff accounts without permissions array:
+    // STAFF can see orders, products, inventory, drivers
+    return link.perm !== 'users'
   })
 
   // Login page & invoice print: Render raw children directly without sidebar or auth gate

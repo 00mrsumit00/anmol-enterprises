@@ -7,7 +7,7 @@ import nodemailer from 'nodemailer'
 import { Server as SocketIOServer } from 'socket.io'
 import { OAuth2Client } from 'google-auth-library'
 import { prisma } from './prisma'
-import { signToken, verifyToken, authMiddleware, requireRole } from './auth'
+import { signToken, verifyToken, authMiddleware, requireRole, requirePermission } from './auth'
 import { env } from './env'
 import { sendTwilioVerifyOtp, checkTwilioVerifyOtp, isTwilioLive, toE164India } from './twilio'
 
@@ -4057,4 +4057,251 @@ apiRouter.get('/admin/credit-audit-logs', authMiddleware, requireRole(['ADMIN'])
     return res.status(500).json({ error: 'Failed to fetch credit audit logs' })
   }
 })
+
+// ─── SUB-ADMIN & STAFF ACCESS MANAGEMENT (Super Admin Only) ─────────────────
+
+// GET /admin/sub-admins — fetch all Sub-Admin & Staff accounts with permissions
+apiRouter.get('/admin/sub-admins', authMiddleware, requireRole(['SUPER_ADMIN']), async (_req: Request, res: Response) => {
+  try {
+    const staffMembers = await prisma.user.findMany({
+      where: {
+        role: { in: ['ADMIN', 'STAFF'] }
+      },
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        email: true,
+        role: true,
+        permissions: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+      orderBy: { createdAt: 'desc' }
+    })
+
+    return res.json({ staffMembers })
+  } catch (error) {
+    console.error('Fetch sub-admins error:', error)
+    return res.status(500).json({ error: 'Failed to fetch sub-admin accounts' })
+  }
+})
+
+// POST /admin/sub-admins — create new Sub-Admin / Staff account with permissions
+apiRouter.post('/admin/sub-admins', authMiddleware, requireRole(['SUPER_ADMIN']), async (req: Request, res: Response) => {
+  try {
+    const schema = z.object({
+      name: z.string().min(2, 'Name must be at least 2 characters'),
+      phone: z.string().regex(/^\d{10}$/, 'Phone must be exactly 10 digits'),
+      email: z.string().email('Invalid email').optional().or(z.literal('')),
+      password: z.string().min(6, 'Password must be at least 6 characters'),
+      role: z.enum(['STAFF', 'ADMIN']).default('STAFF'),
+      permissions: z.array(z.string()).default(['orders']),
+    })
+
+    const body = schema.parse(req.body)
+
+    const existingPhone = await prisma.user.findUnique({ where: { phone: body.phone } })
+    if (existingPhone) {
+      return res.status(409).json({ error: 'A staff member with this phone number already exists.' })
+    }
+
+    if (body.email && body.email.trim()) {
+      const existingEmail = await prisma.user.findUnique({ where: { email: body.email.trim().toLowerCase() } })
+      if (existingEmail) {
+        return res.status(409).json({ error: 'A staff member with this email address already exists.' })
+      }
+    }
+
+    const passwordHash = await bcrypt.hash(body.password, 10)
+
+    const newStaff = await prisma.user.create({
+      data: {
+        name: body.name,
+        phone: body.phone,
+        email: body.email && body.email.trim() ? body.email.trim().toLowerCase() : null,
+        passwordHash,
+        role: body.role,
+        permissions: body.permissions,
+        isActive: true,
+        phoneVerified: true,
+      }
+    })
+
+    // Log security audit event
+    await prisma.adminAuditLog.create({
+      data: {
+        adminId: req.user!.id,
+        adminName: req.user!.name,
+        adminRole: req.user!.role,
+        action: 'CREATE_STAFF',
+        targetId: newStaff.id,
+        targetName: newStaff.name,
+        details: `Created ${newStaff.role} account "${newStaff.name}" (+91 ${newStaff.phone}) with permissions: [${body.permissions.join(', ')}]`,
+      }
+    })
+
+    return res.status(201).json({
+      message: `Sub-admin "${newStaff.name}" created successfully.`,
+      staff: newStaff
+    })
+  } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: getZodErrorMessage(error) })
+    }
+    console.error('Create sub-admin error:', error)
+    return res.status(500).json({ error: error.message || 'Failed to create sub-admin' })
+  }
+})
+
+// PUT /admin/sub-admins/:id/permissions — update module permissions
+apiRouter.put('/admin/sub-admins/:id/permissions', authMiddleware, requireRole(['SUPER_ADMIN']), async (req: Request, res: Response) => {
+  try {
+    const id = req.params.id as string
+    const schema = z.object({
+      permissions: z.array(z.string()),
+    })
+    const { permissions } = schema.parse(req.body)
+
+    const targetUser = await prisma.user.findUnique({ where: { id } })
+    if (!targetUser) return res.status(404).json({ error: 'User not found' })
+
+    if (targetUser.role === 'SUPER_ADMIN') {
+      return res.status(403).json({ error: 'Super Admin permissions are master-level and cannot be modified.' })
+    }
+
+    const oldPerms = targetUser.permissions.join(', ') || 'none'
+    const newPerms = permissions.join(', ') || 'none'
+
+    const updatedUser = await prisma.user.update({
+      where: { id },
+      data: { permissions },
+      select: {
+        id: true,
+        name: true,
+        role: true,
+        permissions: true,
+      }
+    })
+
+    // Log security audit event
+    await prisma.adminAuditLog.create({
+      data: {
+        adminId: req.user!.id,
+        adminName: req.user!.name,
+        adminRole: req.user!.role,
+        action: 'UPDATE_PERMISSIONS',
+        targetId: targetUser.id,
+        targetName: targetUser.name,
+        details: `Updated permissions for ${targetUser.name}: [${newPerms}] (was: [${oldPerms}])`,
+      }
+    })
+
+    return res.json({
+      message: `Permissions updated successfully for ${updatedUser.name}.`,
+      user: updatedUser
+    })
+  } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: getZodErrorMessage(error) })
+    }
+    console.error('Update permissions error:', error)
+    return res.status(500).json({ error: error.message || 'Failed to update permissions' })
+  }
+})
+
+// PUT /admin/sub-admins/:id/status — toggle active / disabled status
+apiRouter.put('/admin/sub-admins/:id/status', authMiddleware, requireRole(['SUPER_ADMIN']), async (req: Request, res: Response) => {
+  try {
+    const id = req.params.id as string
+    const targetUser = await prisma.user.findUnique({ where: { id } })
+    if (!targetUser) return res.status(404).json({ error: 'User not found' })
+
+    if (targetUser.role === 'SUPER_ADMIN') {
+      return res.status(403).json({ error: 'Super Admin account cannot be disabled.' })
+    }
+
+    const newStatus = !targetUser.isActive
+
+    const updated = await prisma.user.update({
+      where: { id },
+      data: { isActive: newStatus },
+      select: { id: true, name: true, isActive: true }
+    })
+
+    // Log security audit event
+    await prisma.adminAuditLog.create({
+      data: {
+        adminId: req.user!.id,
+        adminName: req.user!.name,
+        adminRole: req.user!.role,
+        action: newStatus ? 'ENABLE_ACCOUNT' : 'DISABLE_ACCOUNT',
+        targetId: targetUser.id,
+        targetName: targetUser.name,
+        details: `${newStatus ? 'Enabled' : 'Disabled'} account access for ${targetUser.name}`,
+      }
+    })
+
+    return res.json({
+      message: `Account ${newStatus ? 'enabled' : 'disabled'} successfully.`,
+      user: updated
+    })
+  } catch (error: any) {
+    console.error('Toggle status error:', error)
+    return res.status(500).json({ error: error.message || 'Failed to toggle account status' })
+  }
+})
+
+// DELETE /admin/sub-admins/:id — delete a sub-admin / staff member
+apiRouter.delete('/admin/sub-admins/:id', authMiddleware, requireRole(['SUPER_ADMIN']), async (req: Request, res: Response) => {
+  try {
+    const id = req.params.id as string
+    const targetUser = await prisma.user.findUnique({ where: { id } })
+    if (!targetUser) return res.status(404).json({ error: 'User not found' })
+
+    if (targetUser.role === 'SUPER_ADMIN') {
+      return res.status(403).json({ error: 'Super Admin account cannot be deleted.' })
+    }
+
+    await prisma.user.delete({ where: { id } })
+
+    // Log security audit event
+    await prisma.adminAuditLog.create({
+      data: {
+        adminId: req.user!.id,
+        adminName: req.user!.name,
+        adminRole: req.user!.role,
+        action: 'DELETE_SUBADMIN',
+        targetId: targetUser.id,
+        targetName: targetUser.name,
+        details: `Deleted ${targetUser.role} account "${targetUser.name}" (+91 ${targetUser.phone})`,
+      }
+    })
+
+    return res.json({
+      message: `Account "${targetUser.name}" deleted successfully.`
+    })
+  } catch (error: any) {
+    console.error('Delete sub-admin error:', error)
+    return res.status(500).json({ error: error.message || 'Failed to delete sub-admin' })
+  }
+})
+
+// GET /admin/audit-logs — fetch security audit logs
+apiRouter.get('/admin/audit-logs', authMiddleware, requireRole(['SUPER_ADMIN']), async (req: Request, res: Response) => {
+  try {
+    const limit = Math.min(100, parseInt(req.query.limit as string) || 50)
+    const logs = await prisma.adminAuditLog.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    })
+
+    return res.json({ logs })
+  } catch (error) {
+    console.error('Fetch audit logs error:', error)
+    return res.status(500).json({ error: 'Failed to fetch audit logs' })
+  }
+})
+
 

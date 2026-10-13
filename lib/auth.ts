@@ -36,6 +36,7 @@ declare global {
         email: string | null
         phone: string | null
         role: string
+        permissions?: string[]
         isB2B: boolean
         businessName: string | null
         creditLimit: number
@@ -71,6 +72,7 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
         email: true,
         phone: true,
         role: true,
+        permissions: true,
         isB2B: true,
         isCreditEnabled: true,
         businessName: true,
@@ -117,6 +119,28 @@ export function requireRole(roles: string[]) {
     }
 
     return res.status(403).json({ error: 'Forbidden: Insufficient privileges.' })
+  }
+}
+
+export function requirePermission(permission: string) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Authentication required.' })
+    }
+
+    // Super Admin has master authority over all modules
+    if (req.user.role === 'SUPER_ADMIN') {
+      return next()
+    }
+
+    const perms = req.user.permissions || []
+    if (perms.includes(permission)) {
+      return next()
+    }
+
+    return res.status(403).json({ 
+      error: `Forbidden: You do not have permission to access the '${permission}' module.` 
+    })
   }
 }
 
