@@ -35,6 +35,9 @@ export default function AdminOrdersPage() {
   // Flash tracking for real-time new orders
   const [flashingOrders, setFlashingOrders] = useState<Record<string, boolean>>({})
 
+  // Track single order undergoing a status mutation for micro-spinner feedback
+  const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null)
+
   // Fetch initial orders
   const { data: orders = [], isLoading: ordersLoading, refetch, isFetching } = useQuery({
     queryKey: ['admin-orders'],
@@ -72,7 +75,7 @@ export default function AdminOrdersPage() {
     socket.on('order_list_update', (updatedOrder: any) => {
       queryClient.setQueryData(['admin-orders'], (oldOrders: any[] | undefined) => {
         if (!oldOrders) return [updatedOrder]
-        return oldOrders.map(o => o.id === updatedOrder.id ? updatedOrder : o)
+        return oldOrders.map(o => o.id === updatedOrder.id ? { ...o, ...updatedOrder } : o)
       })
 
       // If open in summary modal, update it live too
@@ -80,8 +83,6 @@ export default function AdminOrdersPage() {
         if (current && current.id === updatedOrder.id) return { ...current, ...updatedOrder }
         return current
       })
-
-      showToast(`Order #${updatedOrder.orderNumber} updated to ${updatedOrder.status}`, 'info')
     })
 
     return () => {
@@ -90,26 +91,72 @@ export default function AdminOrdersPage() {
     }
   }, [socket, queryClient, showToast])
 
-  // Update order status API trigger
+  // Update order status with INSTANT Optimistic UI Update (0ms latency)
   const updateStatus = async (orderId: string, status: string, note?: string) => {
+    // 1. Snapshot previous state for rollback on network or server error
+    const previousOrders = queryClient.getQueryData<any[]>(['admin-orders']) || []
+    const targetOrder = previousOrders.find(o => o.id === orderId)
+
+    setUpdatingStatusId(orderId)
+
+    // 2. Build optimistic patch
+    const nowIso = new Date().toISOString()
+    const optimisticPatch: any = {
+      status,
+      updatedAt: nowIso
+    }
+    if (status === 'PACKED') optimisticPatch.packedAt = nowIso
+    else if (status === 'OUT_FOR_DELIVERY') optimisticPatch.dispatchedAt = nowIso
+    else if (status === 'DELIVERED') {
+      optimisticPatch.deliveredAt = nowIso
+      optimisticPatch.paymentStatus = 'PAID'
+    }
+
+    // 3. Immediately mutate React Query cache (0ms instant UI reflection)
+    queryClient.setQueryData<any[]>(['admin-orders'], (old = []) =>
+      old.map(o => o.id === orderId ? { ...o, ...optimisticPatch } : o)
+    )
+
+    // Also update summary modal order immediately if open
+    setSelectedSummaryOrder((prev: any) => {
+      if (prev && prev.id === orderId) {
+        return { ...prev, ...optimisticPatch }
+      }
+      return prev
+    })
+
+    // Instant toast feedback
+    showToast(`Status updated to: ${status}`, 'success')
+
     try {
       const res = await fetch(`/api/orders/${orderId}/status`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status, note })
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Failed to update status')
-      
-      showToast(`Status updated to: ${status}`, 'success')
-      queryClient.invalidateQueries({ queryKey: ['admin-orders'] })
+      const serverOrder = await res.json()
+      if (!res.ok) throw new Error(serverOrder.error || 'Failed to update status')
 
-      // Update selected summary modal order if open
-      if (selectedSummaryOrder && selectedSummaryOrder.id === orderId) {
-        setSelectedSummaryOrder((prev: any) => ({ ...prev, status }))
-      }
+      // 4. Merge server confirmation smoothly into cache without full table re-fetch
+      queryClient.setQueryData<any[]>(['admin-orders'], (old = []) =>
+        old.map(o => o.id === orderId ? { ...o, ...serverOrder } : o)
+      )
+
+      setSelectedSummaryOrder((prev: any) => {
+        if (prev && prev.id === orderId) {
+          return { ...prev, ...serverOrder }
+        }
+        return prev
+      })
     } catch (err: any) {
-      showToast(err.message || 'Action failed', 'error')
+      // 5. Rollback on network or server failure
+      queryClient.setQueryData(['admin-orders'], previousOrders)
+      if (targetOrder) {
+        setSelectedSummaryOrder((prev: any) => (prev && prev.id === orderId ? targetOrder : prev))
+      }
+      showToast(err.message || 'Action failed, reverted status', 'error')
+    } finally {
+      setUpdatingStatusId(null)
     }
   }
 
@@ -672,36 +719,44 @@ export default function AdminOrdersPage() {
                           {order.status === 'PENDING' && (
                             <button
                               onClick={() => updateStatus(order.id, 'CONFIRMED')}
-                              className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xs shadow-xs transition-all active:scale-95"
+                              disabled={updatingStatusId === order.id}
+                              className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-60 text-white font-bold rounded-xl text-xs shadow-xs transition-all active:scale-95 flex items-center gap-1.5"
                             >
-                              Approve
+                              {updatingStatusId === order.id && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
+                              <span>Approve</span>
                             </button>
                           )}
 
                           {order.status === 'CONFIRMED' && (
                             <button
                               onClick={() => updateStatus(order.id, 'PACKING')}
-                              className="px-3.5 py-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-extrabold rounded-xl text-xs shadow-xs transition-all active:scale-95"
+                              disabled={updatingStatusId === order.id}
+                              className="px-3.5 py-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 disabled:opacity-60 text-slate-950 font-extrabold rounded-xl text-xs shadow-xs transition-all active:scale-95 flex items-center gap-1.5"
                             >
-                              Start packing
+                              {updatingStatusId === order.id && <RefreshCw className="w-3.5 h-3.5 animate-spin text-slate-950" />}
+                              <span>Start packing</span>
                             </button>
                           )}
 
                           {order.status === 'PACKING' && (
                             <button
                               onClick={() => updateStatus(order.id, 'PACKED')}
-                              className="px-3.5 py-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-extrabold rounded-xl text-xs shadow-xs transition-all active:scale-95"
+                              disabled={updatingStatusId === order.id}
+                              className="px-3.5 py-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 disabled:opacity-60 text-slate-950 font-extrabold rounded-xl text-xs shadow-xs transition-all active:scale-95 flex items-center gap-1.5"
                             >
-                              Mark packed
+                              {updatingStatusId === order.id && <RefreshCw className="w-3.5 h-3.5 animate-spin text-slate-950" />}
+                              <span>Mark packed</span>
                             </button>
                           )}
 
                           {(order.status === 'PACKED' || order.status === 'ASSIGNED') && (
                             <button
                               onClick={() => updateStatus(order.id, 'OUT_FOR_DELIVERY')}
-                              className="px-3.5 py-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-extrabold rounded-xl text-xs shadow-xs transition-all active:scale-95"
+                              disabled={updatingStatusId === order.id}
+                              className="px-3.5 py-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 disabled:opacity-60 text-slate-950 font-extrabold rounded-xl text-xs shadow-xs transition-all active:scale-95 flex items-center gap-1.5"
                             >
-                              Dispatch
+                              {updatingStatusId === order.id && <RefreshCw className="w-3.5 h-3.5 animate-spin text-slate-950" />}
+                              <span>Dispatch</span>
                             </button>
                           )}
 
@@ -709,9 +764,14 @@ export default function AdminOrdersPage() {
                             <div className="flex items-center gap-1.5">
                               <button
                                 onClick={() => updateStatus(order.id, 'DELIVERED')}
-                                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold rounded-xl text-xs shadow-xs transition-all active:scale-95 flex items-center gap-1"
+                                disabled={updatingStatusId === order.id}
+                                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-extrabold rounded-xl text-xs shadow-xs transition-all active:scale-95 flex items-center gap-1"
                               >
-                                <Check className="w-3.5 h-3.5" />
+                                {updatingStatusId === order.id ? (
+                                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                  <Check className="w-3.5 h-3.5" />
+                                )}
                                 <span>Delivered</span>
                               </button>
                               <button
@@ -721,7 +781,8 @@ export default function AdminOrdersPage() {
                                     updateStatus(order.id, 'RETURNED', reason)
                                   }
                                 }}
-                                className="px-2.5 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 font-bold rounded-xl text-xs transition-all active:scale-95"
+                                disabled={updatingStatusId === order.id}
+                                className="px-2.5 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 disabled:opacity-60 text-rose-400 border border-rose-500/30 font-bold rounded-xl text-xs transition-all active:scale-95"
                                 title="Mark unsuccessful delivery & restock cold items"
                               >
                                 Return

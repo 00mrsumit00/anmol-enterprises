@@ -3577,18 +3577,29 @@ apiRouter.put('/orders/:id/status', authMiddleware, requireRole(['ADMIN', 'STAFF
             },
           },
         },
-        include: { items: true, statusHistory: true },
+        include: {
+          items: {
+            include: {
+              product: true,
+              variant: true
+            }
+          },
+          driver: true,
+          user: true,
+          statusHistory: { orderBy: { createdAt: 'desc' } }
+        },
       })
     })
 
     // Emit live socket updates
-    if (ioInstance) {
-      ioInstance.to(`order-${id}`).emit('order_status_update', order)
-      ioInstance.emit('order_list_update', order)
+    const io = ioInstance
+    if (io) {
+      io.to(`order-${id}`).emit('order_status_update', order)
+      io.emit('order_list_update', order)
     }
 
-    // Trigger notification services
-    const userPhone = currentOrder.guestPhone || (currentOrder.userId ? (await prisma.user.findUnique({ where: { id: currentOrder.userId } }))?.phone : null)
+    // Trigger notification services in background
+    const userPhone = currentOrder.guestPhone || (order as any).user?.phone
     if (userPhone) {
       mockSendSMS(userPhone, `Order #${currentOrder.orderNumber} status is now: ${status}.`)
     }
