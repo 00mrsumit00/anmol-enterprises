@@ -167,3 +167,142 @@ body {
   display: flex !important;
 }
 
+/* ==========================================================================
+   ADMIN PANEL THEME ENGINE (LIGHT & DARK DUAL TRANSFORMATION)
+   ========================================================================== */
+
+/* Light Theme Root */
+.admin-theme-light {
+  color-scheme: light;
+}
+
+/* Base Background with Matrix Dot Grid (matching Screenshot 1) */
+.admin-theme-light #admin-main-container,
+.admin-theme-light #admin-main-workspace,
+.admin-theme-light [class*="bg-[#0B0F19]"] {
+  background-color: #F8FAFC !important;
+  background-image: radial-gradient(#CBD5E1 1.1px, transparent 1.1px) !important;
+  background-size: 20px 20px !important;
+}
+
+/* Sidebar in Light Mode */
+.admin-theme-light aside,
+.admin-theme-light [class*="bg-[#0F1117]"] {
+  background-color: #FFFFFF !important;
+  border-color: #E2E8F0 !important;
+  color: #0F172A !important;
+}
+
+/* Top Header & Mobile Nav in Light Mode */
+.admin-theme-light header,
+.admin-theme-light [class*="bg-[#111625]"] {
+  background-color: #FFFFFF !important;
+  border-color: #E2E8F0 !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04) !important;
+}
+
+.admin-theme-light nav.md\:hidden {
+  background-color: #FFFFFF !important;
+  border-color: #E2E8F0 !important;
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Secondary Panels, Filter Bars, Summary Boxes & Inner Containers */
+.admin-theme-light [class*="bg-[#0D121F]"],
+.admin-theme-light [class*="bg-[#0A0D17]"],
+.admin-theme-light [class*="bg-slate-950"],
+.admin-theme-light [class*="bg-slate-900"]:not([class*="text-"]):not(button):not(a) {
+  background-color: #F1F5F9 !important;
+  border-color: #E2E8F0 !important;
+}
+
+/* Borders across admin elements */
+.admin-theme-light [class*="border-slate-800"],
+.admin-theme-light [class*="border-slate-700"] {
+  border-color: #E2E8F0 !important;
+}
+
+.admin-theme-light [class*="divide-slate-800"],
+.admin-theme-light [class*="divide-slate-700"] {
+  border-color: #E2E8F0 !important;
+}
+
+/* Typography transformation in light mode */
+.admin-theme-light h1,
+.admin-theme-light h2,
+.admin-theme-light h3,
+.admin-theme-light h4,
+.admin-theme-light h5,
+.admin-theme-light th {
+  color: #0F172A !important;
+}
+
+/* Neutral text overrides */
+.admin-theme-light p[class*="text-white"],
+.admin-theme-light td[class*="text-white"],
+.admin-theme-light th[class*="text-white"] {
+  color: #0F172A !important;
+}
+
+.admin-theme-light span[class*="text-white"]:not([class*="bg-"]):not(button) {
+  color: #0F172A !important;
+}
+
+.admin-theme-light div[class*="text-white"]:not([class*="bg-"]):not(button) {
+  color: #0F172A !important;
+}
+
+.admin-theme-light [class*="text-slate-200"]:not([class*="bg-"]) {
+  color: #1E293B !important;
+}
+
+.admin-theme-light [class*="text-slate-300"]:not([class*="bg-"]) {
+  color: #334155 !important;
+}
+
+.admin-theme-light [class*="text-slate-400"]:not([class*="bg-"]) {
+  color: #64748B !important;
+}
+
+/* Inputs, Selects & Textareas in light mode */
+.admin-theme-light input:not([type="checkbox"]):not([type="radio"]),
+.admin-theme-light select,
+.admin-theme-light textarea {
+  background-color: #FFFFFF !important;
+  border-color: #CBD5E1 !important;
+  color: #0F172A !important;
+}
+
+.admin-theme-light input::placeholder,
+.admin-theme-light textarea::placeholder {
+  color: #94A3B8 !important;
+}
+
+/* Table rows in light mode */
+.admin-theme-light thead tr {
+  background-color: #F8FAFC !important;
+  border-color: #E2E8F0 !important;
+}
+
+.admin-theme-light tbody tr:hover {
+  background-color: #F8FAFC !important;
+}
+
+/* Navigation links in light mode sidebar */
+.admin-theme-light aside nav a:not([class*="bg-gradient"]) {
+  color: #475569 !important;
+}
+
+.admin-theme-light aside nav a:not([class*="bg-gradient"]):hover {
+  background-color: #F1F5F9 !important;
+  color: #0F172A !important;
+}
+
+/* Slide-out Drawers & Modals in light mode */
+.admin-theme-light [class*="fixed"][class*="z-50"] [class*="max-w-"] {
+  background-color: #FFFFFF !important;
+  border-color: #E2E8F0 !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15) !important;
+}
+
+
