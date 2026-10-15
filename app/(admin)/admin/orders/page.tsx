@@ -6,25 +6,51 @@ import {
   Printer, Check, XCircle, Search, RefreshCw, Calendar, 
   DollarSign, Package, X, Clock, Download, Phone, Truck,
   AlertCircle, ChevronRight, Snowflake, AlertTriangle, MessageCircle,
-  Eye, FileText, CheckCircle2, Sparkles, MapPin, User, ExternalLink
+  Eye, FileText, CheckCircle2, Sparkles, MapPin, User, ExternalLink,
+  FileSpreadsheet, Zap
 } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import { useSocket } from '@/hooks/useSocket'
+import { exportOrdersBankStatement } from '@/lib/excelStatementExport'
+
+// Helper to extract today's date in local IST format (YYYY-MM-DD)
+const getTodayLocalDateStr = () => {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(new Date())
+}
+
+// Helper to extract local date string in YYYY-MM-DD from an order timestamp
+const getOrderLocalDate = (dateVal: any) => {
+  if (!dateVal) return ''
+  try {
+    const d = new Date(dateVal)
+    if (isNaN(d.getTime())) return ''
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).format(d)
+  } catch {
+    return ''
+  }
+}
 
 export default function AdminOrdersPage() {
   const queryClient = useQueryClient()
   const { showToast } = useToast()
 
-  // State Filters
-  const [statusFilter, setStatusFilter] = useState('ALL')
+  // State Filters: Default to ACTIVE (Pending Dispatch) & Today's Date!
+  const [statusFilter, setStatusFilter] = useState<'ACTIVE' | 'ALL' | 'DELIVERED' | 'RETURNED'>('ACTIVE')
+  const [stageFilter, setStageFilter] = useState<string>('ALL')
   const [searchQuery, setSearchQuery] = useState('')
   
-  const [fromDate, setFromDate] = useState(() => {
-    const d = new Date()
-    d.setDate(d.getDate() - 7)
-    return d.toISOString().slice(0, 10)
-  })
-  const [toDate, setToDate] = useState(new Date().toISOString().slice(0, 10))
+  const [fromDate, setFromDate] = useState<string>(() => getTodayLocalDateStr())
+  const [toDate, setToDate] = useState<string>(() => getTodayLocalDateStr())
   
   // Interactive Modal States
   const [selectedSummaryOrder, setSelectedSummaryOrder] = useState<any | null>(null)
@@ -160,16 +186,51 @@ export default function AdminOrdersPage() {
     }
   }
 
-  // Filter calculations (No slot filter!)
+  // Quick Date Range Preset Helpers
+  const setDatePreset = (preset: 'today' | 'yesterday' | 'last7' | 'thisMonth') => {
+    const todayStr = getTodayLocalDateStr()
+    const now = new Date()
+
+    if (preset === 'today') {
+      setFromDate(todayStr)
+      setToDate(todayStr)
+    } else if (preset === 'yesterday') {
+      const y = new Date(now)
+      y.setDate(y.getDate() - 1)
+      const yStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' }).format(y)
+      setFromDate(yStr)
+      setToDate(yStr)
+    } else if (preset === 'last7') {
+      const past7 = new Date(now)
+      past7.setDate(past7.getDate() - 7)
+      const p7Str = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' }).format(past7)
+      setFromDate(p7Str)
+      setToDate(todayStr)
+    } else if (preset === 'thisMonth') {
+      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1)
+      const fStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' }).format(firstDay)
+      setFromDate(fStr)
+      setToDate(todayStr)
+    }
+  }
+
+  // Filter calculations (IST Timezone consistent)
   const getFilteredOrders = () => {
     return orders.filter((order: any) => {
       // 1. Status Filter
-      if (statusFilter !== 'ALL' && order.status !== statusFilter) return false
+      if (statusFilter === 'ACTIVE') {
+        // Exclude completed or returned orders from active dispatch workspace
+        if (['DELIVERED', 'RETURNED', 'CANCELLED'].includes(order.status)) return false
+        if (stageFilter !== 'ALL' && order.status !== stageFilter) return false
+      } else if (statusFilter === 'DELIVERED') {
+        if (order.status !== 'DELIVERED') return false
+      } else if (statusFilter === 'RETURNED') {
+        if (!['RETURNED', 'CANCELLED'].includes(order.status)) return false
+      }
+      // When statusFilter === 'ALL', no status exclusion
 
       // 2. Date Range Filter
-      const orderDate = (order.createdAt || order.deliveryDate)
-        ? new Date(order.createdAt || order.deliveryDate).toISOString().slice(0, 10)
-        : ''
+      const orderDate = getOrderLocalDate(order.createdAt || order.deliveryDate)
       if (fromDate && orderDate < fromDate) return false
       if (toDate && orderDate > toDate) return false
 
@@ -191,9 +252,9 @@ export default function AdminOrdersPage() {
   const filtered = getFilteredOrders()
 
   // Real-time KPI calculations
-  const todayStr = new Date().toISOString().slice(0, 10)
+  const todayStr = getTodayLocalDateStr()
   const todayOrders = orders.filter((o: any) => {
-    const d = o.createdAt ? new Date(o.createdAt).toISOString().slice(0, 10) : ''
+    const d = getOrderLocalDate(o.createdAt || o.deliveryDate)
     return d === todayStr
   })
   const totalTodayCount = todayOrders.length || orders.length
@@ -223,48 +284,42 @@ export default function AdminOrdersPage() {
 
   // Dynamic filter pill counts
   const statusCounts = {
+    ACTIVE: orders.filter((o: any) => !['DELIVERED', 'RETURNED', 'CANCELLED'].includes(o.status)).length,
     ALL: orders.length,
-    PENDING: orders.filter((o: any) => o.status === 'PENDING').length,
+    DELIVERED: orders.filter((o: any) => o.status === 'DELIVERED').length,
+    RETURNED: orders.filter((o: any) => ['RETURNED', 'CANCELLED'].includes(o.status)).length,
     CONFIRMED: orders.filter((o: any) => o.status === 'CONFIRMED').length,
     PACKING: orders.filter((o: any) => o.status === 'PACKING').length,
     PACKED: orders.filter((o: any) => o.status === 'PACKED').length,
     ASSIGNED: orders.filter((o: any) => o.status === 'ASSIGNED').length,
     OUT_FOR_DELIVERY: orders.filter((o: any) => o.status === 'OUT_FOR_DELIVERY').length,
-    DELIVERED: orders.filter((o: any) => o.status === 'DELIVERED').length,
-    RETURNED: orders.filter((o: any) => o.status === 'RETURNED').length,
+    PENDING: orders.filter((o: any) => o.status === 'PENDING').length,
   }
 
-  // Export to CSV Function
-  const exportToCSV = () => {
-    if (!filtered || filtered.length === 0) {
-      showToast('No orders found to export', 'warning')
-      return
+  // Export to Bank-Statement Style Excel Workbook (.xlsx)
+  const handleExportStatement = () => {
+    try {
+      if (!filtered || filtered.length === 0) {
+        showToast('No orders found to export for current filter', 'warning')
+        return
+      }
+
+      exportOrdersBankStatement(filtered, {
+        fromDate,
+        toDate,
+        statusFilter: statusFilter === 'ACTIVE' 
+          ? 'Pending Dispatch (Active Queue)' 
+          : statusFilter === 'ALL' 
+            ? 'All Orders' 
+            : statusFilter === 'DELIVERED' 
+              ? 'Delivered Orders' 
+              : 'Returned / Cancelled',
+        generatedBy: 'Admin'
+      })
+      showToast('Excel Orders Statement exported successfully! 📊', 'success')
+    } catch (err: any) {
+      showToast(err.message || 'Export failed', 'error')
     }
-
-    const headers = ['Order Number', 'Date', 'Customer Name', 'Phone', 'Items', 'Total Amount', 'Payment Method', 'Payment Status', 'Status', 'Driver', 'Delivery Address']
-    const rows = filtered.map((o: any) => [
-      `"${o.orderNumber || ''}"`,
-      `"${new Date(o.createdAt).toLocaleString('en-IN')}"`,
-      `"${(o.businessName ? `${o.businessName} (${o.guestName || o.user?.name || ''})` : (o.guestName || o.user?.name || 'Customer')).replace(/"/g, '""')}"`,
-      `"${o.guestPhone || o.user?.phone || ''}"`,
-      `"${o.items?.map((it: any) => `${it.quantity}x ${it.productName} (${it.packagingType})`).join(', ').replace(/"/g, '""') || ''}"`,
-      o.totalAmount || 0,
-      `"${o.paymentMethod || ''}"`,
-      `"${o.paymentStatus || ''}"`,
-      `"${o.status || ''}"`,
-      `"${o.driver?.name || 'Unassigned'}"`,
-      `"${(o.deliveryAddress || '').replace(/"/g, '""')}"`
-    ])
-
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((r: any) => r.join(','))].join('\n')
-    const encodedUri = encodeURI(csvContent)
-    const link = document.createElement('a')
-    link.setAttribute('href', encodedUri)
-    link.setAttribute('download', `Anmol_Enterprises_Orders_${new Date().toISOString().slice(0, 10)}.csv`)
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    showToast('Orders exported to CSV successfully!', 'success')
   }
 
   // Elapsed time helper (e.g. "24m in stage")
@@ -374,14 +429,14 @@ export default function AdminOrdersPage() {
             <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin text-amber-400' : ''}`} />
           </button>
 
-          {/* 📥 Top Bar Export Button */}
+          {/* 📥 Top Bar Excel Bank-Statement Export Button */}
           <button
-            onClick={exportToCSV}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 rounded-xl text-xs font-bold shadow-lg shadow-amber-500/20 transition-all active:scale-95"
-            title="Export to Excel / CSV"
+            onClick={handleExportStatement}
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 rounded-xl text-xs font-black shadow-lg shadow-amber-500/20 transition-all active:scale-95 cursor-pointer"
+            title="Download Bank-Statement Style Excel Statement (.xlsx)"
           >
-            <Download className="w-4 h-4" />
-            <span>Export (CSV)</span>
+            <FileSpreadsheet className="w-4 h-4 text-slate-950" />
+            <span>Export Statement (Excel)</span>
           </button>
         </div>
       </div>
@@ -450,8 +505,8 @@ export default function AdminOrdersPage() {
         </div>
       </div>
 
-      {/* 3. Search Bar & Date Range Controls */}
-      <div className="bg-[#111625] p-4 rounded-2xl shadow-xl border border-slate-800/80 flex flex-col gap-3">
+      {/* 3. Search Bar, Quick Date Presets & Streamlined Dispatch Tabs */}
+      <div className="bg-[#111625] p-4 rounded-2xl shadow-xl border border-slate-800/80 flex flex-col gap-3.5">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
           {/* Search input */}
           <div className="relative flex-1">
@@ -470,67 +525,135 @@ export default function AdminOrdersPage() {
             )}
           </div>
 
-          {/* Date range filter */}
-          <div className="flex items-center gap-2 text-xs">
-            <span className="font-bold text-slate-400">Date Range:</span>
+          {/* Date range filter with 1-click presets */}
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <span className="font-bold text-slate-400 flex items-center gap-1">
+              <Calendar className="w-3.5 h-3.5 text-amber-400" /> Date:
+            </span>
             <input
               type="date"
               value={fromDate}
               onChange={(e) => setFromDate(e.target.value)}
-              className="bg-[#0B0F19] border border-slate-800 text-slate-300 rounded-xl px-2.5 py-2 font-medium focus:outline-none focus:border-amber-500"
+              className="bg-[#0B0F19] border border-slate-800 text-slate-200 rounded-xl px-2.5 py-1.5 font-medium focus:outline-none focus:border-amber-500"
             />
             <span className="text-slate-500 font-bold">to</span>
             <input
               type="date"
               value={toDate}
               onChange={(e) => setToDate(e.target.value)}
-              className="bg-[#0B0F19] border border-slate-800 text-slate-300 rounded-xl px-2.5 py-2 font-medium focus:outline-none focus:border-amber-500"
+              className="bg-[#0B0F19] border border-slate-800 text-slate-200 rounded-xl px-2.5 py-1.5 font-medium focus:outline-none focus:border-amber-500"
             />
-            {(fromDate || toDate) && (
+
+            {/* Quick 1-Click Date Presets */}
+            <div className="flex items-center gap-1 ml-1">
               <button
-                onClick={() => { setFromDate(''); setToDate('') }}
-                className="px-2.5 py-2 bg-slate-800 hover:bg-slate-750 text-slate-300 font-bold rounded-xl text-[11px] transition-colors"
-                title="Clear date filter"
+                type="button"
+                onClick={() => setDatePreset('today')}
+                className={`px-2.5 py-1.5 rounded-lg font-bold text-[11px] transition-all ${
+                  fromDate === getTodayLocalDateStr() && toDate === getTodayLocalDateStr()
+                    ? 'bg-amber-500 text-slate-950 shadow-xs'
+                    : 'bg-[#0B0F19] text-slate-400 hover:text-white border border-slate-800'
+                }`}
               >
-                Clear
+                Today
               </button>
-            )}
+              <button
+                type="button"
+                onClick={() => setDatePreset('yesterday')}
+                className="px-2.5 py-1.5 bg-[#0B0F19] text-slate-400 hover:text-white border border-slate-800 hover:border-slate-700 rounded-lg font-bold text-[11px] transition-all"
+              >
+                Yesterday
+              </button>
+              <button
+                type="button"
+                onClick={() => setDatePreset('last7')}
+                className="px-2.5 py-1.5 bg-[#0B0F19] text-slate-400 hover:text-white border border-slate-800 hover:border-slate-700 rounded-lg font-bold text-[11px] transition-all"
+              >
+                Last 7 Days
+              </button>
+              <button
+                type="button"
+                onClick={() => setDatePreset('thisMonth')}
+                className="px-2.5 py-1.5 bg-[#0B0F19] text-slate-400 hover:text-white border border-slate-800 hover:border-slate-700 rounded-lg font-bold text-[11px] transition-all"
+              >
+                This Month
+              </button>
+              {(fromDate || toDate) && (
+                <button
+                  type="button"
+                  onClick={() => { setFromDate(''); setToDate('') }}
+                  className="px-2 py-1.5 text-slate-500 hover:text-rose-400 font-bold text-[11px] transition-colors ml-1"
+                  title="Clear date filter to show all time"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* 📊 Real-time Quick Filter Pills with Dynamic Counts */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 pt-1 scrollbar-none">
-          {[
-            { id: 'ALL', label: 'All', count: statusCounts.ALL },
-            { id: 'CONFIRMED', label: 'Confirmed', count: statusCounts.CONFIRMED },
-            { id: 'PACKING', label: 'Packing', count: statusCounts.PACKING },
-            { id: 'PACKED', label: 'Packed', count: statusCounts.PACKED },
-            { id: 'ASSIGNED', label: 'Assigned', count: statusCounts.ASSIGNED },
-            { id: 'OUT_FOR_DELIVERY', label: 'Out for delivery', count: statusCounts.OUT_FOR_DELIVERY },
-            { id: 'DELIVERED', label: 'Delivered', count: statusCounts.DELIVERED },
-            { id: 'RETURNED', label: 'Returned', count: statusCounts.RETURNED },
-            { id: 'PENDING', label: 'Pending', count: statusCounts.PENDING },
-          ].map((pill) => {
-            const active = statusFilter === pill.id
-            return (
-              <button
-                key={pill.id}
-                onClick={() => setStatusFilter(pill.id)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
-                  active 
-                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-xs' 
-                    : 'bg-[#0B0F19] text-slate-400 hover:text-white border border-slate-800 hover:border-slate-700'
-                }`}
-              >
-                <span>{pill.label}</span>
-                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
-                  active ? 'bg-amber-400 text-slate-950' : 'bg-slate-800 text-slate-400'
-                }`}>
-                  {pill.count}
-                </span>
-              </button>
-            )
-          })}
+        {/* 🎯 4 Streamlined Core Operational Tabs */}
+        <div className="pt-2 border-t border-slate-800/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+            {[
+              { id: 'ACTIVE', label: '⚡ Pending Dispatch', count: statusCounts.ACTIVE, badgeColor: 'bg-amber-400 text-slate-950' },
+              { id: 'ALL', label: '📦 All Orders', count: statusCounts.ALL, badgeColor: 'bg-slate-700 text-white' },
+              { id: 'DELIVERED', label: '✅ Delivered', count: statusCounts.DELIVERED, badgeColor: 'bg-emerald-500 text-white' },
+              { id: 'RETURNED', label: '⚠️ Returned / Issues', count: statusCounts.RETURNED, badgeColor: 'bg-rose-500 text-white' },
+            ].map((tab) => {
+              const active = statusFilter === tab.id
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => {
+                    setStatusFilter(tab.id as any)
+                    setStageFilter('ALL')
+                  }}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap flex items-center gap-2 ${
+                    active 
+                      ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20' 
+                      : 'bg-[#0B0F19] text-slate-400 hover:text-white border border-slate-800 hover:border-slate-700'
+                  }`}
+                >
+                  <span>{tab.label}</span>
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-black ${
+                    active ? 'bg-slate-950 text-amber-300' : 'bg-slate-800 text-slate-400'
+                  }`}>
+                    {tab.count}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+
+          {/* Sub-Stage Quick Pills (Visible when in Pending Dispatch tab) */}
+          {statusFilter === 'ACTIVE' && (
+            <div className="flex items-center gap-1.5 overflow-x-auto text-[11px] font-bold">
+              <span className="text-slate-500 text-[10px] uppercase font-bold tracking-wider mr-1">Stage:</span>
+              {[
+                { id: 'ALL', label: 'All Active' },
+                { id: 'CONFIRMED', label: `Confirmed (${statusCounts.CONFIRMED})` },
+                { id: 'PACKING', label: `Packing (${statusCounts.PACKING})` },
+                { id: 'PACKED', label: `Packed (${statusCounts.PACKED})` },
+                { id: 'OUT_FOR_DELIVERY', label: `Out for delivery (${statusCounts.OUT_FOR_DELIVERY})` },
+              ].map((sub) => {
+                const active = stageFilter === sub.id
+                return (
+                  <button
+                    key={sub.id}
+                    onClick={() => setStageFilter(sub.id)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
+                      active
+                        ? 'bg-slate-800 text-amber-300 border border-amber-500/40'
+                        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+                    }`}
+                  >
+                    {sub.label}
+                  </button>
+                )
+              })}
+            </div>
+          )}
         </div>
       </div>
 
