@@ -7,6 +7,23 @@ interface ExportStatementOptions {
   generatedBy?: string
 }
 
+/**
+ * Neutralizes CSV/Excel formula injection (CWE-1236).
+ * Prepends an apostrophe if a cell string begins with dangerous formula triggers (=, +, -, @, tab, CR).
+ */
+function sanitizeFormulaCell(val: any): any {
+  if (typeof val !== 'string') return val
+  const dangerous = ['=', '+', '-', '@', '\t', '\r']
+  if (val.length > 0 && dangerous.includes(val[0])) {
+    return `'${val}`
+  }
+  const trimmed = val.trim()
+  if (trimmed.length > 0 && dangerous.includes(trimmed[0])) {
+    return `'${val}`
+  }
+  return val
+}
+
 export function exportOrdersBankStatement(orders: any[], options: ExportStatementOptions = {}) {
   if (!orders || orders.length === 0) {
     throw new Error('No orders available to export for the selected filter')
@@ -126,16 +143,16 @@ export function exportOrdersBankStatement(orders: any[], options: ExportStatemen
 
     sheetData.push([
       index + 1,
-      orderDateStr,
-      order.orderNumber || 'N/A',
-      customerDisplay,
-      contactPhone,
-      address,
-      itemsDescription,
+      sanitizeFormulaCell(orderDateStr),
+      sanitizeFormulaCell(order.orderNumber || 'N/A'),
+      sanitizeFormulaCell(customerDisplay),
+      sanitizeFormulaCell(contactPhone),
+      sanitizeFormulaCell(address),
+      sanitizeFormulaCell(itemsDescription),
       orderPackets,
-      paymentMethodLabel,
-      order.paymentStatus || 'PENDING',
-      order.status || 'PENDING',
+      sanitizeFormulaCell(paymentMethodLabel),
+      sanitizeFormulaCell(order.paymentStatus || 'PENDING'),
+      sanitizeFormulaCell(order.status || 'PENDING'),
       order.totalAmount || 0
     ])
   })

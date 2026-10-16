@@ -34,12 +34,19 @@ const app = next({ dev })
 const handle = app.getRequestHandler()
 
 app.prepare().then(() => {
+  const allowedOrigins = [
+    env.APP_URL,
+    'http://localhost:3000',
+    'http://127.0.0.1:3000'
+  ].filter(Boolean)
+
   const expressApp = express()
   const httpServer = createServer(expressApp)
   const io = new SocketIOServer(httpServer, {
     cors: {
-      origin: '*',
+      origin: env.isProd ? allowedOrigins : '*',
       methods: ['GET', 'POST', 'PUT', 'DELETE'],
+      credentials: true,
     },
   })
 
@@ -124,9 +131,32 @@ app.prepare().then(() => {
     })
   })
 
+  // ─── HTTP Security Headers ────────────────────────────────────────────────
+  expressApp.use((_req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff')
+    res.setHeader('X-Frame-Options', 'DENY')
+    res.setHeader('X-XSS-Protection', '1; mode=block')
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
+    if (env.isProd) {
+      res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload')
+    }
+    next()
+  })
+
   // Middleware
   expressApp.use(compression())
-  expressApp.use(cors())
+  expressApp.use(
+    cors({
+      origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin) || !env.isProd) {
+          callback(null, true)
+        } else {
+          callback(new Error('Blocked by CORS policy'))
+        }
+      },
+      credentials: true,
+    })
+  )
   expressApp.use(cookieParser())
 
   // Content-Type enforcement middleware for state-changing endpoints (Anti-CSRF defense)
@@ -153,16 +183,23 @@ app.prepare().then(() => {
     next()
   })
 
-  // Backend API Router with 50MB payload limit for bulk high-res image uploads & rawBody capture for webhooks
+  // Dedicated 50MB payload limit for admin image upload
+  expressApp.use(
+    '/api/admin/upload-image',
+    express.json({ limit: '50mb' }),
+    express.urlencoded({ limit: '50mb', extended: true })
+  )
+
+  // Standard 2MB payload limit for all other API endpoints (DoS protection)
   expressApp.use(
     '/api',
     express.json({
-      limit: '50mb',
+      limit: '2mb',
       verify: (req: any, _res, buf) => {
         req.rawBody = buf
       }
     }),
-    express.urlencoded({ limit: '50mb', extended: true }),
+    express.urlencoded({ limit: '2mb', extended: true }),
     apiRouter
   )
 

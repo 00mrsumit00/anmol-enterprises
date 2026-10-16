@@ -6,7 +6,11 @@ import { env } from './env'
 // env.JWT_SECRET is sourced from validateEnv() which fails fast in production
 // if the secret is missing or too short. Never falls back to a hardcoded string.
 function getJwtSecret(): string {
-  return process.env.JWT_SECRET || env.JWT_SECRET || 'a_very_secret_default_jwt_secret_key_32_chars_long'
+  const secret = process.env.JWT_SECRET || env.JWT_SECRET
+  if (!secret) {
+    throw new Error('[Security Exception]: JWT_SECRET is not configured. Token operations refused.')
+  }
+  return secret
 }
 
 export interface JWTPayload {

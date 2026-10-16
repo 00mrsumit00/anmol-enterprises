@@ -39,6 +39,81 @@ function checkIpOtpRateLimit(ip: string): boolean {
   return true
 }
 
+// In-memory rate limiter for login attempts (max 10 attempts per IP per 15 minutes)
+const loginAttemptTracker = new Map<string, { count: number; firstAttempt: number }>()
+
+function checkLoginRateLimit(ip: string): boolean {
+  if (process.env.NODE_ENV !== 'production' || ip === '127.0.0.1' || ip === '::1' || ip.includes('127.0.0.1')) {
+    return true
+  }
+  const now = Date.now()
+  const windowMs = 15 * 60 * 1000 // 15 minutes
+  const maxAttempts = 10
+
+  const record = loginAttemptTracker.get(ip)
+  if (!record || now - record.firstAttempt > windowMs) {
+    loginAttemptTracker.set(ip, { count: 1, firstAttempt: now })
+    return true
+  }
+
+  if (record.count >= maxAttempts) {
+    return false
+  }
+
+  record.count++
+  return true
+}
+
+function resetLoginRateLimit(ip: string): void {
+  loginAttemptTracker.delete(ip)
+}
+
+// In-memory rate limiter for registration attempts (max 10 per IP per hour)
+const registerAttemptTracker = new Map<string, number[]>()
+
+function checkRegisterRateLimit(ip: string): boolean {
+  if (process.env.NODE_ENV !== 'production' || ip === '127.0.0.1' || ip === '::1' || ip.includes('127.0.0.1')) {
+    return true
+  }
+  const now = Date.now()
+  const windowMs = 60 * 60 * 1000 // 1 hour
+  const maxPerIp = 10
+
+  const timestamps = (registerAttemptTracker.get(ip) || []).filter(t => now - t < windowMs)
+  if (timestamps.length >= maxPerIp) return false
+
+  timestamps.push(now)
+  registerAttemptTracker.set(ip, timestamps)
+  return true
+}
+
+// SSRF Defense: Validates URLs before server-side fetching
+function isSafeExternalUrl(rawUrl: string): boolean {
+  try {
+    const parsed = new URL(rawUrl)
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return false
+    const hostname = parsed.hostname.toLowerCase()
+    if (
+      hostname === 'localhost' ||
+      hostname.endsWith('.localhost') ||
+      hostname.endsWith('.internal') ||
+      hostname.endsWith('.local') ||
+      hostname === '127.0.0.1' ||
+      hostname === '::1' ||
+      hostname === '0.0.0.0' ||
+      hostname.startsWith('10.') ||
+      hostname.startsWith('192.168.') ||
+      hostname.startsWith('169.254.') ||
+      /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(hostname)
+    ) {
+      return false
+    }
+    return true
+  } catch {
+    return false
+  }
+}
+
 // Generate cryptographically secure random 6-digit OTP code using CSPRNG
 function generateCsprngOtp(): string {
   const num = crypto.randomInt(100000, 1000000)
@@ -164,7 +239,7 @@ async function sendEmailViaSmtp(toEmail: string, code: string): Promise<{ succes
   const host = (process.env.SMTP_HOST || 'smtp.gmail.com').trim()
   const port = parseInt(process.env.SMTP_PORT || '587', 10)
   const user = (process.env.SMTP_USER || 'anmolenterprizes2026@gmail.com').trim()
-  const pass = (process.env.SMTP_PASS || 'hjztslxoliryxztc').replace(/\s+/g, '')
+  const pass = (process.env.SMTP_PASS || '').replace(/\s+/g, '')
   const from = process.env.SMTP_FROM_ADDRESS || `Anmol Enterprises <${user}>`
 
   if (!host || !user || !pass) {
@@ -240,7 +315,7 @@ async function sendEmailOtp(email: string, code: string): Promise<{ success: boo
   // 3. Try standard SMTP (Nodemailer / Gmail)
   const smtpHost = (process.env.SMTP_HOST || 'smtp.gmail.com').trim()
   const smtpUser = (process.env.SMTP_USER || 'anmolenterprizes2026@gmail.com').trim()
-  const smtpPass = (process.env.SMTP_PASS || 'hjztslxoliryxztc').replace(/\s+/g, '')
+  const smtpPass = (process.env.SMTP_PASS || '').replace(/\s+/g, '')
   if (smtpHost && smtpUser && smtpPass && !smtpHost.includes('mock')) {
     const smtpRes = await sendEmailViaSmtp(email, code)
     if (smtpRes.success) return { success: true, method: 'SMTP' }
@@ -412,8 +487,8 @@ apiRouter.post('/otp/verify', async (req: Request, res: Response) => {
       cleanPhone = cleanPhone.substring(2)
     }
 
-    // Dev test code: 123456 always works when Twilio is not live
-    const isDevTestCode = !isTwilioLive() && code === '123456'
+    // Dev test code: 123456 only works in non-production when Twilio is not live
+    const isDevTestCode = !env.isProd && !isTwilioLive() && code === '123456'
 
     // Look up most recent unexpired, unverified OTP marker record (for rate limiting)
     const otpRecord = await prisma.otpVerification.findFirst({
@@ -499,7 +574,7 @@ apiRouter.post('/otp/verify', async (req: Request, res: Response) => {
     }
 
     // Generate short-lived (15 min) scoped verification proof token
-    const jwtSecret = process.env.JWT_SECRET || env.JWT_SECRET || 'a_very_secret_default_jwt_secret_key_32_chars_long'
+    const jwtSecret = env.JWT_SECRET
     const phoneOtpToken = jwt.sign(
       {
         phone: cleanPhone,
@@ -623,14 +698,14 @@ apiRouter.post('/otp/send-email', async (req: Request, res: Response) => {
   }
 })
 
-// ─── EMAIL DIAGNOSTICS ENDPOINT (Check Render Environment status) ──────────────
-apiRouter.get('/otp/diagnostics', async (_req: Request, res: Response) => {
-  const host = process.env.SMTP_HOST || 'smtp.gmail.com (built-in default)'
+// ─── EMAIL DIAGNOSTICS ENDPOINT (Restricted to Super Admin) ──────────────
+apiRouter.get('/otp/diagnostics', authMiddleware, requireRole(['SUPER_ADMIN']), async (_req: Request, res: Response) => {
+  const host = process.env.SMTP_HOST || 'smtp.gmail.com'
   const port = process.env.SMTP_PORT || '587'
-  const user = process.env.SMTP_USER || 'anmolenterprizes2026@gmail.com (built-in default)'
-  const passConfigured = process.env.SMTP_PASS ? `CONFIGURED (${process.env.SMTP_PASS.length} chars in env)` : 'Using built-in App Password'
-  const brevoKey = process.env.BREVO_API_KEY ? `CONFIGURED (${process.env.BREVO_API_KEY.length} chars)` : 'NOT_SET'
-  const resendKey = process.env.RESEND_API_KEY ? `CONFIGURED (${process.env.RESEND_API_KEY.length} chars)` : 'NOT_SET'
+  const user = process.env.SMTP_USER || 'anmolenterprizes2026@gmail.com'
+  const passConfigured = process.env.SMTP_PASS ? 'CONFIGURED' : 'NOT_SET'
+  const brevoKey = process.env.BREVO_API_KEY ? 'CONFIGURED' : 'NOT_SET'
+  const resendKey = process.env.RESEND_API_KEY ? 'CONFIGURED' : 'NOT_SET'
 
   return res.json({
     status: 'online',
@@ -645,9 +720,9 @@ apiRouter.get('/otp/diagnostics', async (_req: Request, res: Response) => {
       smtpPass: passConfigured,
       fromAddress: process.env.SMTP_FROM_ADDRESS || 'Anmol Enterprises <anmolenterprizes2026@gmail.com>'
     },
-    recommendation: brevoKey.startsWith('CONFIGURED') 
-      ? 'Brevo HTTPS API is active! Outbound email uses HTTPS (port 443) and will not be blocked by Render.' 
-      : 'Using Gmail SMTP (port 587). Notice: Render Free Tier blocks outbound SMTP ports 25, 465, and 587. If you receive a timeout error, add BREVO_API_KEY to Render Environment variables.'
+    recommendation: brevoKey === 'CONFIGURED' 
+      ? 'Brevo HTTPS API is active! Outbound email uses HTTPS (port 443).' 
+      : 'Using SMTP. If you experience connection timeouts on Render, configure BREVO_API_KEY.'
   })
 })
 
@@ -732,7 +807,7 @@ apiRouter.post('/otp/verify-email', async (req: Request, res: Response) => {
     }
 
     // Generate short-lived (15 min) scoped verification proof token
-    const jwtSecret = process.env.JWT_SECRET || env.JWT_SECRET || 'a_very_secret_default_jwt_secret_key_32_chars_long'
+    const jwtSecret = env.JWT_SECRET
     const emailOtpToken = jwt.sign(
       {
         email: cleanEmail,
@@ -836,6 +911,14 @@ apiRouter.get('/auth/check-exists', async (req: Request, res: Response) => {
 
 apiRouter.post('/auth/register', async (req: Request, res: Response) => {
   try {
+    const clientIp = req.ip || req.socket.remoteAddress || '127.0.0.1'
+    if (!checkRegisterRateLimit(clientIp)) {
+      return res.status(429).json({
+        error: 'Too many account registration requests from this IP address. Please try again after 1 hour.',
+        retryAfterSeconds: 3600
+      })
+    }
+
     const data = registerSchema.parse(req.body)
     const cleanEmail = data.email.toLowerCase().trim()
 
@@ -891,7 +974,7 @@ apiRouter.post('/auth/register', async (req: Request, res: Response) => {
     const totalUsers = await prisma.user.count()
     const role = totalUsers === 0 ? 'ADMIN' : 'CUSTOMER'
 
-    // Create user and BusinessProfile if B2B
+    // Create user and BusinessProfile if B2B (Initial credit is ₹0 until Admin verifies and enables credit)
     const user = await prisma.user.create({
       data: {
         name: data.name,
@@ -904,7 +987,8 @@ apiRouter.post('/auth/register', async (req: Request, res: Response) => {
         phoneVerified: false,
         businessName: data.isB2B ? (data.businessName || 'Business Partner') : null,
         isB2B: data.isB2B || false,
-        creditLimit: data.isB2B ? 5000 : 0,
+        isCreditEnabled: false,
+        creditLimit: 0,
         businessProfile: data.isB2B ? {
           create: {
             businessName: data.businessName || 'Business Partner',
@@ -965,6 +1049,14 @@ const loginSchema = z.object({
 
 apiRouter.post('/auth/login', async (req: Request, res: Response) => {
   try {
+    const clientIp = req.ip || req.socket.remoteAddress || '127.0.0.1'
+    if (!checkLoginRateLimit(clientIp)) {
+      return res.status(429).json({
+        error: 'Too many failed login attempts from this IP address. Please wait 15 minutes before trying again.',
+        retryAfterSeconds: 900
+      })
+    }
+
     const data = loginSchema.parse(req.body)
     const rawIdentifier = (data.identifier || data.email || data.phone || '').trim()
 
@@ -1015,6 +1107,9 @@ apiRouter.post('/auth/login', async (req: Request, res: Response) => {
     if (!user.isActive) {
       return res.status(403).json({ error: 'This account has been deactivated. Please contact support.' })
     }
+
+    // Clear rate limit on successful authentication
+    resetLoginRateLimit(clientIp)
 
     const token = signToken(user.id, user.role)
     
@@ -1089,6 +1184,9 @@ apiRouter.post('/auth/google', async (req: Request, res: Response) => {
     })
 
     if (user) {
+      if (!user.isActive) {
+        return res.status(403).json({ error: 'This account has been deactivated. Please contact support.' })
+      }
       // User exists! Link Google login & mark email verified
       user = await prisma.user.update({
         where: { id: user.id },
@@ -1416,8 +1514,17 @@ apiRouter.post('/admin/upload-image', authMiddleware, requireRole(['ADMIN', 'STA
       return res.status(400).json({ error: 'base64Data is required' })
     }
 
-    // Clean filename
-    const cleanName = (filename || `upload-${Date.now()}.jpg`).replace(/[^a-zA-Z0-9.-]/g, '_').toLowerCase()
+    // Validate safe extension and prevent path traversal
+    const allowedExtensions = ['.jpg', '.jpeg', '.png', '.webp']
+    const rawExt = path.extname(filename || '').toLowerCase()
+    const ext = allowedExtensions.includes(rawExt) ? rawExt : '.jpg'
+
+    const baseName = path.basename(filename || `upload-${Date.now()}`, rawExt)
+      .replace(/[^a-zA-Z0-9_-]/g, '_')
+      .toLowerCase()
+      .slice(0, 80)
+    const cleanName = `${baseName || 'image'}-${Date.now()}${ext}`
+
     const targetDir = path.join(process.cwd(), 'public', 'images', 'products')
     if (!fs.existsSync(targetDir)) {
       fs.mkdirSync(targetDir, { recursive: true })
@@ -1427,6 +1534,12 @@ apiRouter.post('/admin/upload-image', authMiddleware, requireRole(['ADMIN', 'STA
     // Strip header if data URL format (e.g. data:image/png;base64,...)
     const base64Clean = base64Data.replace(/^data:image\/\w+;base64,/, '')
     const buffer = Buffer.from(base64Clean, 'base64')
+
+    // Limit image size to 10MB
+    if (buffer.length > 10 * 1024 * 1024) {
+      return res.status(400).json({ error: 'Image exceeds maximum 10MB size limit' })
+    }
+
     fs.writeFileSync(targetPath, buffer)
 
     const publicUrl = `/images/products/${cleanName}`
@@ -1443,7 +1556,7 @@ apiRouter.post('/admin/upload-image', authMiddleware, requireRole(['ADMIN', 'STA
 apiRouter.post('/admin/import-image-url', authMiddleware, requireRole(['ADMIN', 'STAFF']), async (req: Request, res: Response) => {
   try {
     const { url } = req.body
-    if (!url) return res.status(400).json({ error: 'URL is required' })
+    if (!url || typeof url !== 'string') return res.status(400).json({ error: 'URL is required' })
 
     // Check if Google Drive link
     let directUrl = url
@@ -1460,6 +1573,13 @@ apiRouter.post('/admin/import-image-url', authMiddleware, requireRole(['ADMIN', 
       return res.json({ url })
     }
 
+    // SSRF Guard: Reject private IP ranges, cloud metadata endpoints, loopback
+    if (!isSafeExternalUrl(directUrl)) {
+      return res.status(400).json({ 
+        error: 'Invalid or prohibited URL for security reasons. Private networks, localhost, and cloud metadata endpoints are strictly forbidden.' 
+      })
+    }
+
     // Try fetching and saving locally to avoid CORS, rate limits, or link expiration
     try {
       const fetchResponse = await fetch(directUrl, {
@@ -1473,6 +1593,9 @@ apiRouter.post('/admin/import-image-url', authMiddleware, requireRole(['ADMIN', 
         if (contentType.startsWith('image/')) {
           const arrayBuffer = await fetchResponse.arrayBuffer()
           const buffer = Buffer.from(arrayBuffer)
+          if (buffer.length > 10 * 1024 * 1024) {
+            return res.status(400).json({ error: 'Remote image exceeds maximum 10MB limit' })
+          }
           const ext = contentType.includes('png') ? 'png' : contentType.includes('webp') ? 'webp' : 'jpg'
           const filename = isGDrive && gDriveMatch ? `gdrive-${gDriveMatch[1]}.${ext}` : `import-${Date.now()}.${ext}`
           const targetDir = path.join(process.cwd(), 'public', 'images', 'products')
@@ -2842,7 +2965,7 @@ apiRouter.post('/orders', async (req: Request, res: Response) => {
       let isPhoneVerifiedProofValid = false
       let isEmailVerifiedProofValid = false
 
-      const jwtSecret = process.env.JWT_SECRET || env.JWT_SECRET || 'a_very_secret_default_jwt_secret_key_32_chars_long'
+      const jwtSecret = env.JWT_SECRET
 
       if (phoneProofHeader) {
         try {
@@ -2902,7 +3025,15 @@ apiRouter.post('/orders', async (req: Request, res: Response) => {
         if (!loggedInUser || !loggedInUser.isB2B) {
           throw new Error('Only B2B accounts can order using credit')
         }
-        const remainingCredit = loggedInUser.creditLimit - loggedInUser.creditUsed
+        // Fetch fresh user record inside transaction with live balance
+        const liveUser = await tx.user.findUnique({
+          where: { id: loggedInUser.id },
+          select: { id: true, isB2B: true, isCreditEnabled: true, creditLimit: true, creditUsed: true }
+        })
+        if (!liveUser || !liveUser.isB2B || !liveUser.isCreditEnabled) {
+          throw new Error('B2B Store Credit facility is not enabled for your account. Please contact Anmol Enterprises administration.')
+        }
+        const remainingCredit = liveUser.creditLimit - liveUser.creditUsed
         if (remainingCredit < totalAmount) {
           throw new Error(`Insufficient credit limit. Available: ₹${remainingCredit.toFixed(2)}, Order Total: ₹${totalAmount.toFixed(2)}`)
         }
@@ -3329,13 +3460,20 @@ apiRouter.post('/webhooks/razorpay', async (req: Request, res: Response) => {
 })
 
 // POST /api/orders/:id/switch-to-cod — fallback for abandoned or failed online payments
-apiRouter.post('/orders/:id/switch-to-cod', async (req: Request, res: Response) => {
+apiRouter.post('/orders/:id/switch-to-cod', authMiddleware, async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string
     const order = await prisma.order.findUnique({ where: { id } })
 
     if (!order) {
       return res.status(404).json({ error: 'Order not found' })
+    }
+
+    // Authorization check: User must own the order, or be STAFF/ADMIN/SUPER_ADMIN
+    const isOwner = order.userId === req.user!.id
+    const isStaffOrAdmin = ['SUPER_ADMIN', 'ADMIN', 'STAFF'].includes(req.user!.role)
+    if (!isOwner && !isStaffOrAdmin) {
+      return res.status(403).json({ error: 'Forbidden: You do not have permission to modify this order.' })
     }
 
     if (order.paymentStatus === 'PAID') {
