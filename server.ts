@@ -34,17 +34,35 @@ const app = next({ dev })
 const handle = app.getRequestHandler()
 
 app.prepare().then(() => {
-  const allowedOrigins = [
-    env.APP_URL,
-    'http://localhost:3000',
-    'http://127.0.0.1:3000'
-  ].filter(Boolean)
+  // Helper to validate allowed origins across production, staging, and local development
+  const isOriginAllowed = (origin: string | undefined): boolean => {
+    if (!origin || !env.isProd) return true
+    try {
+      const parsed = new URL(origin)
+      const host = parsed.hostname.toLowerCase()
+      if (host === 'localhost' || host === '127.0.0.1') return true
+      if (host === 'anmolenterprisess.in' || host.endsWith('.anmolenterprisess.in')) return true
+      if (host === 'anmolenterprises.in' || host.endsWith('.anmolenterprises.in')) return true
+      if (host.endsWith('.onrender.com')) return true
+      if (env.APP_URL) {
+        const appUrlHost = new URL(env.APP_URL).hostname.toLowerCase()
+        if (host === appUrlHost) return true
+      }
+    } catch {}
+    return false
+  }
 
   const expressApp = express()
   const httpServer = createServer(expressApp)
   const io = new SocketIOServer(httpServer, {
     cors: {
-      origin: env.isProd ? allowedOrigins : '*',
+      origin: (origin, callback) => {
+        if (isOriginAllowed(origin)) {
+          callback(null, true)
+        } else {
+          callback(new Error('Blocked by CORS policy'))
+        }
+      },
       methods: ['GET', 'POST', 'PUT', 'DELETE'],
       credentials: true,
     },
@@ -148,7 +166,7 @@ app.prepare().then(() => {
   expressApp.use(
     cors({
       origin: (origin, callback) => {
-        if (!origin || allowedOrigins.includes(origin) || !env.isProd) {
+        if (isOriginAllowed(origin)) {
           callback(null, true)
         } else {
           callback(new Error('Blocked by CORS policy'))
@@ -208,6 +226,15 @@ app.prepare().then(() => {
     maxAge: '30d',
     immutable: true,
   }))
+
+  // Global Express Error Handler: ensures API endpoints always return clean JSON, never raw HTML
+  expressApp.use((err: any, req: any, res: any, next: any) => {
+    console.error('[API Error]:', err.message || err)
+    if (res.headersSent) return next(err)
+    return res.status(err.status || (err.message?.includes('CORS') ? 403 : 500)).json({
+      error: err.message || 'Internal Server Error'
+    })
+  })
 
   // Default Next.js handler
   expressApp.all('/{*splat}', (req, res) => {

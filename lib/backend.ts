@@ -1515,7 +1515,7 @@ apiRouter.post('/admin/upload-image', authMiddleware, requireRole(['ADMIN', 'STA
     }
 
     // Validate safe extension and prevent path traversal
-    const allowedExtensions = ['.jpg', '.jpeg', '.png', '.webp']
+    const allowedExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.avif', '.gif']
     const rawExt = path.extname(filename || '').toLowerCase()
     const ext = allowedExtensions.includes(rawExt) ? rawExt : '.jpg'
 
@@ -1531,8 +1531,8 @@ apiRouter.post('/admin/upload-image', authMiddleware, requireRole(['ADMIN', 'STA
     }
 
     const targetPath = path.join(targetDir, cleanName)
-    // Strip header if data URL format (e.g. data:image/png;base64,...)
-    const base64Clean = base64Data.replace(/^data:image\/\w+;base64,/, '')
+    // Strip header if data URL format (e.g. data:image/png;base64, or any mime type)
+    const base64Clean = base64Data.replace(/^data:[^;]+;base64,/, '')
     const buffer = Buffer.from(base64Clean, 'base64')
 
     // Limit image size to 10MB
@@ -1669,7 +1669,7 @@ apiRouter.post('/products', authMiddleware, requireRole(['ADMIN', 'STAFF']), asy
               packagingType: 'SINGLE',
               unitsInPack: 1,
               weightGrams: data.singleWeight,
-              skuCode: `MCN-${baseSlug.substring(0, 4).toUpperCase()}-${data.singleWeight}`,
+              skuCode: `MCN-${baseSlug.substring(0, 4).toUpperCase()}-${data.singleWeight}-${Date.now().toString().slice(-4)}`,
               retailPrice: data.singlePrice,
               b2bPrice: data.singleB2bPrice,
               stockCount: 100,
@@ -1678,7 +1678,7 @@ apiRouter.post('/products', authMiddleware, requireRole(['ADMIN', 'STAFF']), asy
               packagingType: 'BOX',
               unitsInPack: 10,
               weightGrams: data.singleWeight * 10,
-              skuCode: `MCN-${baseSlug.substring(0, 4).toUpperCase()}-BOX`,
+              skuCode: `MCN-${baseSlug.substring(0, 4).toUpperCase()}-BOX-${Date.now().toString().slice(-4)}`,
               retailPrice: data.boxPrice || data.singlePrice * 9.2,
               b2bPrice: data.boxB2bPrice || data.singleB2bPrice * 9.0,
               stockCount: 50,
@@ -1687,7 +1687,7 @@ apiRouter.post('/products', authMiddleware, requireRole(['ADMIN', 'STAFF']), asy
               packagingType: 'CARTON',
               unitsInPack: 50,
               weightGrams: data.singleWeight * 50,
-              skuCode: `MCN-${baseSlug.substring(0, 4).toUpperCase()}-CAR`,
+              skuCode: `MCN-${baseSlug.substring(0, 4).toUpperCase()}-CAR-${Date.now().toString().slice(-4)}`,
               retailPrice: data.cartonPrice || data.singlePrice * 44,
               b2bPrice: data.cartonB2bPrice || data.singleB2bPrice * 42,
               stockCount: 20,

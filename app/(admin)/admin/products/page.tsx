@@ -131,12 +131,19 @@ export default function AdminProductsPage() {
       })
       const text = await res.text()
       let data: any = {}
-      try { data = JSON.parse(text) } catch { data = { error: text || 'Server response error' } }
+      try {
+        data = JSON.parse(text)
+      } catch {
+        const cleanMsg = text.includes('<pre>')
+          ? text.match(/<pre>([\s\S]*?)<\/pre>/)?.[1]?.replace(/<[^>]+>/g, '')?.trim()
+          : text.replace(/<[^>]+>/g, '').trim()
+        data = { error: cleanMsg || 'Server error occurred' }
+      }
       if (!res.ok) throw new Error(data.error || 'Failed to create product')
       return data
     },
     onSuccess: () => {
-      showToast('New McCain product added successfully!', 'success')
+      showToast('New product added successfully!', 'success')
       queryClient.invalidateQueries({ queryKey: ['admin-products'] })
       queryClient.invalidateQueries({ queryKey: ['products'] })
       closeModal()
@@ -156,7 +163,14 @@ export default function AdminProductsPage() {
       })
       const text = await res.text()
       let data: any = {}
-      try { data = JSON.parse(text) } catch { data = { error: text || 'Server response error' } }
+      try {
+        data = JSON.parse(text)
+      } catch {
+        const cleanMsg = text.includes('<pre>')
+          ? text.match(/<pre>([\s\S]*?)<\/pre>/)?.[1]?.replace(/<[^>]+>/g, '')?.trim()
+          : text.replace(/<[^>]+>/g, '').trim()
+        data = { error: cleanMsg || 'Server error occurred' }
+      }
       if (!res.ok) throw new Error(data.error || 'Failed to update product')
       return data
     },
@@ -560,6 +574,9 @@ export default function AdminProductsPage() {
                     src={product.imageUrl || '/images/products/mccain-smiles.jpg'}
                     alt={product.name}
                     className="max-h-full max-w-full object-contain drop-shadow-md"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = '/images/products/mccain-smiles.jpg'
+                    }}
                   />
                 </div>
 
@@ -645,6 +662,9 @@ export default function AdminProductsPage() {
                           src={product.imageUrl || '/images/products/mccain-smiles.jpg'}
                           alt={product.name}
                           className="max-h-full max-w-full object-contain"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = '/images/products/mccain-smiles.jpg'
+                          }}
                         />
                       </div>
                     </td>
@@ -907,7 +927,14 @@ export default function AdminProductsPage() {
 
                         {/* Image Preview */}
                         <div className="w-full aspect-square flex items-center justify-center p-1.5 rounded-xl overflow-hidden bg-[#0B0F19] border border-slate-800">
-                          <img src={normalizeImageUrl(url)} alt={`Slide ${idx + 1}`} className="w-full h-full object-contain drop-shadow-2xs" />
+                          <img
+                            src={normalizeImageUrl(url)}
+                            alt={`Slide ${idx + 1}`}
+                            className="w-full h-full object-contain drop-shadow-2xs"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = '/images/products/mccain-smiles.jpg'
+                            }}
+                          />
                         </div>
 
                         <span className="text-[9px] font-bold text-slate-400">Slide {idx + 1}</span>
