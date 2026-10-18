@@ -169,6 +169,10 @@ body {
 
 /* ==========================================================================
    ADMIN PANEL THEME ENGINE (LIGHT & DARK DUAL TRANSFORMATION)
+   - Desktop Sidebar: Permanent Dark (#0F1117) with Amber Accents
+   - Workspace Canvas: Clean Solid Slate-50 (#F8FAFC) - No Noise/Dots
+   - Cards & Containers: Pure White (#FFFFFF) with Slate-200 (#E2E8F0) Borders
+   - Elevated Modals, Crisp Form Controls & Full Contrast WCAG AA
    ========================================================================== */
 
 /* Light Theme Root */
@@ -176,95 +180,159 @@ body {
   color-scheme: light;
 }
 
-/* Base Background with Matrix Dot Grid (matching Screenshot 1) */
+/* 1. Permanent Dark Sidebar Preservation */
+.admin-theme-light aside {
+  background-color: #0F1117 !important;
+  border-color: rgba(30, 41, 59, 0.8) !important;
+  color: #FFFFFF !important;
+}
+
+/* 2. Base Canvas & Workspace: 100% Solid Clean Slate-50 (#F8FAFC) */
 .admin-theme-light #admin-main-container,
 .admin-theme-light #admin-main-workspace,
-.admin-theme-light [class*="bg-[#0B0F19]"] {
+.admin-theme-light div.flex-1.bg-\[\#0B0F19\] {
   background-color: #F8FAFC !important;
-  background-image: radial-gradient(#CBD5E1 1.1px, transparent 1.1px) !important;
-  background-size: 20px 20px !important;
+  background-image: none !important;
 }
 
-/* Sidebar in Light Mode */
-.admin-theme-light aside,
-.admin-theme-light [class*="bg-[#0F1117]"] {
-  background-color: #FFFFFF !important;
-  border-color: #E2E8F0 !important;
-  color: #0F172A !important;
-}
-
-/* Top Header & Mobile Nav in Light Mode */
-.admin-theme-light header,
-.admin-theme-light [class*="bg-[#111625]"] {
+/* 3. Top Header in Light Mode */
+.admin-theme-light header {
   background-color: #FFFFFF !important;
   border-color: #E2E8F0 !important;
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04) !important;
 }
 
-.admin-theme-light nav.md\:hidden {
-  background-color: #FFFFFF !important;
-  border-color: #E2E8F0 !important;
-  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05) !important;
-}
-
-/* Secondary Panels, Filter Bars, Summary Boxes & Inner Containers */
-.admin-theme-light [class*="bg-[#0D121F]"],
-.admin-theme-light [class*="bg-[#0A0D17]"],
-.admin-theme-light [class*="bg-slate-950"],
-.admin-theme-light [class*="bg-slate-900"]:not([class*="text-"]):not(button):not(a) {
-  background-color: #F1F5F9 !important;
-  border-color: #E2E8F0 !important;
-}
-
-/* Borders across admin elements */
-.admin-theme-light [class*="border-slate-800"],
-.admin-theme-light [class*="border-slate-700"] {
-  border-color: #E2E8F0 !important;
-}
-
-.admin-theme-light [class*="divide-slate-800"],
-.admin-theme-light [class*="divide-slate-700"] {
-  border-color: #E2E8F0 !important;
-}
-
-/* Typography transformation in light mode */
-.admin-theme-light h1,
-.admin-theme-light h2,
-.admin-theme-light h3,
-.admin-theme-light h4,
-.admin-theme-light h5,
-.admin-theme-light th {
+.admin-theme-light header h1 {
   color: #0F172A !important;
 }
 
-/* Neutral text overrides */
-.admin-theme-light p[class*="text-white"],
-.admin-theme-light td[class*="text-white"],
-.admin-theme-light th[class*="text-white"] {
-  color: #0F172A !important;
-}
-
-.admin-theme-light span[class*="text-white"]:not([class*="bg-"]):not(button) {
-  color: #0F172A !important;
-}
-
-.admin-theme-light div[class*="text-white"]:not([class*="bg-"]):not(button) {
-  color: #0F172A !important;
-}
-
-.admin-theme-light [class*="text-slate-200"]:not([class*="bg-"]) {
+.admin-theme-light header [class*="text-slate-200"],
+.admin-theme-light header [class*="text-white"] {
   color: #1E293B !important;
 }
 
-.admin-theme-light [class*="text-slate-300"]:not([class*="bg-"]) {
-  color: #334155 !important;
+/* 4. Primary Cards, Containers & KPI Summary Boxes */
+.admin-theme-light #admin-main-workspace [class*="bg-[#111625]"],
+.admin-theme-light #admin-main-workspace [class*="bg-[#0D121F]"],
+.admin-theme-light #admin-main-workspace [class*="bg-[#0A0D17]"],
+.admin-theme-light #admin-main-workspace [class*="bg-[#182033]"],
+.admin-theme-light #admin-main-workspace [class*="bg-[#1E2538]"],
+.admin-theme-light #admin-main-workspace [class*="bg-[#0E1320]"],
+.admin-theme-light #admin-main-workspace [class*="bg-slate-950"],
+.admin-theme-light #admin-main-workspace [class*="bg-slate-900"]:not(button):not(a) {
+  background-color: #FFFFFF !important;
+  border-color: #E2E8F0 !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04) !important;
 }
 
-.admin-theme-light [class*="text-slate-400"]:not([class*="bg-"]) {
+/* 4b. Status and Severity Badges */
+.admin-theme-light #admin-main-workspace [class*="bg-[#132238]"] {
+  background-color: #EFF6FF !important;
+  border-color: #BFDBFE !important;
+  color: #1D4ED8 !important;
+}
+.admin-theme-light #admin-main-workspace [class*="bg-[#0E2822]"] {
+  background-color: #ECFDF5 !important;
+  border-color: #A7F3D0 !important;
+  color: #047857 !important;
+}
+.admin-theme-light #admin-main-workspace [class*="bg-[#2D151B]"] {
+  background-color: #FFF1F2 !important;
+  border-color: #FECDD3 !important;
+  color: #BE123C !important;
+}
+.admin-theme-light #admin-main-workspace [class*="bg-[#2E2012]"] {
+  background-color: #FFFBEB !important;
+  border-color: #FDE68A !important;
+  color: #B45309 !important;
+}
+
+/* 5. Recessed Inner Boxes, Gallery Dropzones & Nested Panels */
+.admin-theme-light #admin-main-workspace [class*="bg-[#0B0F19]"]:not(button):not(input):not(select):not(textarea) {
+  background-color: #F8FAFC !important;
+  border-color: #E2E8F0 !important;
+}
+
+/* 6. Staff Management Permission Tiles & Save CTA */
+/* Disabled / Inactive Permission Tile */
+.admin-theme-light #admin-main-workspace [class*="bg-[#0E131F]"] {
+  background-color: #F8FAFC !important;
+  border-color: #E2E8F0 !important;
   color: #64748B !important;
 }
+.admin-theme-light #admin-main-workspace [class*="bg-[#0E131F]"]:hover {
+  background-color: #F1F5F9 !important;
+  border-color: #CBD5E1 !important;
+}
 
-/* Inputs, Selects & Textareas in light mode */
+/* Enabled / Active Permission Tile (Warm Amber Accent) */
+.admin-theme-light #admin-main-workspace [class*="bg-[#181F30]"] {
+  background-color: #FEF3C7 !important;
+  border-color: #F59E0B !important;
+  color: #B45309 !important;
+  box-shadow: 0 1px 4px 0 rgba(245, 158, 11, 0.15) !important;
+}
+.admin-theme-light #admin-main-workspace [class*="bg-[#181F30]"] * {
+  color: #B45309 !important;
+}
+
+/* Save Permissions Button (Clean / Unmodified State) */
+.admin-theme-light #admin-main-workspace [class*="bg-[#1A2234]"] {
+  background-color: #F1F5F9 !important;
+  border-color: #CBD5E1 !important;
+  color: #334155 !important;
+}
+.admin-theme-light #admin-main-workspace [class*="bg-[#1A2234]"]:hover {
+  background-color: #E2E8F0 !important;
+  color: #0F172A !important;
+}
+
+/* 7. Action Buttons (Product Edit, Filters, Date Presets) */
+.admin-theme-light #admin-main-workspace button[class*="bg-[#0B0F19]"],
+.admin-theme-light #admin-main-workspace a[class*="bg-[#0B0F19]"] {
+  background-color: #F1F5F9 !important;
+  border-color: #CBD5E1 !important;
+  color: #1E293B !important;
+}
+.admin-theme-light #admin-main-workspace button[class*="bg-[#0B0F19]"]:hover,
+.admin-theme-light #admin-main-workspace a[class*="bg-[#0B0F19]"]:hover {
+  background-color: #E2E8F0 !important;
+  color: #0F172A !important;
+}
+
+/* Orders Active Stage Filter Pill */
+.admin-theme-light #admin-main-workspace button[class*="bg-slate-800"] {
+  background-color: #0F172A !important;
+  color: #F59E0B !important;
+  border-color: #0F172A !important;
+}
+
+/* 8. Slide-out Drawers, Modals & Backdrops */
+.admin-theme-light .fixed.inset-0 {
+  background-color: rgba(15, 23, 42, 0.45) !important;
+  backdrop-filter: blur(4px) !important;
+}
+
+.admin-theme-light .fixed.inset-0 [class*="bg-[#111625]"],
+.admin-theme-light .fixed.inset-0 [class*="bg-slate-900"],
+.admin-theme-light .fixed.inset-0 [class*="max-w-"] {
+  background-color: #FFFFFF !important;
+  border-color: #E2E8F0 !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.2) !important;
+}
+
+.admin-theme-light .fixed.inset-0 [class*="bg-[#0B0F19]"]:not(button):not(input):not(select):not(textarea) {
+  background-color: #F8FAFC !important;
+  border-color: #E2E8F0 !important;
+}
+
+.admin-theme-light .fixed.inset-0 button[class*="bg-[#0B0F19]"] {
+  background-color: #F1F5F9 !important;
+  border-color: #CBD5E1 !important;
+  color: #1E293B !important;
+}
+
+/* 9. Form Inputs, Selects & Textareas */
 .admin-theme-light input:not([type="checkbox"]):not([type="radio"]),
 .admin-theme-light select,
 .admin-theme-light textarea {
@@ -273,12 +341,20 @@ body {
   color: #0F172A !important;
 }
 
+.admin-theme-light input:focus,
+.admin-theme-light select:focus,
+.admin-theme-light textarea:focus {
+  border-color: #F59E0B !important;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.15) !important;
+  outline: none !important;
+}
+
 .admin-theme-light input::placeholder,
 .admin-theme-light textarea::placeholder {
   color: #94A3B8 !important;
 }
 
-/* Table rows in light mode */
+/* 10. Table Rows & Sticky Headers */
 .admin-theme-light thead tr {
   background-color: #F8FAFC !important;
   border-color: #E2E8F0 !important;
@@ -288,21 +364,47 @@ body {
   background-color: #F8FAFC !important;
 }
 
-/* Navigation links in light mode sidebar */
-.admin-theme-light aside nav a:not([class*="bg-gradient"]) {
-  color: #475569 !important;
-}
-
-.admin-theme-light aside nav a:not([class*="bg-gradient"]):hover {
-  background-color: #F1F5F9 !important;
+/* 11. Typography Hierarchy & Contrast (WCAG AA Compliant) */
+.admin-theme-light #admin-main-workspace h1,
+.admin-theme-light #admin-main-workspace h2,
+.admin-theme-light #admin-main-workspace h3,
+.admin-theme-light #admin-main-workspace h4,
+.admin-theme-light #admin-main-workspace h5,
+.admin-theme-light #admin-main-workspace th {
   color: #0F172A !important;
 }
 
-/* Slide-out Drawers & Modals in light mode */
-.admin-theme-light [class*="fixed"][class*="z-50"] [class*="max-w-"] {
-  background-color: #FFFFFF !important;
+.admin-theme-light #admin-main-workspace p[class*="text-white"],
+.admin-theme-light #admin-main-workspace td[class*="text-white"],
+.admin-theme-light #admin-main-workspace span[class*="text-white"]:not([class*="bg-"]):not(button) {
+  color: #0F172A !important;
+}
+
+.admin-theme-light #admin-main-workspace div[class*="text-white"]:not([class*="bg-"]):not(button) {
+  color: #0F172A !important;
+}
+
+.admin-theme-light #admin-main-workspace [class*="text-slate-200"]:not([class*="bg-"]) {
+  color: #1E293B !important;
+}
+
+.admin-theme-light #admin-main-workspace [class*="text-slate-300"]:not([class*="bg-"]) {
+  color: #334155 !important;
+}
+
+.admin-theme-light #admin-main-workspace [class*="text-slate-400"]:not([class*="bg-"]):not(button) {
+  color: #475569 !important;
+}
+
+/* 12. Borders & Dividers Across Workspace */
+.admin-theme-light #admin-main-workspace [class*="border-slate-800"],
+.admin-theme-light #admin-main-workspace [class*="border-slate-700"] {
   border-color: #E2E8F0 !important;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15) !important;
+}
+
+.admin-theme-light #admin-main-workspace [class*="divide-slate-800"],
+.admin-theme-light #admin-main-workspace [class*="divide-slate-700"] {
+  border-color: #E2E8F0 !important;
 }
 
 
