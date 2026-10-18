@@ -29,10 +29,18 @@ export async function POST(request: Request) {
     const singleWeight = Number(body.singleWeight) || 400
     const singlePrice = Number(body.singlePrice) || 199
     const singleB2bPrice = Number(body.singleB2bPrice) || 169
+    const singleStock = body.singleStock !== undefined ? Number(body.singleStock) : 100
+    const reorderLevel = body.reorderLevel !== undefined ? Number(body.reorderLevel) : 10
+
+    const boxUnits = Number(body.boxUnits) || 10
     const boxPrice = Number(body.boxPrice) || Math.round(singlePrice * 9.2)
     const boxB2bPrice = Number(body.boxB2bPrice) || Math.round(singleB2bPrice * 9.0)
+    const boxStock = body.boxStock !== undefined ? Number(body.boxStock) : 50
+
+    const cartonUnits = Number(body.cartonUnits) || 50
     const cartonPrice = Number(body.cartonPrice) || Math.round(singlePrice * 44)
     const cartonB2bPrice = Number(body.cartonB2bPrice) || Math.round(singleB2bPrice * 42)
+    const cartonStock = body.cartonStock !== undefined ? Number(body.cartonStock) : 20
 
     // Clean slug generation
     let baseSlug = body.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
@@ -50,6 +58,7 @@ export async function POST(request: Request) {
         brand: body.brand || 'McCain',
         isVeg: body.isVeg !== undefined ? Boolean(body.isVeg) : true,
         imageUrl: body.imageUrl,
+        galleryImages: body.galleryImages || (body.imageUrl ? [body.imageUrl] : []),
         isFeatured: Boolean(body.isFeatured),
         isActive: body.isActive !== undefined ? Boolean(body.isActive) : true,
         variants: {
@@ -61,25 +70,28 @@ export async function POST(request: Request) {
               skuCode: `MCN-${baseSlug.substring(0, 4).toUpperCase()}-${singleWeight}-${Date.now().toString().slice(-4)}`,
               retailPrice: singlePrice,
               b2bPrice: singleB2bPrice,
-              stockCount: 100,
+              stockCount: singleStock,
+              reorderLevel: reorderLevel,
             },
             {
               packagingType: 'BOX',
-              unitsInPack: 10,
-              weightGrams: singleWeight * 10,
+              unitsInPack: boxUnits,
+              weightGrams: singleWeight * boxUnits,
               skuCode: `MCN-${baseSlug.substring(0, 4).toUpperCase()}-BOX-${Date.now().toString().slice(-4)}`,
               retailPrice: boxPrice,
               b2bPrice: boxB2bPrice,
-              stockCount: 50,
+              stockCount: boxStock,
+              reorderLevel: 5,
             },
             {
               packagingType: 'CARTON',
-              unitsInPack: 50,
-              weightGrams: singleWeight * 50,
+              unitsInPack: cartonUnits,
+              weightGrams: singleWeight * cartonUnits,
               skuCode: `MCN-${baseSlug.substring(0, 4).toUpperCase()}-CAR-${Date.now().toString().slice(-4)}`,
               retailPrice: cartonPrice,
               b2bPrice: cartonB2bPrice,
-              stockCount: 20,
+              stockCount: cartonStock,
+              reorderLevel: 5,
             }
           ]
         }

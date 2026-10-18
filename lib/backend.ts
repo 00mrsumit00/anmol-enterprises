@@ -1456,6 +1456,127 @@ apiRouter.delete('/admin/categories/:id', authMiddleware, requireRole(['ADMIN'])
   }
 })
 
+// ─── ADMIN REPORTS & ANALYTICS ─────────────────────────────────────────────
+
+apiRouter.get('/admin/reports', authMiddleware, requireRole(['ADMIN', 'STAFF']), async (req: Request, res: Response) => {
+  try {
+    const { range = '30days', startDate, endDate } = req.query as { range?: string; startDate?: string; endDate?: string }
+
+    let dateFilter: any = {}
+    const now = new Date()
+
+    if (startDate && endDate) {
+      dateFilter = {
+        createdAt: {
+          gte: new Date(startDate),
+          lte: new Date(endDate)
+        }
+      }
+    } else if (range === 'today') {
+      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+      dateFilter = { createdAt: { gte: startOfDay } }
+    } else if (range === '7days') {
+      const past7 = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+      dateFilter = { createdAt: { gte: past7 } }
+    } else if (range === '30days') {
+      const past30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+      dateFilter = { createdAt: { gte: past30 } }
+    } else if (range === 'year') {
+      const startOfYear = new Date(now.getFullYear(), 0, 1)
+      dateFilter = { createdAt: { gte: startOfYear } }
+    }
+
+    const orders = await prisma.order.findMany({
+      where: dateFilter,
+      include: {
+        items: true,
+        user: {
+          select: { id: true, name: true, isB2B: true, businessProfile: { select: { businessName: true } } }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    })
+
+    const totalOrders = orders.length
+    let totalRevenue = 0
+    let b2bRevenue = 0
+    let retailRevenue = 0
+    let deliveredCount = 0
+    let cancelledCount = 0
+
+    const statusCounts: Record<string, number> = {}
+    const paymentMethodCounts: Record<string, { count: number; total: number }> = {}
+    const dailyMap: Record<string, { date: string; revenue: number; orders: number }> = {}
+    const productSalesMap: Record<string, { name: string; quantity: number; revenue: number }> = {}
+
+    for (const order of orders) {
+      const isDelivered = order.status === 'DELIVERED'
+      const isCancelled = order.status === 'CANCELLED'
+
+      if (isDelivered) deliveredCount++
+      if (isCancelled) cancelledCount++
+
+      statusCounts[order.status] = (statusCounts[order.status] || 0) + 1
+
+      // Count revenue for non-cancelled orders
+      if (!isCancelled) {
+        totalRevenue += order.totalAmount
+        if (order.user?.isB2B || order.businessName) {
+          b2bRevenue += order.totalAmount
+        } else {
+          retailRevenue += order.totalAmount
+        }
+
+        // Payment method breakdown
+        const pm = order.paymentMethod || 'OTHER'
+        if (!paymentMethodCounts[pm]) paymentMethodCounts[pm] = { count: 0, total: 0 }
+        paymentMethodCounts[pm].count++
+        paymentMethodCounts[pm].total += order.totalAmount
+
+        // Daily trend
+        const dayKey = order.createdAt.toISOString().slice(0, 10)
+        if (!dailyMap[dayKey]) dailyMap[dayKey] = { date: dayKey, revenue: 0, orders: 0 }
+        dailyMap[dayKey].revenue += order.totalAmount
+        dailyMap[dayKey].orders += 1
+
+        // Item breakdown
+        for (const item of order.items) {
+          const pName = item.productName || 'McCain Item'
+          if (!productSalesMap[pName]) productSalesMap[pName] = { name: pName, quantity: 0, revenue: 0 }
+          productSalesMap[pName].quantity += item.quantity
+          productSalesMap[pName].revenue += item.lineTotal
+        }
+      }
+    }
+
+    const topProducts = Object.values(productSalesMap)
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 10)
+
+    const dailyTrends = Object.values(dailyMap)
+      .sort((a, b) => a.date.localeCompare(b.date))
+
+    return res.json({
+      summary: {
+        totalOrders,
+        totalRevenue: Math.round(totalRevenue),
+        b2bRevenue: Math.round(b2bRevenue),
+        retailRevenue: Math.round(retailRevenue),
+        deliveredCount,
+        cancelledCount,
+        activeOrders: totalOrders - deliveredCount - cancelledCount,
+        averageOrderValue: totalOrders > 0 ? Math.round(totalRevenue / totalOrders) : 0
+      },
+      topProducts,
+      dailyTrends,
+      paymentMethodCounts,
+      statusCounts
+    })
+  } catch (error: any) {
+    console.error('Reports endpoint error:', error)
+    return res.status(500).json({ error: error.message || 'Failed to generate reports' })
+  }
+})
 
 apiRouter.get('/products', async (req: Request, res: Response) => {
   try {
@@ -1633,10 +1754,16 @@ const createProductSchema = z.object({
   singlePrice: z.number().min(1),
   singleB2bPrice: z.number().min(1),
   singleWeight: z.number().default(400),
+  singleStock: z.number().optional(),
+  boxUnits: z.number().optional(),
   boxPrice: z.number().optional(),
   boxB2bPrice: z.number().optional(),
+  boxStock: z.number().optional(),
+  cartonUnits: z.number().optional(),
   cartonPrice: z.number().optional(),
   cartonB2bPrice: z.number().optional(),
+  cartonStock: z.number().optional(),
+  reorderLevel: z.number().optional(),
 })
 
 apiRouter.post('/products', authMiddleware, requireRole(['ADMIN', 'STAFF']), async (req: Request, res: Response) => {
@@ -1650,6 +1777,9 @@ apiRouter.post('/products', authMiddleware, requireRole(['ADMIN', 'STAFF']), asy
     if (existing) {
       baseSlug = `${baseSlug}-${Math.floor(100 + Math.random() * 900)}`
     }
+
+    const boxUnits = data.boxUnits || 10
+    const cartonUnits = data.cartonUnits || 50
 
     const product = await prisma.product.create({
       data: {
@@ -1672,25 +1802,28 @@ apiRouter.post('/products', authMiddleware, requireRole(['ADMIN', 'STAFF']), asy
               skuCode: `MCN-${baseSlug.substring(0, 4).toUpperCase()}-${data.singleWeight}-${Date.now().toString().slice(-4)}`,
               retailPrice: data.singlePrice,
               b2bPrice: data.singleB2bPrice,
-              stockCount: 100,
+              stockCount: data.singleStock !== undefined ? Number(data.singleStock) : 100,
+              reorderLevel: data.reorderLevel !== undefined ? Number(data.reorderLevel) : 10,
             },
             {
               packagingType: 'BOX',
-              unitsInPack: 10,
-              weightGrams: data.singleWeight * 10,
+              unitsInPack: boxUnits,
+              weightGrams: data.singleWeight * boxUnits,
               skuCode: `MCN-${baseSlug.substring(0, 4).toUpperCase()}-BOX-${Date.now().toString().slice(-4)}`,
               retailPrice: data.boxPrice || data.singlePrice * 9.2,
               b2bPrice: data.boxB2bPrice || data.singleB2bPrice * 9.0,
-              stockCount: 50,
+              stockCount: data.boxStock !== undefined ? Number(data.boxStock) : 50,
+              reorderLevel: 5,
             },
             {
               packagingType: 'CARTON',
-              unitsInPack: 50,
-              weightGrams: data.singleWeight * 50,
+              unitsInPack: cartonUnits,
+              weightGrams: data.singleWeight * cartonUnits,
               skuCode: `MCN-${baseSlug.substring(0, 4).toUpperCase()}-CAR-${Date.now().toString().slice(-4)}`,
               retailPrice: data.cartonPrice || data.singlePrice * 44,
               b2bPrice: data.cartonB2bPrice || data.singleB2bPrice * 42,
-              stockCount: 20,
+              stockCount: data.cartonStock !== undefined ? Number(data.cartonStock) : 20,
+              reorderLevel: 5,
             }
           ]
         }
@@ -1725,10 +1858,17 @@ const updateProductSchema = z.object({
   isActive: z.boolean().optional(),
   singlePrice: z.number().optional(),
   singleB2bPrice: z.number().optional(),
+  singleWeight: z.number().optional(),
+  singleStock: z.number().optional(),
+  boxUnits: z.number().optional(),
   boxPrice: z.number().optional(),
   boxB2bPrice: z.number().optional(),
+  boxStock: z.number().optional(),
+  cartonUnits: z.number().optional(),
   cartonPrice: z.number().optional(),
   cartonB2bPrice: z.number().optional(),
+  cartonStock: z.number().optional(),
+  reorderLevel: z.number().optional(),
 })
 
 apiRouter.put('/products/:id', authMiddleware, requireRole(['ADMIN', 'STAFF']), async (req: Request, res: Response) => {
@@ -1763,44 +1903,47 @@ apiRouter.put('/products/:id', authMiddleware, requireRole(['ADMIN', 'STAFF']), 
       }
     })
 
-    // Update variant prices if provided
-    if (data.singlePrice !== undefined || data.singleB2bPrice !== undefined) {
-      const singleVar = existingProduct.variants.find(v => v.packagingType === 'SINGLE')
-      if (singleVar) {
-        await prisma.productVariant.update({
-          where: { id: singleVar.id },
-          data: {
-            retailPrice: data.singlePrice !== undefined ? data.singlePrice : singleVar.retailPrice,
-            b2bPrice: data.singleB2bPrice !== undefined ? data.singleB2bPrice : singleVar.b2bPrice,
-          }
-        })
-      }
+    // Update variant prices and stock if provided
+    const singleVar = existingProduct.variants.find(v => v.packagingType === 'SINGLE')
+    if (singleVar) {
+      await prisma.productVariant.update({
+        where: { id: singleVar.id },
+        data: {
+          retailPrice: data.singlePrice !== undefined ? data.singlePrice : singleVar.retailPrice,
+          b2bPrice: data.singleB2bPrice !== undefined ? data.singleB2bPrice : singleVar.b2bPrice,
+          stockCount: data.singleStock !== undefined ? data.singleStock : singleVar.stockCount,
+          weightGrams: data.singleWeight !== undefined ? data.singleWeight : singleVar.weightGrams,
+          reorderLevel: data.reorderLevel !== undefined ? data.reorderLevel : singleVar.reorderLevel,
+        }
+      })
     }
 
-    if (data.boxPrice !== undefined || data.boxB2bPrice !== undefined) {
-      const boxVar = existingProduct.variants.find(v => v.packagingType === 'BOX')
-      if (boxVar) {
-        await prisma.productVariant.update({
-          where: { id: boxVar.id },
-          data: {
-            retailPrice: data.boxPrice !== undefined ? data.boxPrice : boxVar.retailPrice,
-            b2bPrice: data.boxB2bPrice !== undefined ? data.boxB2bPrice : boxVar.b2bPrice,
-          }
-        })
-      }
+    const boxVar = existingProduct.variants.find(v => v.packagingType === 'BOX')
+    if (boxVar) {
+      const bUnits = data.boxUnits !== undefined ? data.boxUnits : boxVar.unitsInPack
+      await prisma.productVariant.update({
+        where: { id: boxVar.id },
+        data: {
+          retailPrice: data.boxPrice !== undefined ? data.boxPrice : boxVar.retailPrice,
+          b2bPrice: data.boxB2bPrice !== undefined ? data.boxB2bPrice : boxVar.b2bPrice,
+          unitsInPack: bUnits,
+          stockCount: data.boxStock !== undefined ? data.boxStock : boxVar.stockCount,
+        }
+      })
     }
 
-    if (data.cartonPrice !== undefined || data.cartonB2bPrice !== undefined) {
-      const cartonVar = existingProduct.variants.find(v => v.packagingType === 'CARTON')
-      if (cartonVar) {
-        await prisma.productVariant.update({
-          where: { id: cartonVar.id },
-          data: {
-            retailPrice: data.cartonPrice !== undefined ? data.cartonPrice : cartonVar.retailPrice,
-            b2bPrice: data.cartonB2bPrice !== undefined ? data.cartonB2bPrice : cartonVar.b2bPrice,
-          }
-        })
-      }
+    const cartonVar = existingProduct.variants.find(v => v.packagingType === 'CARTON')
+    if (cartonVar) {
+      const cUnits = data.cartonUnits !== undefined ? data.cartonUnits : cartonVar.unitsInPack
+      await prisma.productVariant.update({
+        where: { id: cartonVar.id },
+        data: {
+          retailPrice: data.cartonPrice !== undefined ? data.cartonPrice : cartonVar.retailPrice,
+          b2bPrice: data.cartonB2bPrice !== undefined ? data.cartonB2bPrice : cartonVar.b2bPrice,
+          unitsInPack: cUnits,
+          stockCount: data.cartonStock !== undefined ? data.cartonStock : cartonVar.stockCount,
+        }
+      })
     }
 
     // Refetch final product state

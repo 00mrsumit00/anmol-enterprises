@@ -7,7 +7,7 @@ import {
   Package, Plus, Search, Filter, Edit3, Trash2, Eye, EyeOff, 
   Sparkles, CheckCircle2, AlertCircle, LayoutGrid, List, Tag, Image as ImageIcon,
   DollarSign, ShieldCheck, Flame, ChevronRight, UploadCloud, Star, ArrowLeft, ArrowRight,
-  Upload, X
+  Upload, X, Boxes, ShoppingBag, Layers, BarChart3, Check
 } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import { OFFICIAL_PACKET_IMAGES, normalizeImageUrl } from '@/lib/productImages'
@@ -81,7 +81,11 @@ export default function AdminProductsPage() {
     }
   }
 
-  // Form Fields State
+  // Product Quick Preview State (for Product List)
+  const [selectedPreviewProduct, setSelectedPreviewProduct] = useState<any>(null)
+  const [previewVariantType, setPreviewVariantType] = useState<'SINGLE' | 'BOX' | 'CARTON'>('SINGLE')
+
+  // Form Fields State (with complete Quantity & Stock support)
   const [formData, setFormData] = useState({
     name: '',
     categoryId: '',
@@ -93,13 +97,23 @@ export default function AdminProductsPage() {
     isFeatured: false,
     isActive: true,
     singleWeight: 400,
+    singleStock: 100,
+    reorderLevel: 10,
     singlePrice: 199,
     singleB2bPrice: 169,
+    boxUnits: 10,
+    boxStock: 50,
     boxPrice: 1790,
     boxB2bPrice: 1520,
+    cartonUnits: 50,
+    cartonStock: 20,
     cartonPrice: 8450,
     cartonB2bPrice: 7150,
   })
+
+  // Live Modal Preview Tab & Active Thumbnail
+  const [modalPreviewPackaging, setModalPreviewPackaging] = useState<'SINGLE' | 'BOX' | 'CARTON'>('SINGLE')
+  const [modalActiveImageIdx, setModalActiveImageIdx] = useState<number>(0)
 
   // Fetch all admin products
   const { data: products = [], isLoading: isProductsLoading } = useQuery({
@@ -219,13 +233,21 @@ export default function AdminProductsPage() {
       isFeatured: false,
       isActive: true,
       singleWeight: 400,
+      singleStock: 100,
+      reorderLevel: 10,
       singlePrice: 199,
       singleB2bPrice: 169,
+      boxUnits: 10,
+      boxStock: 50,
       boxPrice: 1790,
       boxB2bPrice: 1520,
+      cartonUnits: 50,
+      cartonStock: 20,
       cartonPrice: 8450,
       cartonB2bPrice: 7150,
     })
+    setModalActiveImageIdx(0)
+    setModalPreviewPackaging('SINGLE')
     setIsModalOpen(true)
   }
 
@@ -245,19 +267,27 @@ export default function AdminProductsPage() {
       categoryId: product.categoryId,
       description: product.description,
       brand: product.brand || 'McCain',
-      isVeg: product.isVeg,
+      isVeg: product.isVeg !== undefined ? product.isVeg : true,
       imageUrl: product.imageUrl || gallery[0],
       galleryImages: gallery,
-      isFeatured: product.isFeatured,
-      isActive: product.isActive,
+      isFeatured: product.isFeatured || false,
+      isActive: product.isActive !== undefined ? product.isActive : true,
       singleWeight: singleVar.weightGrams || 400,
+      singleStock: singleVar.stockCount !== undefined ? singleVar.stockCount : 100,
+      reorderLevel: singleVar.reorderLevel !== undefined ? singleVar.reorderLevel : 10,
       singlePrice: singleVar.retailPrice || 199,
       singleB2bPrice: singleVar.b2bPrice || 169,
+      boxUnits: boxVar.unitsInPack || 10,
+      boxStock: boxVar.stockCount !== undefined ? boxVar.stockCount : 50,
       boxPrice: boxVar.retailPrice || 1790,
       boxB2bPrice: boxVar.b2bPrice || 1520,
+      cartonUnits: cartonVar.unitsInPack || 50,
+      cartonStock: cartonVar.stockCount !== undefined ? cartonVar.stockCount : 20,
       cartonPrice: cartonVar.retailPrice || 8450,
       cartonB2bPrice: cartonVar.b2bPrice || 7150,
     })
+    setModalActiveImageIdx(0)
+    setModalPreviewPackaging('SINGLE')
     setIsModalOpen(true)
   }
 
@@ -265,6 +295,7 @@ export default function AdminProductsPage() {
     setIsModalOpen(false)
     setEditingProduct(null)
     setCustomImageUrlInput('')
+    setModalActiveImageIdx(0)
   }
 
   // Handle Multi-Image Upload from Device
@@ -600,13 +631,40 @@ export default function AdminProductsPage() {
                       <span className="font-black text-purple-300">₹{singleVar.b2bPrice || 0}</span>
                     </div>
                   </div>
+
+                  {/* Stock Level Indicator */}
+                  <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-800 text-[10px]">
+                    <span className="flex items-center gap-1 text-slate-400 font-semibold">
+                      <Boxes className="w-3 h-3 text-amber-400" /> Pack Stock
+                    </span>
+                    <span className={`font-black px-2 py-0.5 rounded-md ${
+                      (singleVar.stockCount ?? 100) <= (singleVar.reorderLevel ?? 10)
+                        ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+                        : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                    }`}>
+                      {singleVar.stockCount ?? 100} units
+                    </span>
+                  </div>
                 </div>
 
                 {/* Action Buttons */}
-                <div className="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-slate-800">
+                <div className="grid grid-cols-4 gap-1.5 mt-3 pt-3 border-t border-slate-800">
+                  <button
+                    onClick={() => {
+                      setSelectedPreviewProduct(product)
+                      setPreviewVariantType('SINGLE')
+                    }}
+                    className="flex items-center justify-center gap-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 text-[11px] font-bold py-2 rounded-xl border border-amber-500/20 transition-all"
+                    title="Live Storefront Preview"
+                  >
+                    <ShoppingBag className="w-3.5 h-3.5" />
+                    <span>View</span>
+                  </button>
+
                   <button
                     onClick={() => openEditModal(product)}
-                    className="flex items-center justify-center gap-1 bg-[#0B0F19] hover:bg-slate-800 text-slate-300 text-xs font-bold py-2 rounded-xl border border-slate-800 transition-all"
+                    className="flex items-center justify-center gap-1 bg-[#0B0F19] hover:bg-slate-800 text-slate-300 text-[11px] font-bold py-2 rounded-xl border border-slate-800 transition-all"
+                    title="Edit Product"
                   >
                     <Edit3 className="w-3.5 h-3.5" />
                     <span>Edit</span>
@@ -614,7 +672,7 @@ export default function AdminProductsPage() {
 
                   <button
                     onClick={() => handleToggleActive(product)}
-                    className="flex items-center justify-center gap-1 bg-[#0B0F19] hover:bg-slate-800 text-slate-300 text-xs font-bold py-2 rounded-xl border border-slate-800 transition-all"
+                    className="flex items-center justify-center gap-1 bg-[#0B0F19] hover:bg-slate-800 text-slate-300 text-[11px] font-bold py-2 rounded-xl border border-slate-800 transition-all"
                     title="Toggle Active Status"
                   >
                     {product.isActive ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
@@ -622,7 +680,7 @@ export default function AdminProductsPage() {
 
                   <button
                     onClick={() => handleDelete(product)}
-                    className="flex items-center justify-center gap-1 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-xs font-bold py-2 rounded-xl border border-rose-500/30 transition-all"
+                    className="flex items-center justify-center gap-1 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-[11px] font-bold py-2 rounded-xl border border-rose-500/30 transition-all"
                     title="Delete Product"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -644,6 +702,7 @@ export default function AdminProductsPage() {
                 <th className="p-4">Packet Image</th>
                 <th className="p-4">Product Name</th>
                 <th className="p-4">Category</th>
+                <th className="p-4">Stock</th>
                 <th className="p-4">Gallery</th>
                 <th className="p-4">Retail Price</th>
                 <th className="p-4">B2B Price</th>
@@ -670,6 +729,15 @@ export default function AdminProductsPage() {
                     </td>
                     <td className="p-4 font-black text-white">{product.name}</td>
                     <td className="p-4 text-slate-400">{product.category?.name}</td>
+                    <td className="p-4">
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
+                        (singleVar.stockCount ?? 100) <= (singleVar.reorderLevel ?? 10)
+                          ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+                          : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                      }`}>
+                        {singleVar.stockCount ?? 100} units
+                      </span>
+                    </td>
                     <td className="p-4 text-slate-300 font-bold">{product.galleryImages?.length || 1} images</td>
                     <td className="p-4 font-black text-white">₹{singleVar.retailPrice || 0}</td>
                     <td className="p-4 font-black text-purple-300">₹{singleVar.b2bPrice || 0}</td>
@@ -682,6 +750,16 @@ export default function AdminProductsPage() {
                     </td>
                     <td className="p-4 text-right">
                       <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => {
+                            setSelectedPreviewProduct(product)
+                            setPreviewVariantType('SINGLE')
+                          }}
+                          className="p-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 rounded-xl border border-amber-500/30"
+                          title="Preview Product Panel"
+                        >
+                          <ShoppingBag className="w-3.5 h-3.5" />
+                        </button>
                         <button
                           onClick={() => openEditModal(product)}
                           className="p-2 bg-[#0B0F19] hover:bg-slate-800 text-slate-300 rounded-xl border border-slate-800"
@@ -717,18 +795,26 @@ export default function AdminProductsPage() {
       {/* ============ LIVE MULTI-IMAGE GALLERY ADD / EDIT PRODUCT MODAL ============ */}
       {/* ========================================================================= */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-[#111625] rounded-3xl max-w-4xl w-full p-6 sm:p-8 shadow-2xl flex flex-col gap-6 animate-scale-up my-auto max-h-[90vh] overflow-y-auto border border-slate-800">
+        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[200] flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
+          <div className="bg-[#111625] rounded-3xl max-w-6xl w-full p-5 sm:p-7 shadow-2xl flex flex-col gap-6 animate-scale-up my-auto max-h-[92vh] overflow-y-auto border border-slate-800">
             
             {/* Modal Header */}
             <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-              <div>
-                <h3 className="font-black text-lg text-white">
-                  {editingProduct ? `Edit Product: ${editingProduct.name}` : 'Add New McCain Product'}
-                </h3>
-                <p className="text-xs text-slate-400 font-medium mt-0.5">
-                  Upload multiple product gallery images, set the primary packet photo, and configure pricing.
-                </p>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+                  <Package className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-black text-lg text-white flex items-center gap-2">
+                    {editingProduct ? `Edit Product: ${editingProduct.name}` : 'Add New McCain Product'}
+                    <span className="text-[10px] font-bold bg-amber-500/10 text-amber-300 border border-amber-500/20 px-2 py-0.5 rounded-full">
+                      Live Preview Enabled
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-400 font-medium">
+                    Configure stock quantities, pricing tiers, upload high-res images, and preview live on the right.
+                  </p>
+                </div>
               </div>
               <button 
                 onClick={closeModal}
@@ -738,363 +824,809 @@ export default function AdminProductsPage() {
               </button>
             </div>
 
-            {/* Form */}
-            <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+            {/* Split 2-Column Grid: Left = Form Inputs, Right = Live Storefront Preview */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
               
-              {/* 1. PRODUCT DETAILS */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="flex flex-col gap-1">
-                  <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Product Name *</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. McCain Smiles"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full bg-[#0B0F19] border border-slate-800 text-xs sm:text-sm text-white rounded-2xl px-4 py-3 font-semibold focus:outline-none focus:border-amber-500"
-                    required
-                  />
-                </div>
+              {/* Left Column: Form Controls (7 cols) */}
+              <div className="lg:col-span-7 flex flex-col gap-6">
+                <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+                  
+                  {/* 1. PRODUCT DETAILS */}
+                  <div className="p-4 bg-[#0B0F19] rounded-3xl border border-slate-800 flex flex-col gap-4">
+                    <div className="flex items-center gap-2 border-b border-slate-800/80 pb-2">
+                      <Tag className="w-4 h-4 text-amber-400" />
+                      <h4 className="text-xs font-black uppercase tracking-wider text-white">
+                        1. Product Information
+                      </h4>
+                    </div>
 
-                <div className="flex flex-col gap-1">
-                  <div className="flex items-center justify-between">
-                    <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Category *</label>
-                    <button
-                      type="button"
-                      onClick={() => setShowAddCategoryInline(!showAddCategoryInline)}
-                      className="text-[11px] font-bold text-amber-400 hover:text-amber-300 hover:underline flex items-center gap-1 cursor-pointer"
-                    >
-                      {showAddCategoryInline ? '✕ Use Existing' : '+ Add New Category'}
-                    </button>
-                  </div>
-
-                  {showAddCategoryInline ? (
-                    <div className="p-3 bg-[#0B0F19] border border-amber-500/30 rounded-2xl flex flex-col gap-2.5 my-0.5">
-                      <div className="flex items-center justify-between flex-wrap gap-1">
-                        <span className="text-[11px] font-bold text-amber-300">New Category Details</span>
-                        <div className="flex gap-1 flex-wrap">
-                          {['🍟', '🧀', '🌯', '🌽', '✨', '🍕', '🍔', '🥟', '🥤', '📦'].map((em) => (
-                            <button
-                              key={em}
-                              type="button"
-                              onClick={() => setNewCategoryEmoji(em)}
-                              className={`w-6 h-6 text-xs rounded-md flex items-center justify-center transition-all ${
-                                newCategoryEmoji === em ? 'bg-amber-500 text-slate-950 scale-110 shadow-xs' : 'bg-slate-800 hover:bg-slate-700 text-white'
-                              }`}
-                            >
-                              {em}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="flex flex-col gap-1">
+                        <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Product Name *</label>
                         <input
                           type="text"
-                          placeholder="e.g. Party Platters or Kids Special"
-                          value={newCategoryName}
-                          onChange={(e) => setNewCategoryName(e.target.value)}
-                          className="flex-1 bg-[#111625] border border-slate-800 text-xs sm:text-sm text-white rounded-xl px-3 py-2 font-medium focus:outline-none focus:border-amber-500"
+                          placeholder="e.g. McCain Smiles"
+                          value={formData.name}
+                          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                          className="w-full bg-[#111625] border border-slate-800 text-xs sm:text-sm text-white rounded-2xl px-4 py-3 font-semibold focus:outline-none focus:border-amber-500"
+                          required
+                        />
+                      </div>
+
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center justify-between">
+                          <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Category *</label>
+                          <button
+                            type="button"
+                            onClick={() => setShowAddCategoryInline(!showAddCategoryInline)}
+                            className="text-[11px] font-bold text-amber-400 hover:text-amber-300 hover:underline flex items-center gap-1 cursor-pointer"
+                          >
+                            {showAddCategoryInline ? '✕ Use Existing' : '+ New Category'}
+                          </button>
+                        </div>
+
+                        {showAddCategoryInline ? (
+                          <div className="p-3 bg-[#111625] border border-amber-500/30 rounded-2xl flex flex-col gap-2.5 my-0.5">
+                            <div className="flex items-center justify-between flex-wrap gap-1">
+                              <span className="text-[11px] font-bold text-amber-300">Emoji & Title</span>
+                              <div className="flex gap-1 flex-wrap">
+                                {['🍟', '🧀', '🌯', '🌽', '✨', '🍕', '🍔', '🥟', '🥤', '📦'].map((em) => (
+                                  <button
+                                    key={em}
+                                    type="button"
+                                    onClick={() => setNewCategoryEmoji(em)}
+                                    className={`w-6 h-6 text-xs rounded-md flex items-center justify-center transition-all ${
+                                      newCategoryEmoji === em ? 'bg-amber-500 text-slate-950 scale-110 shadow-xs' : 'bg-slate-800 hover:bg-slate-700 text-white'
+                                    }`}
+                                  >
+                                    {em}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                placeholder="e.g. Party Platters"
+                                value={newCategoryName}
+                                onChange={(e) => setNewCategoryName(e.target.value)}
+                                className="flex-1 bg-[#0B0F19] border border-slate-800 text-xs sm:text-sm text-white rounded-xl px-3 py-2 font-medium focus:outline-none focus:border-amber-500"
+                              />
+                              <button
+                                type="button"
+                                onClick={handleCreateCategoryInline}
+                                disabled={isCreatingCategory}
+                                className="px-3.5 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 disabled:opacity-50 text-slate-950 text-xs font-bold rounded-xl shadow-xs transition-all active:scale-95 shrink-0"
+                              >
+                                {isCreatingCategory ? 'Adding...' : 'Save'}
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <select
+                            value={formData.categoryId}
+                            onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
+                            className="w-full bg-[#111625] border border-slate-800 text-xs sm:text-sm rounded-2xl px-4 py-3 font-semibold text-white cursor-pointer focus:outline-none focus:border-amber-500"
+                            required
+                          >
+                            {categories.map((cat: any) => (
+                              <option key={cat.id} value={cat.id} className="bg-[#111625] text-white">
+                                {cat.emoji} {cat.name}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Summary Description *</label>
+                      <textarea
+                        rows={2}
+                        placeholder="Crispy on the outside, mashed potato happiness inside. A classic teatime and party snack."
+                        value={formData.description}
+                        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                        className="w-full bg-[#111625] border border-slate-800 text-xs text-white rounded-2xl p-3 font-semibold focus:outline-none focus:border-amber-500"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  {/* 2. MULTI-IMAGE GALLERY MANAGER */}
+                  <div className="p-4 bg-[#0B0F19] rounded-3xl border border-slate-800 flex flex-col gap-4">
+                    <div className="flex items-center justify-between flex-wrap gap-2 border-b border-slate-800/80 pb-2">
+                      <div className="flex items-center gap-2">
+                        <ImageIcon className="w-4 h-4 text-amber-400" />
+                        <h4 className="font-black text-xs uppercase tracking-wider text-white">
+                          2. Gallery & Packet Image ({formData.galleryImages.length} images)
+                        </h4>
+                      </div>
+                      <span className="text-[10px] text-amber-300 font-bold bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full">
+                        ⭐ First image is Primary Packet Image
+                      </span>
+                    </div>
+
+                    {/* Upload Buttons & URL Input */}
+                    <div className="flex flex-col sm:flex-row items-center gap-3">
+                      <label className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-black cursor-pointer transition-all ${
+                        isUploading ? 'bg-slate-800 text-slate-500' : 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 shadow-xs'
+                      }`}>
+                        <Upload className="w-4 h-4" />
+                        <span>{isUploading ? 'Uploading...' : 'Upload Device Images'}</span>
+                        <input
+                          type="file"
+                          multiple
+                          accept="image/*"
+                          onChange={handleImageFileUpload}
+                          disabled={isUploading}
+                          className="hidden"
+                        />
+                      </label>
+
+                      <div className="flex-1 flex items-center gap-2 w-full">
+                        <input
+                          type="text"
+                          placeholder="Or paste image URL"
+                          value={customImageUrlInput}
+                          onChange={(e) => setCustomImageUrlInput(e.target.value)}
+                          className="flex-1 bg-[#111625] border border-slate-800 text-xs text-white placeholder-slate-500 rounded-2xl px-3 py-2.5 font-medium focus:outline-none focus:border-amber-500"
                         />
                         <button
                           type="button"
-                          onClick={handleCreateCategoryInline}
-                          disabled={isCreatingCategory}
-                          className="px-3.5 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 disabled:opacity-50 text-slate-950 text-xs font-bold rounded-xl shadow-xs transition-all active:scale-95 shrink-0"
+                          onClick={handleAddImageUrl}
+                          className="px-3.5 py-2.5 bg-[#111625] hover:bg-slate-800 text-amber-400 text-xs font-black rounded-2xl border border-slate-800 shrink-0"
                         >
-                          {isCreatingCategory ? 'Adding...' : 'Save & Select'}
+                          + Add
                         </button>
                       </div>
                     </div>
-                  ) : (
-                    <select
-                      value={formData.categoryId}
-                      onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
-                      className="w-full bg-[#0B0F19] border border-slate-800 text-xs sm:text-sm rounded-2xl px-4 py-3 font-semibold text-white cursor-pointer focus:outline-none focus:border-amber-500"
-                      required
-                    >
-                      {categories.map((cat: any) => (
-                        <option key={cat.id} value={cat.id} className="bg-[#111625] text-white">
-                          {cat.emoji} {cat.name}
-                        </option>
+
+                    {/* Presets & Gallery Images Grid */}
+                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                      <span className="text-[10px] text-slate-500 font-bold">Quick Presets:</span>
+                      {PRESET_OFFICIAL_IMAGES.slice(0, 7).map((preset) => (
+                        <button
+                          key={preset.name}
+                          type="button"
+                          onClick={() => {
+                            if (!formData.galleryImages.includes(preset.url)) {
+                              setFormData({
+                                ...formData,
+                                galleryImages: [...formData.galleryImages, preset.url]
+                              })
+                            }
+                          }}
+                          className="text-[9px] bg-[#111625] hover:bg-amber-500/10 text-slate-300 hover:text-amber-300 font-bold px-2.5 py-1 rounded-xl border border-slate-800 transition-all"
+                        >
+                          + {preset.name}
+                        </button>
                       ))}
-                    </select>
-                  )}
-                </div>
-              </div>
+                    </div>
 
-              <div className="flex flex-col gap-1">
-                <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Summary Description *</label>
-                <textarea
-                  rows={2}
-                  placeholder="Crispy on the outside, mashed potato happiness inside. A classic teatime and party snack."
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full bg-[#0B0F19] border border-slate-800 text-xs text-white rounded-2xl p-3 font-semibold focus:outline-none focus:border-amber-500"
-                  required
-                />
-              </div>
-
-              {/* 2. MULTI-IMAGE GALLERY MANAGER (Auto-Scroll Carousel Builder) */}
-              <div className="p-4 bg-[#0B0F19] rounded-3xl border border-slate-800 flex flex-col gap-4">
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <div className="flex items-center gap-2">
-                    <ImageIcon className="w-5 h-5 text-amber-400" />
-                    <h4 className="font-black text-sm text-white">
-                      Product Gallery & Auto-Scroll Carousel ({formData.galleryImages.length} images)
-                    </h4>
+                    {/* Thumbnails grid */}
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2.5 pt-1">
+                      {formData.galleryImages.map((url, idx) => {
+                        const isPrimary = idx === 0
+                        return (
+                          <div
+                            key={idx}
+                            className={`relative rounded-2xl p-2 border flex flex-col items-center gap-1.5 transition-all ${
+                              isPrimary ? 'bg-amber-500/10 border-amber-500/40' : 'bg-[#111625] border-slate-800 hover:border-slate-700'
+                            }`}
+                          >
+                            {isPrimary && (
+                              <span className="absolute -top-2 left-2 bg-amber-500 text-slate-950 text-[8px] font-black px-1.5 py-0.2 rounded-md shadow-2xs flex items-center gap-0.5 z-10">
+                                <Star className="w-2.5 h-2.5 fill-slate-950" /> PACKET
+                              </span>
+                            )}
+                            <div className="w-full aspect-square flex items-center justify-center p-1 rounded-xl overflow-hidden bg-[#0B0F19] border border-slate-800">
+                              <img
+                                src={normalizeImageUrl(url)}
+                                alt={`Slide ${idx + 1}`}
+                                className="w-full h-full object-contain"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).src = '/images/products/mccain-smiles.jpg'
+                                }}
+                              />
+                            </div>
+                            <span className="text-[9px] font-bold text-slate-400">Slide {idx + 1}</span>
+                            <div className="flex items-center gap-1 w-full justify-between pt-1 border-t border-slate-800">
+                              {!isPrimary ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleSetPrimary(url)}
+                                  className="text-[8px] bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 font-black px-1.5 py-0.5 rounded border border-amber-500/30"
+                                >
+                                  ⭐ Set
+                                </button>
+                              ) : (
+                                <span className="text-[8px] text-amber-400 font-bold">Primary</span>
+                              )}
+                              <div className="flex items-center gap-0.5">
+                                {idx > 0 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleMoveImage(idx, idx - 1)}
+                                    className="p-0.5 text-slate-400 hover:text-white text-[10px]"
+                                  >
+                                    ◀
+                                  </button>
+                                )}
+                                {idx < formData.galleryImages.length - 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleMoveImage(idx, idx + 1)}
+                                    className="p-0.5 text-slate-400 hover:text-white text-[10px]"
+                                  >
+                                    ▶
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveImage(url)}
+                                  className="p-0.5 text-rose-400 hover:text-rose-300 text-xs font-bold"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
                   </div>
-                  <span className="text-[10px] text-slate-400 font-bold">
-                    ⭐ First image is the Primary Packet Image shown on cards
-                  </span>
-                </div>
 
-                {/* Upload Buttons & URL Input */}
-                <div className="flex flex-col sm:flex-row items-center gap-3">
-                  
-                  {/* File Upload Button */}
-                  <label className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-black cursor-pointer transition-all ${
-                    isUploading ? 'bg-slate-800 text-slate-500' : 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 shadow-xs'
-                  }`}>
-                    <Upload className="w-4 h-4" />
-                    <span>{isUploading ? 'Uploading...' : 'Upload Images from Device'}</span>
-                    <input
-                      type="file"
-                      multiple
-                      accept="image/*"
-                      onChange={handleImageFileUpload}
-                      disabled={isUploading}
-                      className="hidden"
-                    />
-                  </label>
+                  {/* 3. PACKAGING VARIANTS, QUANTITY & STOCK */}
+                  <div className="p-4 bg-[#0B0F19] rounded-3xl border border-slate-800 flex flex-col gap-4">
+                    <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
+                      <div className="flex items-center gap-2">
+                        <Boxes className="w-4 h-4 text-amber-400" />
+                        <h4 className="text-xs font-black uppercase tracking-wider text-white">
+                          3. Quantity, Stock & Pricing
+                        </h4>
+                      </div>
+                      <span className="text-[10px] text-slate-400 font-bold">
+                        Pack • Box • Carton
+                      </span>
+                    </div>
 
-                  {/* URL Input */}
-                  <div className="flex-1 flex items-center gap-2 w-full">
-                    <input
-                      type="text"
-                      placeholder="Or paste image URL (e.g. /images/products/mccain-smiles.jpg)"
-                      value={customImageUrlInput}
-                      onChange={(e) => setCustomImageUrlInput(e.target.value)}
-                      className="flex-1 bg-[#111625] border border-slate-800 text-xs text-white placeholder-slate-500 rounded-2xl px-3 py-2.5 font-medium focus:outline-none focus:border-amber-500"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleAddImageUrl}
-                      className="bg-slate-800 hover:bg-slate-700 text-white text-xs font-black px-3.5 py-2.5 rounded-2xl transition-all border border-slate-700"
-                    >
-                      + Add
-                    </button>
-                  </div>
-                </div>
-
-                {/* Quick Presets Strip */}
-                <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                  <span className="text-[10px] text-slate-500 font-bold">Quick Presets:</span>
-                  {PRESET_OFFICIAL_IMAGES.slice(0, 7).map((preset) => (
-                    <button
-                      key={preset.name}
-                      type="button"
-                      onClick={() => {
-                        if (!formData.galleryImages.includes(preset.url)) {
-                          setFormData({
-                            ...formData,
-                            galleryImages: [...formData.galleryImages, preset.url]
-                          })
-                        }
-                      }}
-                      className="text-[9px] bg-[#111625] hover:bg-amber-500/10 text-slate-300 hover:text-amber-300 font-bold px-2.5 py-1 rounded-xl border border-slate-800 transition-all"
-                    >
-                      + {preset.name}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Gallery Thumbnail Cards Grid */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3 pt-2">
-                  {formData.galleryImages.map((url, idx) => {
-                    const isPrimary = idx === 0
-                    return (
-                      <div
-                        key={idx}
-                        className={`relative bg-[#111625] rounded-2xl p-2 border-2 flex flex-col items-center gap-1 shadow-2xs group ${
-                          isPrimary ? 'border-amber-500 bg-amber-500/10 ring-2 ring-amber-500/20' : 'border-slate-800'
-                        }`}
-                      >
-                        {/* Primary Badge */}
-                        {isPrimary && (
-                          <span className="absolute -top-2 left-2 bg-amber-500 text-slate-950 text-[8px] font-black px-1.5 py-0.2 rounded-md shadow-2xs flex items-center gap-0.5 z-10">
-                            <Star className="w-2.5 h-2.5 fill-slate-950" /> PACKET
+                    <div className="flex flex-col gap-4">
+                      
+                      {/* Single Pack Row */}
+                      <div className="bg-[#111625] p-3.5 rounded-2xl border border-slate-800/90 flex flex-col gap-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-black text-amber-300 flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-amber-400"></span>
+                            Single Retail Pack ({formData.singleWeight}g)
                           </span>
-                        )}
-
-                        {/* Image Preview */}
-                        <div className="w-full aspect-square flex items-center justify-center p-1.5 rounded-xl overflow-hidden bg-[#0B0F19] border border-slate-800">
-                          <img
-                            src={normalizeImageUrl(url)}
-                            alt={`Slide ${idx + 1}`}
-                            className="w-full h-full object-contain drop-shadow-2xs"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src = '/images/products/mccain-smiles.jpg'
-                            }}
-                          />
+                          <span className="text-[10px] text-slate-400 font-semibold">Base retail consumer unit</span>
                         </div>
 
-                        <span className="text-[9px] font-bold text-slate-400">Slide {idx + 1}</span>
-
-                        {/* Actions */}
-                        <div className="flex items-center gap-1 w-full justify-between pt-1 border-t border-slate-800">
-                          {!isPrimary ? (
-                            <button
-                              type="button"
-                              onClick={() => handleSetPrimary(url)}
-                              className="text-[8px] bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 font-black px-1.5 py-0.5 rounded border border-amber-500/30"
-                              title="Make Primary Packet Image"
-                            >
-                              ⭐ Set
-                            </button>
-                          ) : (
-                            <span className="text-[8px] text-amber-400 font-bold">Primary</span>
-                          )}
-
-                          <div className="flex items-center gap-0.5">
-                            {idx > 0 && (
-                              <button
-                                type="button"
-                                onClick={() => handleMoveImage(idx, idx - 1)}
-                                className="p-0.5 text-slate-400 hover:text-white text-[10px]"
-                                title="Move Left"
-                              >
-                                ◀
-                              </button>
-                            )}
-                            {idx < formData.galleryImages.length - 1 && (
-                              <button
-                                type="button"
-                                onClick={() => handleMoveImage(idx, idx + 1)}
-                                className="p-0.5 text-slate-400 hover:text-white text-[10px]"
-                                title="Move Right"
-                              >
-                                ▶
-                              </button>
-                            )}
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveImage(url)}
-                              className="p-0.5 text-rose-400 hover:text-rose-300 text-xs font-bold"
-                              title="Delete Image"
-                            >
-                              ✕
-                            </button>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                          <div>
+                            <label className="text-[9px] font-bold text-slate-400 block mb-1">Weight (g)</label>
+                            <input
+                              type="number"
+                              value={formData.singleWeight}
+                              onChange={(e) => setFormData({ ...formData, singleWeight: parseFloat(e.target.value) || 0 })}
+                              className="w-full bg-[#0B0F19] border border-slate-800 rounded-xl p-2 text-xs font-black text-white focus:outline-none focus:border-amber-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[9px] font-bold text-emerald-400 block mb-1">Pack Stock (Qty)</label>
+                            <input
+                              type="number"
+                              value={formData.singleStock}
+                              onChange={(e) => setFormData({ ...formData, singleStock: parseInt(e.target.value) || 0 })}
+                              className="w-full bg-[#0B0F19] border border-slate-800 rounded-xl p-2 text-xs font-black text-emerald-300 focus:outline-none focus:border-emerald-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[9px] font-bold text-slate-400 block mb-1">Retail MRP (₹)</label>
+                            <input
+                              type="number"
+                              value={formData.singlePrice}
+                              onChange={(e) => setFormData({ ...formData, singlePrice: parseFloat(e.target.value) || 0 })}
+                              className="w-full bg-[#0B0F19] border border-slate-800 rounded-xl p-2 text-xs font-black text-white focus:outline-none focus:border-amber-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[9px] font-bold text-purple-400 block mb-1">B2B Wholesale (₹)</label>
+                            <input
+                              type="number"
+                              value={formData.singleB2bPrice}
+                              onChange={(e) => setFormData({ ...formData, singleB2bPrice: parseFloat(e.target.value) || 0 })}
+                              className="w-full bg-[#0B0F19] border border-slate-800 rounded-xl p-2 text-xs font-black text-purple-300 focus:outline-none focus:border-purple-500"
+                            />
                           </div>
                         </div>
 
+                        <div className="flex items-center justify-between pt-1 border-t border-slate-800/60 text-[10px]">
+                          <span className="text-slate-400">Low Stock Alert Threshold:</span>
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="number"
+                              value={formData.reorderLevel}
+                              onChange={(e) => setFormData({ ...formData, reorderLevel: parseInt(e.target.value) || 0 })}
+                              className="w-16 bg-[#0B0F19] border border-slate-800 rounded-lg px-2 py-0.5 text-xs font-black text-amber-300 text-center"
+                            />
+                            <span className="text-slate-500 font-bold">units</span>
+                          </div>
+                        </div>
                       </div>
-                    )
-                  })}
+
+                      {/* Box Pack Row */}
+                      <div className="bg-[#111625] p-3.5 rounded-2xl border border-slate-800/90 flex flex-col gap-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-black text-blue-300 flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-blue-400"></span>
+                            Medium Box Pack ({formData.boxUnits} Units/Box)
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-semibold">Cafes & Quick Service</span>
+                        </div>
+
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                          <div>
+                            <label className="text-[9px] font-bold text-slate-400 block mb-1">Units In Box</label>
+                            <input
+                              type="number"
+                              value={formData.boxUnits}
+                              onChange={(e) => setFormData({ ...formData, boxUnits: parseInt(e.target.value) || 0 })}
+                              className="w-full bg-[#0B0F19] border border-slate-800 rounded-xl p-2 text-xs font-black text-white focus:outline-none focus:border-blue-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[9px] font-bold text-emerald-400 block mb-1">Box Stock (Qty)</label>
+                            <input
+                              type="number"
+                              value={formData.boxStock}
+                              onChange={(e) => setFormData({ ...formData, boxStock: parseInt(e.target.value) || 0 })}
+                              className="w-full bg-[#0B0F19] border border-slate-800 rounded-xl p-2 text-xs font-black text-emerald-300 focus:outline-none focus:border-emerald-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[9px] font-bold text-slate-400 block mb-1">Retail Box (₹)</label>
+                            <input
+                              type="number"
+                              value={formData.boxPrice}
+                              onChange={(e) => setFormData({ ...formData, boxPrice: parseFloat(e.target.value) || 0 })}
+                              className="w-full bg-[#0B0F19] border border-slate-800 rounded-xl p-2 text-xs font-black text-white focus:outline-none focus:border-amber-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[9px] font-bold text-purple-400 block mb-1">B2B Box (₹)</label>
+                            <input
+                              type="number"
+                              value={formData.boxB2bPrice}
+                              onChange={(e) => setFormData({ ...formData, boxB2bPrice: parseFloat(e.target.value) || 0 })}
+                              className="w-full bg-[#0B0F19] border border-slate-800 rounded-xl p-2 text-xs font-black text-purple-300 focus:outline-none focus:border-purple-500"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Bulk Carton Row */}
+                      <div className="bg-[#111625] p-3.5 rounded-2xl border border-slate-800/90 flex flex-col gap-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-black text-purple-300 flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-purple-400"></span>
+                            Bulk Master Carton ({formData.cartonUnits} Units/Carton)
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-semibold">Hotels & Caterers</span>
+                        </div>
+
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                          <div>
+                            <label className="text-[9px] font-bold text-slate-400 block mb-1">Units In Carton</label>
+                            <input
+                              type="number"
+                              value={formData.cartonUnits}
+                              onChange={(e) => setFormData({ ...formData, cartonUnits: parseInt(e.target.value) || 0 })}
+                              className="w-full bg-[#0B0F19] border border-slate-800 rounded-xl p-2 text-xs font-black text-white focus:outline-none focus:border-purple-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[9px] font-bold text-emerald-400 block mb-1">Carton Stock (Qty)</label>
+                            <input
+                              type="number"
+                              value={formData.cartonStock}
+                              onChange={(e) => setFormData({ ...formData, cartonStock: parseInt(e.target.value) || 0 })}
+                              className="w-full bg-[#0B0F19] border border-slate-800 rounded-xl p-2 text-xs font-black text-emerald-300 focus:outline-none focus:border-emerald-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[9px] font-bold text-slate-400 block mb-1">Retail Carton (₹)</label>
+                            <input
+                              type="number"
+                              value={formData.cartonPrice}
+                              onChange={(e) => setFormData({ ...formData, cartonPrice: parseFloat(e.target.value) || 0 })}
+                              className="w-full bg-[#0B0F19] border border-slate-800 rounded-xl p-2 text-xs font-black text-white focus:outline-none focus:border-amber-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[9px] font-bold text-purple-400 block mb-1">B2B Carton (₹)</label>
+                            <input
+                              type="number"
+                              value={formData.cartonB2bPrice}
+                              onChange={(e) => setFormData({ ...formData, cartonB2bPrice: parseFloat(e.target.value) || 0 })}
+                              className="w-full bg-[#0B0F19] border border-slate-800 rounded-xl p-2 text-xs font-black text-purple-300 focus:outline-none focus:border-purple-500"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                    </div>
+                  </div>
+
+                  {/* Submit Buttons */}
+                  <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+                    <button
+                      type="button"
+                      onClick={closeModal}
+                      className="px-5 py-3 rounded-2xl text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition-all"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={createMutation.isPending || updateMutation.isPending}
+                      className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs px-7 py-3.5 rounded-2xl shadow-lg shadow-amber-500/20 transition-all active:scale-95 flex items-center gap-2"
+                    >
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>{editingProduct ? 'Save Changes' : 'Create Product'}</span>
+                    </button>
+                  </div>
+
+                </form>
+              </div>
+
+              {/* Right Column: Live Product Preview Panel (5 cols) */}
+              <div className="lg:col-span-5 sticky top-2 flex flex-col gap-4">
+                
+                {/* Preview Header */}
+                <div className="flex items-center justify-between px-2">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <h4 className="text-xs font-black uppercase tracking-wider text-slate-200">
+                      Live Storefront Preview
+                    </h4>
+                  </div>
+                  <span className="text-[10px] text-slate-400 font-bold bg-[#0B0F19] border border-slate-800 px-2 py-0.5 rounded-lg">
+                    Real-Time Simulation
+                  </span>
                 </div>
 
+                {/* Preview Card */}
+                {(() => {
+                  const previewImage = formData.galleryImages[modalActiveImageIdx] || formData.imageUrl || '/images/products/mccain-smiles.jpg'
+                  const activeCategory = categories.find((c: any) => c.id === formData.categoryId)
+                  
+                  // Active packaging values
+                  let activeRetail = formData.singlePrice
+                  let activeB2b = formData.singleB2bPrice
+                  let activeStock = formData.singleStock
+                  let packLabel = `Single Pack (${formData.singleWeight}g)`
+
+                  if (modalPreviewPackaging === 'BOX') {
+                    activeRetail = formData.boxPrice
+                    activeB2b = formData.boxB2bPrice
+                    activeStock = formData.boxStock
+                    packLabel = `Box (${formData.boxUnits} Units)`
+                  } else if (modalPreviewPackaging === 'CARTON') {
+                    activeRetail = formData.cartonPrice
+                    activeB2b = formData.cartonB2bPrice
+                    activeStock = formData.cartonStock
+                    packLabel = `Bulk Carton (${formData.cartonUnits} Units)`
+                  }
+
+                  const isLowStock = activeStock <= formData.reorderLevel
+
+                  return (
+                    <div className="bg-[#0B0F19] rounded-3xl border border-slate-700/60 p-4 sm:p-5 shadow-2xl flex flex-col gap-4 relative overflow-hidden">
+                      
+                      {/* Top Badges */}
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold bg-amber-500/10 text-amber-300 border border-amber-500/20 px-2.5 py-1 rounded-full uppercase tracking-wider flex items-center gap-1">
+                          {activeCategory?.emoji || '🍟'} {activeCategory?.name || 'McCain Foods'}
+                        </span>
+
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] font-black bg-red-600 text-white px-2 py-0.5 rounded-md uppercase">
+                            McCain
+                          </span>
+                          <span className="w-4 h-4 rounded-sm border border-emerald-500 p-0.5 flex items-center justify-center bg-emerald-500/10" title="100% Vegetarian">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Main Packet Display */}
+                      <div className="relative w-full aspect-square bg-gradient-to-b from-[#111625] to-[#0A0D14] rounded-2xl p-4 flex items-center justify-center border border-slate-800 group">
+                        <img
+                          src={normalizeImageUrl(previewImage)}
+                          alt={formData.name || 'Preview'}
+                          className="max-h-full max-w-full object-contain drop-shadow-2xl transition-transform duration-300 group-hover:scale-105"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = '/images/products/mccain-smiles.jpg'
+                          }}
+                        />
+
+                        {/* Slide Indicator */}
+                        <span className="absolute bottom-2 right-2 bg-slate-900/80 backdrop-blur-sm text-slate-300 text-[9px] font-bold px-2 py-0.5 rounded-md border border-slate-800">
+                          {modalActiveImageIdx + 1} / {formData.galleryImages.length}
+                        </span>
+                      </div>
+
+                      {/* Gallery Thumbnails Strip */}
+                      {formData.galleryImages.length > 1 && (
+                        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+                          {formData.galleryImages.map((url, idx) => (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => setModalActiveImageIdx(idx)}
+                              className={`w-11 h-11 rounded-xl p-1 shrink-0 border transition-all ${
+                                modalActiveImageIdx === idx 
+                                  ? 'border-amber-400 bg-amber-500/10 scale-105' 
+                                  : 'border-slate-800 bg-[#111625] hover:border-slate-700'
+                              }`}
+                            >
+                              <img
+                                src={normalizeImageUrl(url)}
+                                alt={`Thumb ${idx + 1}`}
+                                className="w-full h-full object-contain"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).src = '/images/products/mccain-smiles.jpg'
+                                }}
+                              />
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Title & Description */}
+                      <div>
+                        <h3 className="font-black text-base text-white leading-tight">
+                          {formData.name || 'Untitled McCain Product'}
+                        </h3>
+                        <p className="text-xs text-slate-400 mt-1 line-clamp-2 leading-relaxed">
+                          {formData.description || 'Enter a summary description on the left to preview it here.'}
+                        </p>
+                      </div>
+
+                      {/* Packaging Selector Tabs */}
+                      <div className="flex flex-col gap-1.5 pt-2 border-t border-slate-800">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                          Select Packaging Size
+                        </span>
+                        <div className="grid grid-cols-3 gap-1.5 bg-[#111625] p-1 rounded-2xl border border-slate-800">
+                          <button
+                            type="button"
+                            onClick={() => setModalPreviewPackaging('SINGLE')}
+                            className={`py-1.5 text-[10px] font-bold rounded-xl transition-all ${
+                              modalPreviewPackaging === 'SINGLE'
+                                ? 'bg-amber-500 text-slate-950 font-black shadow-xs'
+                                : 'text-slate-400 hover:text-white'
+                            }`}
+                          >
+                            Single ({formData.singleWeight}g)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setModalPreviewPackaging('BOX')}
+                            className={`py-1.5 text-[10px] font-bold rounded-xl transition-all ${
+                              modalPreviewPackaging === 'BOX'
+                                ? 'bg-amber-500 text-slate-950 font-black shadow-xs'
+                                : 'text-slate-400 hover:text-white'
+                            }`}
+                          >
+                            Box ({formData.boxUnits} pcs)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setModalPreviewPackaging('CARTON')}
+                            className={`py-1.5 text-[10px] font-bold rounded-xl transition-all ${
+                              modalPreviewPackaging === 'CARTON'
+                                ? 'bg-amber-500 text-slate-950 font-black shadow-xs'
+                                : 'text-slate-400 hover:text-white'
+                            }`}
+                          >
+                            Carton ({formData.cartonUnits} pcs)
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Pricing & Stock Bar */}
+                      <div className="bg-[#111625] rounded-2xl p-3 border border-slate-800 flex items-center justify-between">
+                        <div>
+                          <span className="text-[9px] text-slate-400 font-bold uppercase block">Retail MRP</span>
+                          <span className="text-base font-black text-white">₹{activeRetail}</span>
+                        </div>
+
+                        <div className="text-right">
+                          <span className="text-[9px] text-purple-400 font-bold uppercase block">B2B Wholesale</span>
+                          <span className="text-base font-black text-purple-300">₹{activeB2b}</span>
+                        </div>
+
+                        <div className="text-right pl-3 border-l border-slate-800">
+                          <span className="text-[9px] text-slate-400 font-bold uppercase block">Inventory</span>
+                          <span className={`text-xs font-black px-2 py-0.5 rounded-md inline-block ${
+                            isLowStock 
+                              ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30' 
+                              : 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                          }`}>
+                            {activeStock} in stock
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Mock Buttons */}
+                      <div className="grid grid-cols-2 gap-2 pt-1">
+                        <button
+                          type="button"
+                          className="w-full bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-black text-xs py-2.5 rounded-xl shadow-xs flex items-center justify-center gap-1.5"
+                          disabled
+                        >
+                          <ShoppingBag className="w-3.5 h-3.5" />
+                          <span>Add to Cart</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="w-full bg-[#111625] border border-purple-500/30 text-purple-300 font-bold text-xs py-2.5 rounded-xl flex items-center justify-center gap-1.5"
+                          disabled
+                        >
+                          <span>B2B Wholesale</span>
+                        </button>
+                      </div>
+
+                    </div>
+                  )
+                })()}
+
               </div>
 
-              {/* 3. PACKAGING VARIANTS & PRICING */}
-              <div className="p-4 bg-[#0B0F19] rounded-3xl border border-slate-800 flex flex-col gap-3">
-                <h4 className="text-xs font-black uppercase tracking-wider text-white">
-                  Pricing & Packaging Variants (₹)
-                </h4>
+            </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="bg-[#111625] p-3 rounded-2xl border border-slate-800">
-                    <span className="text-[10px] font-black text-slate-400 uppercase block mb-1">Single Retail Pack (400g)</span>
-                    <div className="grid grid-cols-2 gap-2">
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* ============ STANDALONE PRODUCT QUICK PREVIEW DRAWER (FOR LIST) ========= */}
+      {/* ========================================================================= */}
+      {selectedPreviewProduct && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[200] flex items-center justify-end p-0 sm:p-4 overflow-y-auto">
+          <div className="bg-[#111625] h-full sm:h-auto sm:max-h-[92vh] sm:rounded-3xl w-full sm:max-w-md p-6 shadow-2xl flex flex-col gap-5 animate-slide-left border border-slate-800 overflow-y-auto">
+            
+            {/* Drawer Header */}
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <ShoppingBag className="w-5 h-5 text-amber-400" />
+                <h3 className="font-black text-base text-white">Product Preview</h3>
+              </div>
+              <button
+                onClick={() => setSelectedPreviewProduct(null)}
+                className="w-8 h-8 rounded-xl bg-[#0B0F19] hover:bg-slate-800 text-slate-400 hover:text-white font-bold flex items-center justify-center border border-slate-800 transition-all"
+              >
+                ✕
+              </button>
+            </div>
+
+            {(() => {
+              const prod = selectedPreviewProduct
+              const singleVar = prod.variants?.find((v: any) => v.packagingType === 'SINGLE') || {}
+              const boxVar = prod.variants?.find((v: any) => v.packagingType === 'BOX') || {}
+              const cartonVar = prod.variants?.find((v: any) => v.packagingType === 'CARTON') || {}
+              
+              let activeVar = singleVar
+              if (previewVariantType === 'BOX') activeVar = boxVar
+              if (previewVariantType === 'CARTON') activeVar = cartonVar
+
+              const gallery = prod.galleryImages && Array.isArray(prod.galleryImages) && prod.galleryImages.length > 0
+                ? prod.galleryImages
+                : [prod.imageUrl || '/images/products/mccain-smiles.jpg']
+
+              return (
+                <div className="flex flex-col gap-4">
+                  {/* Image Showcase */}
+                  <div className="w-full aspect-square bg-[#0B0F19] rounded-2xl p-4 flex items-center justify-center border border-slate-800 relative">
+                    <img
+                      src={prod.imageUrl || gallery[0]}
+                      alt={prod.name}
+                      className="max-h-full max-w-full object-contain drop-shadow-xl"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = '/images/products/mccain-smiles.jpg'
+                      }}
+                    />
+                    <span className="absolute top-3 left-3 text-[10px] font-bold bg-amber-500/10 text-amber-300 border border-amber-500/20 px-2 py-0.5 rounded-full">
+                      {prod.category?.name || 'McCain'}
+                    </span>
+                  </div>
+
+                  {/* Title & Desc */}
+                  <div>
+                    <h3 className="font-black text-lg text-white">{prod.name}</h3>
+                    <p className="text-xs text-slate-400 mt-1 leading-relaxed">{prod.description}</p>
+                  </div>
+
+                  {/* Packaging Tabs */}
+                  <div className="grid grid-cols-3 gap-1.5 bg-[#0B0F19] p-1 rounded-2xl border border-slate-800">
+                    <button
+                      onClick={() => setPreviewVariantType('SINGLE')}
+                      className={`py-2 text-[10px] font-bold rounded-xl transition-all ${
+                        previewVariantType === 'SINGLE' ? 'bg-amber-500 text-slate-950 font-black' : 'text-slate-400'
+                      }`}
+                    >
+                      Single ({singleVar.weightGrams || 400}g)
+                    </button>
+                    <button
+                      onClick={() => setPreviewVariantType('BOX')}
+                      className={`py-2 text-[10px] font-bold rounded-xl transition-all ${
+                        previewVariantType === 'BOX' ? 'bg-amber-500 text-slate-950 font-black' : 'text-slate-400'
+                      }`}
+                    >
+                      Box ({boxVar.unitsInPack || 10}u)
+                    </button>
+                    <button
+                      onClick={() => setPreviewVariantType('CARTON')}
+                      className={`py-2 text-[10px] font-bold rounded-xl transition-all ${
+                        previewVariantType === 'CARTON' ? 'bg-amber-500 text-slate-950 font-black' : 'text-slate-400'
+                      }`}
+                    >
+                      Carton ({cartonVar.unitsInPack || 50}u)
+                    </button>
+                  </div>
+
+                  {/* Pricing and Stock Card */}
+                  <div className="bg-[#0B0F19] p-4 rounded-2xl border border-slate-800 flex flex-col gap-3">
+                    <div className="flex items-center justify-between">
                       <div>
-                        <label className="text-[9px] font-bold text-slate-400">Retail MRP</label>
-                        <input
-                          type="number"
-                          value={formData.singlePrice}
-                          onChange={(e) => setFormData({ ...formData, singlePrice: parseFloat(e.target.value) || 0 })}
-                          className="w-full bg-[#0B0F19] border border-slate-800 rounded-xl p-2 text-xs font-black text-white focus:outline-none focus:border-amber-500"
-                        />
+                        <span className="text-[10px] text-slate-400 font-bold uppercase block">Retail MRP</span>
+                        <span className="text-lg font-black text-white">₹{activeVar.retailPrice || 0}</span>
                       </div>
-                      <div>
-                        <label className="text-[9px] font-bold text-purple-400">B2B Wholesale</label>
-                        <input
-                          type="number"
-                          value={formData.singleB2bPrice}
-                          onChange={(e) => setFormData({ ...formData, singleB2bPrice: parseFloat(e.target.value) || 0 })}
-                          className="w-full bg-[#0B0F19] border border-slate-800 rounded-xl p-2 text-xs font-black text-purple-300 focus:outline-none focus:border-purple-500"
-                        />
+                      <div className="text-right">
+                        <span className="text-[10px] text-purple-400 font-bold uppercase block">B2B Wholesale</span>
+                        <span className="text-lg font-black text-purple-300">₹{activeVar.b2bPrice || 0}</span>
                       </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-2 border-t border-slate-800 text-xs">
+                      <span className="text-slate-400 font-bold flex items-center gap-1">
+                        <Boxes className="w-3.5 h-3.5 text-amber-400" /> Current Stock:
+                      </span>
+                      <span className={`font-black px-2.5 py-0.5 rounded-md ${
+                        (activeVar.stockCount ?? 100) <= (activeVar.reorderLevel ?? 10)
+                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                          : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                      }`}>
+                        {activeVar.stockCount ?? 100} units
+                      </span>
                     </div>
                   </div>
 
-                  <div className="bg-[#111625] p-3 rounded-2xl border border-slate-800">
-                    <span className="text-[10px] font-black text-slate-400 uppercase block mb-1">Box Pack (10 Units)</span>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="text-[9px] font-bold text-slate-400">Retail Box</label>
-                        <input
-                          type="number"
-                          value={formData.boxPrice}
-                          onChange={(e) => setFormData({ ...formData, boxPrice: parseFloat(e.target.value) || 0 })}
-                          className="w-full bg-[#0B0F19] border border-slate-800 rounded-xl p-2 text-xs font-black text-white focus:outline-none focus:border-amber-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[9px] font-bold text-purple-400">B2B Box</label>
-                        <input
-                          type="number"
-                          value={formData.boxB2bPrice}
-                          onChange={(e) => setFormData({ ...formData, boxB2bPrice: parseFloat(e.target.value) || 0 })}
-                          className="w-full bg-[#0B0F19] border border-slate-800 rounded-xl p-2 text-xs font-black text-purple-300 focus:outline-none focus:border-purple-500"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="bg-[#111625] p-3 rounded-2xl border border-slate-800">
-                    <span className="text-[10px] font-black text-slate-400 uppercase block mb-1">Bulk Carton (50 Units)</span>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="text-[9px] font-bold text-slate-400">Retail Carton</label>
-                        <input
-                          type="number"
-                          value={formData.cartonPrice}
-                          onChange={(e) => setFormData({ ...formData, cartonPrice: parseFloat(e.target.value) || 0 })}
-                          className="w-full bg-[#0B0F19] border border-slate-800 rounded-xl p-2 text-xs font-black text-white focus:outline-none focus:border-amber-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[9px] font-bold text-purple-400">B2B Carton</label>
-                        <input
-                          type="number"
-                          value={formData.cartonB2bPrice}
-                          onChange={(e) => setFormData({ ...formData, cartonB2bPrice: parseFloat(e.target.value) || 0 })}
-                          className="w-full bg-[#0B0F19] border border-slate-800 rounded-xl p-2 text-xs font-black text-purple-300 focus:outline-none focus:border-purple-500"
-                        />
-                      </div>
-                    </div>
+                  {/* Direct Edit Button */}
+                  <div className="flex gap-2 pt-2">
+                    <button
+                      onClick={() => {
+                        const p = selectedPreviewProduct
+                        setSelectedPreviewProduct(null)
+                        openEditModal(p)
+                      }}
+                      className="flex-1 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs py-3 rounded-2xl shadow-lg shadow-amber-500/20 transition-all flex items-center justify-center gap-2"
+                    >
+                      <Edit3 className="w-4 h-4" />
+                      <span>Edit This Product</span>
+                    </button>
+                    <button
+                      onClick={() => setSelectedPreviewProduct(null)}
+                      className="px-4 bg-[#0B0F19] hover:bg-slate-800 text-slate-300 font-bold text-xs rounded-2xl border border-slate-800"
+                    >
+                      Close
+                    </button>
                   </div>
                 </div>
-
-              </div>
-
-              {/* Submit Buttons */}
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
-                <button
-                  type="button"
-                  onClick={closeModal}
-                  className="px-5 py-3 rounded-2xl text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition-all"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={createMutation.isPending || updateMutation.isPending}
-                  className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs px-7 py-3.5 rounded-2xl shadow-lg shadow-amber-500/20 transition-all active:scale-95 flex items-center gap-2"
-                >
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>{editingProduct ? 'Save Changes' : 'Create Product'}</span>
-                </button>
-              </div>
-
-            </form>
+              )
+            })()}
 
           </div>
         </div>

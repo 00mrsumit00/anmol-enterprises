@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { ClipboardList, Package, BarChart3, Truck, Home, LogOut, Users, Shield, Activity } from 'lucide-react'
+import { ClipboardList, Package, BarChart3, Truck, Home, LogOut, Users, Shield, Activity, Layers, TrendingUp } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import { useSocket } from '@/hooks/useSocket'
 import AnimatedLogo from '@/components/storefront/AnimatedLogo'
@@ -84,7 +84,9 @@ export default function AdminLayout({
     { name: 'Orders Dispatch', path: '/admin/orders', icon: ClipboardList, perm: 'orders' },
     { name: 'Registered Users', path: '/admin/business-accounts', icon: Users, perm: 'users' },
     { name: 'Product List', path: '/admin/products', icon: Package, perm: 'products' },
+    { name: 'Categories', path: '/admin/categories', icon: Layers, perm: 'products' },
     { name: 'Inventory Manager', path: '/admin/inventory', icon: BarChart3, perm: 'inventory' },
+    { name: 'Reports & Analytics', path: '/admin/reports', icon: TrendingUp, perm: 'orders' },
     { name: 'Staff Management', path: '/admin/sub-admins', icon: Shield, minRole: 'ADMIN' },
     { name: 'Audit Logs', path: '/admin/audit-logs', icon: Activity, minRole: 'ADMIN' },
   ]
