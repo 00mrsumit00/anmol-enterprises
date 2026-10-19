@@ -65,7 +65,7 @@ export async function POST(request: Request) {
           create: [
             {
               packagingType: 'SINGLE',
-              unitsInPack: 1,
+              unitsInPack: Number(body.singlePieces) || 1,
               weightGrams: singleWeight,
               skuCode: `MCN-${baseSlug.substring(0, 4).toUpperCase()}-${singleWeight}-${Date.now().toString().slice(-4)}`,
               retailPrice: singlePrice,

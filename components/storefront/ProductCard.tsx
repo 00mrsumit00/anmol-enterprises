@@ -147,6 +147,9 @@ export default function ProductCard({ product }: ProductCardProps) {
   // Format weight/pack label
   const getVariantLabel = (v: Variant) => {
     if (v.packagingType === 'SINGLE') {
+      if (v.unitsInPack && v.unitsInPack > 1) {
+        return `${v.unitsInPack} Pieces`
+      }
       return v.weightGrams >= 1000 ? `${(v.weightGrams / 1000).toFixed(1)} kg` : `${v.weightGrams} g`
     }
     if (v.packagingType === 'BOX') {

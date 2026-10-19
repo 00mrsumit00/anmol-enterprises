@@ -1754,6 +1754,7 @@ const createProductSchema = z.object({
   singlePrice: z.number().min(1),
   singleB2bPrice: z.number().min(1),
   singleWeight: z.number().default(400),
+  singlePieces: z.number().optional(),
   singleStock: z.number().optional(),
   boxUnits: z.number().optional(),
   boxPrice: z.number().optional(),
@@ -1797,7 +1798,7 @@ apiRouter.post('/products', authMiddleware, requireRole(['ADMIN', 'STAFF']), asy
           create: [
             {
               packagingType: 'SINGLE',
-              unitsInPack: 1,
+              unitsInPack: data.singlePieces || 1,
               weightGrams: data.singleWeight,
               skuCode: `MCN-${baseSlug.substring(0, 4).toUpperCase()}-${data.singleWeight}-${Date.now().toString().slice(-4)}`,
               retailPrice: data.singlePrice,
@@ -1859,6 +1860,7 @@ const updateProductSchema = z.object({
   singlePrice: z.number().optional(),
   singleB2bPrice: z.number().optional(),
   singleWeight: z.number().optional(),
+  singlePieces: z.number().optional(),
   singleStock: z.number().optional(),
   boxUnits: z.number().optional(),
   boxPrice: z.number().optional(),
@@ -1913,6 +1915,7 @@ apiRouter.put('/products/:id', authMiddleware, requireRole(['ADMIN', 'STAFF']), 
           b2bPrice: data.singleB2bPrice !== undefined ? data.singleB2bPrice : singleVar.b2bPrice,
           stockCount: data.singleStock !== undefined ? data.singleStock : singleVar.stockCount,
           weightGrams: data.singleWeight !== undefined ? data.singleWeight : singleVar.weightGrams,
+          unitsInPack: data.singlePieces !== undefined ? data.singlePieces : singleVar.unitsInPack,
           reorderLevel: data.reorderLevel !== undefined ? data.reorderLevel : singleVar.reorderLevel,
         }
       })

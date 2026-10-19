@@ -105,6 +105,7 @@ export default function ProductDetailPage() {
   const cartItem = items.find((i) => i.variantId === activeVariant.id)
   const quantityInCart = cartItem ? cartItem.quantity : 0
   const isOutOfStock = activeVariant.stockCount <= 0
+  const isLowStock = activeVariant.stockCount > 0 && activeVariant.stockCount <= (activeVariant.reorderLevel || 10)
 
   const activePrice = isB2BMode ? activeVariant.b2bPrice : activeVariant.retailPrice
   const mrpPrice = Math.round(activePrice * 1.15)
@@ -177,14 +178,18 @@ export default function ProductDetailPage() {
 
             <div className="flex items-center gap-3 mt-2">
               <span className="text-xs font-bold text-gray-600 bg-gray-100 px-2.5 py-1 rounded-lg">
-                {activeVariant.weightGrams >= 1000 ? `${(activeVariant.weightGrams / 1000).toFixed(1)} kg` : `${activeVariant.weightGrams} g`}
+                {activeVariant.unitsInPack > 1 
+                  ? `${activeVariant.unitsInPack} Pieces` 
+                  : (activeVariant.weightGrams >= 1000 ? `${(activeVariant.weightGrams / 1000).toFixed(1)} kg` : `${activeVariant.weightGrams} g`)}
               </span>
               <span className={`text-xs font-extrabold px-2.5 py-1 rounded-lg ${
                 isOutOfStock 
                   ? 'text-rose-700 bg-rose-50 border border-rose-200' 
+                  : isLowStock
+                  ? 'text-amber-700 bg-amber-50 border border-amber-200'
                   : 'text-emerald-700 bg-emerald-50 border border-emerald-200'
               }`}>
-                {isOutOfStock ? 'Currently not available' : '✓ Available'}
+                {isOutOfStock ? '✕ Not Available' : isLowStock ? '⚡ Only few available' : '✓ Available'}
               </span>
             </div>
 
@@ -227,10 +232,10 @@ export default function ProductDetailPage() {
 
                     <span className="text-xs font-black text-gray-900 leading-tight">
                       {v.packagingType === 'SINGLE' 
-                        ? `${v.weightGrams >= 1000 ? `${(v.weightGrams / 1000).toFixed(1)} kg` : `${v.weightGrams} g`}`
+                        ? (v.unitsInPack > 1 ? `${v.unitsInPack} Pieces` : (v.weightGrams >= 1000 ? `${(v.weightGrams / 1000).toFixed(1)} kg` : `${v.weightGrams} g`))
                         : v.packagingType === 'BOX' 
-                        ? `2 × ${v.weightGrams / 2} g` 
-                        : `Bulk Carton (${v.unitsInPack}x)`}
+                        ? `Box (${v.unitsInPack || 10} units)` 
+                        : `Carton (${v.unitsInPack || 50} units)`}
                     </span>
 
                     <div className="flex items-center gap-1.5 mt-1">

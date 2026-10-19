@@ -96,6 +96,8 @@ export default function AdminProductsPage() {
     galleryImages: ['/images/products/mccain-smiles.jpg'] as string[],
     isFeatured: false,
     isActive: true,
+    singlePackUnit: '400g',
+    singlePieces: 1,
     singleWeight: 400,
     singleStock: 100,
     reorderLevel: 10,
@@ -232,6 +234,8 @@ export default function AdminProductsPage() {
       galleryImages: ['/images/products/mccain-smiles.jpg'],
       isFeatured: false,
       isActive: true,
+      singlePackUnit: '400g',
+      singlePieces: 1,
       singleWeight: 400,
       singleStock: 100,
       reorderLevel: 10,
@@ -262,6 +266,11 @@ export default function AdminProductsPage() {
       ? product.galleryImages
       : [product.imageUrl || '/images/products/mccain-smiles.jpg']
 
+    const pieces = singleVar.unitsInPack || 1
+    const packUnit = pieces > 1
+      ? `${pieces} Pieces`
+      : (singleVar.weightGrams >= 1000 ? `${(singleVar.weightGrams / 1000).toFixed(1)} kg` : `${singleVar.weightGrams || 400}g`)
+
     setFormData({
       name: product.name,
       categoryId: product.categoryId,
@@ -272,6 +281,8 @@ export default function AdminProductsPage() {
       galleryImages: gallery,
       isFeatured: product.isFeatured || false,
       isActive: product.isActive !== undefined ? product.isActive : true,
+      singlePackUnit: packUnit,
+      singlePieces: pieces,
       singleWeight: singleVar.weightGrams || 400,
       singleStock: singleVar.stockCount !== undefined ? singleVar.stockCount : 100,
       reorderLevel: singleVar.reorderLevel !== undefined ? singleVar.reorderLevel : 10,
@@ -435,8 +446,25 @@ export default function AdminProductsPage() {
       return showToast('Product Name and Summary are required', 'error')
     }
 
+    let singlePieces = formData.singlePieces || 1
+    let singleWeight = formData.singleWeight || 400
+
+    const unitLower = (formData.singlePackUnit || '').toLowerCase().trim()
+    if (unitLower.includes('pc') || unitLower.includes('piece')) {
+      const match = unitLower.match(/(\d+)/)
+      if (match) singlePieces = parseInt(match[1]) || 1
+    } else if (unitLower.includes('kg')) {
+      const match = unitLower.match(/([\d.]+)/)
+      if (match) singleWeight = Math.round(parseFloat(match[1]) * 1000)
+    } else if (unitLower.includes('g')) {
+      const match = unitLower.match(/(\d+)/)
+      if (match) singleWeight = parseInt(match[1]) || 400
+    }
+
     const payload = {
       ...formData,
+      singlePieces,
+      singleWeight,
       imageUrl: formData.galleryImages[0] || formData.imageUrl
     }
 
@@ -1097,12 +1125,55 @@ export default function AdminProductsPage() {
                         <div className="flex items-center justify-between">
                           <span className="text-xs font-black text-amber-300 flex items-center gap-1.5">
                             <span className="w-2 h-2 rounded-full bg-amber-400"></span>
-                            Single Retail Pack ({formData.singleWeight}g)
+                            Single Retail Pack ({formData.singlePackUnit || `${formData.singleWeight}g`})
                           </span>
                           <span className="text-[10px] text-slate-400 font-semibold">Base retail consumer unit</span>
                         </div>
 
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                        {/* Quick Pack Size Presets */}
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[10px] text-slate-400 font-bold">Quick Pack Size:</span>
+                          {[
+                            { label: '3 Pieces', pieces: 3, weight: 300 },
+                            { label: '10 pcs', pieces: 10, weight: 500 },
+                            { label: '250g', pieces: 1, weight: 250 },
+                            { label: '400g', pieces: 1, weight: 400 },
+                            { label: '420g', pieces: 1, weight: 420 },
+                            { label: '1 kg', pieces: 1, weight: 1000 },
+                          ].map((preset) => (
+                            <button
+                              key={preset.label}
+                              type="button"
+                              onClick={() => {
+                                setFormData({
+                                  ...formData,
+                                  singlePackUnit: preset.label,
+                                  singlePieces: preset.pieces,
+                                  singleWeight: preset.weight
+                                })
+                              }}
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border transition-all ${
+                                formData.singlePackUnit === preset.label
+                                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 font-black'
+                                  : 'bg-[#0B0F19] hover:bg-slate-800 text-slate-400 border-slate-800'
+                              }`}
+                            >
+                              {preset.label}
+                            </button>
+                          ))}
+                        </div>
+
+                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+                          <div>
+                            <label className="text-[9px] font-bold text-amber-400 block mb-1">Pack Size / Pcs</label>
+                            <input
+                              type="text"
+                              value={formData.singlePackUnit}
+                              onChange={(e) => setFormData({ ...formData, singlePackUnit: e.target.value })}
+                              placeholder="e.g. 3 Pieces, 250g"
+                              className="w-full bg-[#0B0F19] border border-slate-800 rounded-xl p-2 text-xs font-black text-amber-300 focus:outline-none focus:border-amber-500"
+                            />
+                          </div>
                           <div>
                             <label className="text-[9px] font-bold text-slate-400 block mb-1">Weight (g)</label>
                             <input
@@ -1162,7 +1233,24 @@ export default function AdminProductsPage() {
                             <span className="w-2 h-2 rounded-full bg-blue-400"></span>
                             Medium Box Pack ({formData.boxUnits} Units/Box)
                           </span>
-                          <span className="text-[10px] text-slate-400 font-semibold">Cafes & Quick Service</span>
+                          {/* Quick presets for box units */}
+                          <div className="flex items-center gap-1">
+                            <span className="text-[9px] text-slate-500 font-bold">Units:</span>
+                            {[6, 10, 12, 24].map((u) => (
+                              <button
+                                key={u}
+                                type="button"
+                                onClick={() => setFormData({ ...formData, boxUnits: u })}
+                                className={`text-[9px] font-bold px-1.5 py-0.2 rounded border ${
+                                  formData.boxUnits === u
+                                    ? 'bg-blue-500/20 text-blue-300 border-blue-500/40'
+                                    : 'bg-[#0B0F19] text-slate-400 border-slate-800'
+                                }`}
+                              >
+                                {u}
+                              </button>
+                            ))}
+                          </div>
                         </div>
 
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
@@ -1212,7 +1300,24 @@ export default function AdminProductsPage() {
                             <span className="w-2 h-2 rounded-full bg-purple-400"></span>
                             Bulk Master Carton ({formData.cartonUnits} Units/Carton)
                           </span>
-                          <span className="text-[10px] text-slate-400 font-semibold">Hotels & Caterers</span>
+                          {/* Quick presets for carton units */}
+                          <div className="flex items-center gap-1">
+                            <span className="text-[9px] text-slate-500 font-bold">Units:</span>
+                            {[20, 24, 48, 50, 100].map((u) => (
+                              <button
+                                key={u}
+                                type="button"
+                                onClick={() => setFormData({ ...formData, cartonUnits: u })}
+                                className={`text-[9px] font-bold px-1.5 py-0.2 rounded border ${
+                                  formData.cartonUnits === u
+                                    ? 'bg-purple-500/20 text-purple-300 border-purple-500/40'
+                                    : 'bg-[#0B0F19] text-slate-400 border-slate-800'
+                                }`}
+                              >
+                                {u}
+                              </button>
+                            ))}
+                          </div>
                         </div>
 
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
@@ -1409,7 +1514,7 @@ export default function AdminProductsPage() {
                                 : 'text-slate-400 hover:text-white'
                             }`}
                           >
-                            Single ({formData.singleWeight}g)
+                            Single ({formData.singlePackUnit || `${formData.singleWeight}g`})
                           </button>
                           <button
                             type="button"
@@ -1449,13 +1554,22 @@ export default function AdminProductsPage() {
                         </div>
 
                         <div className="text-right pl-3 border-l border-slate-800">
-                          <span className="text-[9px] text-slate-400 font-bold uppercase block">Inventory</span>
+                          <span className="text-[9px] text-slate-400 font-bold uppercase block">Customer Status</span>
                           <span className={`text-xs font-black px-2 py-0.5 rounded-md inline-block ${
-                            isLowStock 
+                            activeStock <= 0
+                              ? 'bg-rose-500/15 text-rose-300 border border-rose-500/30'
+                              : isLowStock 
                               ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30' 
                               : 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
                           }`}>
-                            {activeStock} in stock
+                            {activeStock <= 0
+                              ? 'Not Available'
+                              : isLowStock
+                              ? 'Only few available'
+                              : 'Available'}
+                          </span>
+                          <span className="text-[8px] text-slate-500 font-bold block mt-0.5">
+                            (Admin stock: {activeStock})
                           </span>
                         </div>
                       </div>
@@ -1557,7 +1671,7 @@ export default function AdminProductsPage() {
                         previewVariantType === 'SINGLE' ? 'bg-amber-500 text-slate-950 font-black' : 'text-slate-400'
                       }`}
                     >
-                      Single ({singleVar.weightGrams || 400}g)
+                      Single ({singleVar.unitsInPack > 1 ? `${singleVar.unitsInPack} pcs` : `${singleVar.weightGrams || 400}g`})
                     </button>
                     <button
                       onClick={() => setPreviewVariantType('BOX')}
@@ -1592,15 +1706,26 @@ export default function AdminProductsPage() {
 
                     <div className="flex items-center justify-between pt-2 border-t border-slate-800 text-xs">
                       <span className="text-slate-400 font-bold flex items-center gap-1">
-                        <Boxes className="w-3.5 h-3.5 text-amber-400" /> Current Stock:
+                        <Boxes className="w-3.5 h-3.5 text-amber-400" /> Customer Status:
                       </span>
-                      <span className={`font-black px-2.5 py-0.5 rounded-md ${
-                        (activeVar.stockCount ?? 100) <= (activeVar.reorderLevel ?? 10)
-                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                          : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                      }`}>
-                        {activeVar.stockCount ?? 100} units
-                      </span>
+                      <div className="text-right">
+                        <span className={`font-black px-2.5 py-0.5 rounded-md inline-block ${
+                          (activeVar.stockCount ?? 100) <= 0
+                            ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                            : (activeVar.stockCount ?? 100) <= (activeVar.reorderLevel ?? 10)
+                            ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                            : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                        }`}>
+                          {(activeVar.stockCount ?? 100) <= 0
+                            ? 'Not Available'
+                            : (activeVar.stockCount ?? 100) <= (activeVar.reorderLevel ?? 10)
+                            ? 'Only few available'
+                            : 'Available'}
+                        </span>
+                        <span className="text-[9px] text-slate-500 block font-semibold mt-0.5">
+                          Admin Warehouse: {activeVar.stockCount ?? 100} units
+                        </span>
+                      </div>
                     </div>
                   </div>
 
