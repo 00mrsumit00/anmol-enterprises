@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { CreditCard, ArrowLeft, ArrowRight, ShieldCheck, CheckCircle2, Building2 } from 'lucide-react'
+import { CreditCard, ArrowLeft, ArrowRight, ShieldCheck, CheckCircle2, Building2, Tag, Sparkles, X } from 'lucide-react'
+import confetti from 'canvas-confetti'
 import { useCart } from '@/hooks/useCart'
 import { useToast } from '@/components/ui/Toast'
 import { OrderCelebrationModal } from '@/components/storefront/OrderCelebrationModal'
@@ -23,6 +24,11 @@ export default function CheckoutPaymentPage() {
   const [user, setUser] = useState<any>(null)
   const [isFirstOrder, setIsFirstOrder] = useState<boolean>(true)
 
+  // Coupon states
+  const [couponInput, setCouponInput] = useState('')
+  const [isValidatingCoupon, setIsValidatingCoupon] = useState(false)
+  const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discount: number; description?: string } | null>(null)
+
   // Calculations:
   // - First order for customer = FREE Delivery (₹0)
   // - Order subtotal > ₹500 = FREE Delivery (₹0)
@@ -30,7 +36,58 @@ export default function CheckoutPaymentPage() {
   // - Convenience Fee = ₹2 per order
   const deliveryFee = (isFirstOrder || total > 500) ? 0 : 49
   const convenienceFee = 2
-  const grandTotal = total > 0 ? total + deliveryFee + convenienceFee : 0
+  const couponDiscount = appliedCoupon?.discount || 0
+  const subtotalAfterDiscount = Math.max(0, total - couponDiscount)
+  const grandTotal = total > 0 ? Math.max(0, subtotalAfterDiscount + deliveryFee + convenienceFee) : 0
+
+  const handleApplyCoupon = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!couponInput.trim()) return
+
+    setIsValidatingCoupon(true)
+    try {
+      const res = await fetch('/api/coupons/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code: couponInput.trim(),
+          orderAmount: total,
+          paymentMethod,
+        }),
+      })
+
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || 'Invalid coupon')
+      }
+
+      setAppliedCoupon({
+        code: data.code,
+        discount: data.discount,
+        description: data.description,
+      })
+
+      // Celebration confetti animation
+      confetti({
+        particleCount: 120,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#FF6B00', '#FFC700', '#00A67E', '#2563EB'],
+      })
+
+      showToast(`🎉 Coupon "${data.code}" applied! ₹${data.discount} discount saved.`, 'success')
+    } catch (err: any) {
+      showToast(err.message || 'Failed to apply coupon', 'error')
+    } finally {
+      setIsValidatingCoupon(false)
+    }
+  }
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null)
+    setCouponInput('')
+    showToast('Coupon removed', 'info')
+  }
 
   // Validate previous steps
   useEffect(() => {
@@ -137,6 +194,8 @@ export default function CheckoutPaymentPage() {
         deliverySlot: slotInfo.deliverySlot,
         deliveryDate: slotInfo.deliveryDate,
         paymentMethod,
+        couponCode: appliedCoupon?.code || undefined,
+        couponDiscount: appliedCoupon?.discount || 0,
         items: items.map(item => ({
           productId: item.productId,
           variantId: item.variantId,
@@ -370,12 +429,72 @@ export default function CheckoutPaymentPage() {
           </div>
         </div>
 
+        {/* Coupon Box */}
+        <div className="bg-white border border-gray-200 rounded-card p-4 mb-4 shadow-2xs">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
+              <Tag className="w-3.5 h-3.5 text-orange-500" />
+              Apply Coupon / COD Discount
+            </span>
+            {paymentMethod === 'CASH_ON_DELIVERY' && (
+              <span className="text-[10px] font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                💵 COD Coupon Ready
+              </span>
+            )}
+          </div>
+
+          {appliedCoupon ? (
+            <div className="flex items-center justify-between p-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-xs text-emerald-800">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-emerald-600" />
+                <div>
+                  <span className="font-extrabold uppercase tracking-wide">{appliedCoupon.code}</span>
+                  <p className="text-[11px] text-emerald-600 font-medium">₹{appliedCoupon.discount} discount applied</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleRemoveCoupon}
+                className="p-1 hover:bg-emerald-100 rounded text-emerald-700"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <form onSubmit={handleApplyCoupon} className="flex gap-2">
+              <input
+                type="text"
+                value={couponInput}
+                onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+                placeholder="Enter coupon code (e.g. COD50)"
+                className="flex-1 px-3 py-2 text-xs rounded-lg border border-gray-300 font-semibold uppercase tracking-wider focus:outline-none focus:ring-1 focus:ring-orange-500"
+              />
+              <button
+                type="submit"
+                disabled={!couponInput.trim() || isValidatingCoupon}
+                className="px-4 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white text-xs font-bold transition shadow-xs"
+              >
+                {isValidatingCoupon ? 'Checking...' : 'Apply'}
+              </button>
+            </form>
+          )}
+        </div>
+
         {/* Bill Summary */}
         <div className="bg-gray-50 border border-gray-100 p-4 rounded-card mb-6 flex flex-col gap-2.5 text-xs text-gray-600 font-semibold">
           <div className="flex justify-between">
             <span>Items Subtotal</span>
             <span className="text-brand-charcoal font-display font-bold">₹{total}</span>
           </div>
+          {appliedCoupon && (
+            <div className="flex justify-between items-center text-emerald-600 font-bold">
+              <span className="flex items-center gap-1">
+                <Tag className="w-3 h-3" />
+                Coupon Discount ({appliedCoupon.code})
+              </span>
+              <span>-₹{appliedCoupon.discount}</span>
+            </div>
+          )}
           <div className="flex justify-between items-center">
             <span className="flex items-center gap-1.5">
               Delivery Fee ({deliveryInfo?.city})

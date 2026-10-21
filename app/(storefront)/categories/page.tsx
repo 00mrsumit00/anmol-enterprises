@@ -49,10 +49,10 @@ export default function CategoriesPage() {
           </div>
           <div>
             <h1 className="font-display text-lg sm:text-xl font-black text-white leading-tight">
-              McCain Frozen Food Categories
+              Frozen Food & Snack Categories
             </h1>
             <p className="font-body text-xs text-gray-300 font-semibold mt-0.5">
-              Explore 100% genuine cold-chain McCain French fries, appetizers & snacks
+              Explore 100% genuine cold-chain McCain snacks, poultry, seafood & appetizers
             </p>
           </div>
         </div>

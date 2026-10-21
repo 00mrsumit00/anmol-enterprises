@@ -35,6 +35,11 @@ model User {
   addresses       Address[]
   sessions        Session[]
   businessProfile BusinessProfile?
+  chatConversation ChatConversation?
+  broadcastRecipients BroadcastRecipient[]
+  sentBroadcasts   Broadcast[]     @relation("AdminBroadcasts")
+  reviews          OrderReview[]
+  complaints       OrderComplaint[]
 
   @@map("users")
 }
@@ -259,6 +264,7 @@ model Driver {
   createdAt       DateTime @default(now())
 
   assignments     Order[]
+  commissions     DriverCommissionLog[]
 
   @@map("drivers")
 }
@@ -287,7 +293,10 @@ model Order {
   deliveryFee       Float          @default(0)
   coldHandlingFee   Float          @default(10)
   discountAmount    Float          @default(0)
+  couponCode        String?
+  couponDiscount    Float          @default(0)
   totalAmount       Float
+  cancellationReason String?
   notes             String?
   packedAt          DateTime?
   dispatchedAt      DateTime?
@@ -298,8 +307,14 @@ model Order {
   user              User?          @relation(fields: [userId], references: [id])
   address           Address?       @relation(fields: [addressId], references: [id])
   driver            Driver?        @relation(fields: [driverId], references: [id])
+  coupon            Coupon?        @relation(fields: [couponCode], references: [code])
   items             OrderItem[]
   statusHistory     OrderStatusLog[]
+  chatConversations ChatConversation[]
+  chatMessages      ChatMessage[]
+  review            OrderReview?
+  complaint         OrderComplaint?
+  driverCommission  DriverCommissionLog?
 
   @@map("orders")
 }
@@ -358,3 +373,224 @@ model AdminAuditLog {
   @@index([createdAt])
   @@map("admin_audit_logs")
 }
+
+// ─── CUSTOMER CHAT & REAL-TIME MESSAGING ───────────────────────────────────────
+
+enum ChatSender {
+  CUSTOMER
+  ADMIN
+}
+
+enum ConversationStatus {
+  OPEN
+  RESOLVED
+}
+
+enum SheetSyncStatus {
+  PENDING
+  SYNCED
+  FAILED
+}
+
+enum BroadcastAudience {
+  ALL
+  B2B
+  B2C
+}
+
+model ChatConversation {
+  id                 String             @id @default(cuid())
+  customerId         String             @unique
+  status             ConversationStatus @default(OPEN)
+  orderId            String?
+  lastMessageAt      DateTime           @default(now())
+  lastMessagePreview String?
+  unreadForAdmin     Int                @default(0)
+  unreadForCustomer  Int                @default(0)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  customer           User               @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  order              Order?             @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  messages           ChatMessage[]
+
+  @@index([lastMessageAt])
+  @@index([status])
+  @@map("chat_conversations")
+}
+
+model ChatMessage {
+  id                String          @id @default(cuid())
+  conversationId    String
+  senderRole        ChatSender
+  senderId          String
+  body              String
+  orderId           String?
+  clientMessageId   String?
+  readAt            DateTime?
+  sheetSyncStatus   SheetSyncStatus @default(PENDING)
+  sheetSyncAttempts Int             @default(0)
+  sheetSyncedAt     DateTime?
+  createdAt         DateTime        @default(now())
+
+  conversation      ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  order             Order?           @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  @@unique([conversationId, clientMessageId])
+  @@index([conversationId, createdAt])
+  @@index([sheetSyncStatus])
+  @@map("chat_messages")
+}
+
+// ─── BROADCAST MESSAGING ───────────────────────────────────────────────────────
+
+model Broadcast {
+  id              String            @id @default(cuid())
+  title           String
+  body            String
+  audience        BroadcastAudience @default(ALL)
+  createdBy       String
+  recipientCount  Int               @default(0)
+  sheetSyncStatus SheetSyncStatus   @default(PENDING)
+  sheetSyncedAt   DateTime?
+  createdAt       DateTime          @default(now())
+
+  author          User                 @relation("AdminBroadcasts", fields: [createdBy], references: [id])
+  recipients      BroadcastRecipient[]
+
+  @@index([createdAt])
+  @@map("broadcasts")
+}
+
+model BroadcastRecipient {
+  id          String    @id @default(cuid())
+  broadcastId String
+  customerId  String
+  readAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  broadcast   Broadcast @relation(fields: [broadcastId], references: [id], onDelete: Cascade)
+  customer    User      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@unique([broadcastId, customerId])
+  @@index([customerId, readAt])
+  @@map("broadcast_recipients")
+}
+
+// ─── COUPONS & COD DISCOUNTS ───────────────────────────────────────────────────
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED
+}
+
+enum CouponPaymentConstraint {
+  ALL
+  COD_ONLY
+  ONLINE_ONLY
+}
+
+model Coupon {
+  id                String                  @id @default(cuid())
+  code              String                  @unique // e.g. "COD50", "COLD10"
+  description       String?
+  discountType      DiscountType            @default(FIXED)
+  discountValue     Float                   // e.g. 50 (for Rs 50) or 10 (for 10%)
+  minOrderAmount    Float                   @default(0)
+  maxDiscountAmount Float?                  // cap for percentage discount
+  paymentConstraint CouponPaymentConstraint @default(COD_ONLY)
+  usageLimit        Int?                    // max times can be claimed in total
+  timesUsed         Int                     @default(0)
+  isActive          Boolean                 @default(true)
+  expiresAt         DateTime?
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+
+  orders            Order[]
+
+  @@map("coupons")
+}
+
+// ─── DRIVER COMMISSION AUDIT TRAIL ─────────────────────────────────────────────
+
+model DriverCommissionLog {
+  id             String   @id @default(cuid())
+  driverId       String
+  orderId        String   @unique
+  distanceKm     Float    @default(0)
+  baseFee        Float    @default(25)
+  perKmRate      Float    @default(8)
+  totalCommission Float
+  isSettled      Boolean  @default(false)
+  settledAt      DateTime?
+  createdAt      DateTime @default(now())
+
+  driver         Driver   @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  order          Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([driverId, createdAt])
+  @@map("driver_commission_logs")
+}
+
+// ─── ORDER REVIEWS & SERVICE GRADES ────────────────────────────────────────────
+
+enum ServiceGrade {
+  EXCELLENT
+  GOOD
+  AVERAGE
+  POOR
+}
+
+model OrderReview {
+  id           String       @id @default(cuid())
+  orderId      String       @unique
+  userId       String
+  rating       Int          // 1 to 5 stars
+  serviceGrade ServiceGrade @default(EXCELLENT)
+  comment      String?
+  createdAt    DateTime     @default(now())
+
+  order        Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([rating])
+  @@map("order_reviews")
+}
+
+// ─── CUSTOMER ORDER COMPLAINTS ─────────────────────────────────────────────────
+
+enum ComplaintIssueType {
+  DEFROSTED
+  DAMAGED_PACKET
+  WRONG_ITEM
+  LATE_DELIVERY
+  COLD_CHAIN_BROKEN
+  OTHER
+}
+
+enum ComplaintStatus {
+  OPEN
+  INVESTIGATING
+  RESOLVED
+}
+
+model OrderComplaint {
+  id          String             @id @default(cuid())
+  orderId     String             @unique
+  userId      String
+  issueType   ComplaintIssueType
+  description String
+  status      ComplaintStatus    @default(OPEN)
+  adminNote   String?
+  resolvedAt  DateTime?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  order       Order              @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@map("order_complaints")
+}
+
+

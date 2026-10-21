@@ -202,6 +202,9 @@ export default function ProductCard({ product }: ProductCardProps) {
           alt={product.name}
           className="max-h-full max-w-full object-contain drop-shadow-sm group-hover:scale-105 transition-transform duration-300"
           loading="lazy"
+          onError={(e) => {
+            (e.target as HTMLImageElement).src = '/images/products/mccain-smiles.jpg'
+          }}
         />
 
         {/* Pagination Dots (bottom-center) */}

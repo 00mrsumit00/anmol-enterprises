@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { 
   Printer, Check, XCircle, Search, RefreshCw, Calendar, 
@@ -827,6 +828,15 @@ export default function AdminOrdersPage() {
                             </button>
                           )}
 
+                          {/* 💬 Customer Support Chat Link */}
+                          <Link
+                            href={`/admin/messages?search=${encodeURIComponent(customerPhone || order.id)}`}
+                            className="p-2 bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border border-orange-500/30 rounded-xl transition-all shadow-2xs"
+                            title="Open Real-time Chat with Customer"
+                          >
+                            <MessageCircle className="w-4 h-4" />
+                          </Link>
+
                           {/* 📞 Phone Call */}
                           {cleanPhone && (
                             <a
@@ -843,10 +853,10 @@ export default function AdminOrdersPage() {
                             <button
                               onClick={() => updateStatus(order.id, 'CONFIRMED')}
                               disabled={updatingStatusId === order.id}
-                              className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-60 text-white font-bold rounded-xl text-xs shadow-xs transition-all active:scale-95 flex items-center gap-1.5"
+                              className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-extrabold rounded-xl text-xs shadow-xs transition-all active:scale-95 flex items-center gap-1.5"
                             >
                               {updatingStatusId === order.id && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
-                              <span>Approve</span>
+                              <span>Accept Order</span>
                             </button>
                           )}
 

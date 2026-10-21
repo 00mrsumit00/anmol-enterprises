@@ -3,7 +3,7 @@
 import React, { Suspense, useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
-import { Home, ShoppingBag, LayoutGrid, Building2, User, ShoppingCart } from 'lucide-react'
+import { Home, ShoppingBag, LayoutGrid, Building2, User, ShoppingCart, MessageSquare } from 'lucide-react'
 import { useCart } from '@/hooks/useCart'
 
 function BottomNavContent() {
@@ -87,6 +87,12 @@ function BottomNavContent() {
       href: '/categories',
       icon: LayoutGrid,
       active: isActive('/categories'),
+    },
+    {
+      label: 'Chat',
+      href: '/chat',
+      icon: MessageSquare,
+      active: pathname.startsWith('/chat'),
     },
     // Show B2B Partner ONLY if user has B2B enabled; otherwise show Cart option
     isB2BEnabled

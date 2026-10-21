@@ -27,6 +27,7 @@ import { Server as SocketIOServer } from 'socket.io'
 import { apiRouter, setSocketIO } from './lib/backend'
 import { prisma } from './lib/prisma'
 import { verifyToken } from './lib/auth'
+import { syncPendingToGoogleSheet } from './lib/googleSheets'
 
 const port = env.PORT
 const dev = !env.isProd
@@ -98,10 +99,35 @@ app.prepare().then(() => {
     }
   })
 
+  // In-memory presence tracker: userId -> count of active sockets
+  const onlineUserSockets = new Map<string, number>()
+
   // ─── Socket.io Connection & Room Scope Authorization ──────────────────────
   io.on('connection', (socket) => {
     const user = socket.data?.user
     console.log(`[Socket] New connection: ${socket.id} (User: ${user ? `${user.userId} [${user.role}]` : 'Anonymous'})`)
+
+    if (user?.userId) {
+      // Auto-join private user room for customer chat & broadcast delivery
+      socket.join(`user:${user.userId}`)
+      const currentCount = onlineUserSockets.get(user.userId) || 0
+      onlineUserSockets.set(user.userId, currentCount + 1)
+      if (currentCount === 0) {
+        // Broadcast online state to admin room
+        io.to('admin').emit('presence:update', { userId: user.userId, online: true })
+      }
+    }
+
+    // Query active presence of users
+    socket.on('presence:check', (userIds: string[], callback?: (status: Record<string, boolean>) => void) => {
+      if (typeof callback === 'function' && Array.isArray(userIds)) {
+        const result: Record<string, boolean> = {}
+        userIds.forEach((uid) => {
+          result[uid] = (onlineUserSockets.get(uid) || 0) > 0
+        })
+        callback(result)
+      }
+    })
 
     // Admin room: restricted strictly to SUPER_ADMIN, ADMIN or STAFF roles
     socket.on('join_admin', () => {
@@ -146,6 +172,15 @@ app.prepare().then(() => {
 
     socket.on('disconnect', () => {
       console.log(`[Socket] Connection disconnected: ${socket.id}`)
+      if (user?.userId) {
+        const count = (onlineUserSockets.get(user.userId) || 1) - 1
+        if (count <= 0) {
+          onlineUserSockets.delete(user.userId)
+          io.to('admin').emit('presence:update', { userId: user.userId, online: false })
+        } else {
+          onlineUserSockets.set(user.userId, count)
+        }
+      }
     })
   })
 
@@ -244,5 +279,14 @@ app.prepare().then(() => {
 
   httpServer.listen(port, () => {
     console.log(`> Ready on http://localhost:${port}`)
+
+    // Periodic Google Sheets sync worker (runs every 30 seconds)
+    setInterval(async () => {
+      try {
+        await syncPendingToGoogleSheet()
+      } catch (err: any) {
+        console.error('[GoogleSheetsWorker] Sync error:', err?.message || err)
+      }
+    }, 30 * 1000)
   })
 })

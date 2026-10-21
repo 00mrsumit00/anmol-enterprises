@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { ClipboardList, Package, BarChart3, Truck, Home, LogOut, Users, Shield, Activity, Layers, TrendingUp } from 'lucide-react'
+import { ClipboardList, Package, BarChart3, Truck, Home, LogOut, Users, Shield, Activity, Layers, TrendingUp, MessageSquare, Radio, Tag } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import { useSocket } from '@/hooks/useSocket'
 import AnimatedLogo from '@/components/storefront/AnimatedLogo'
@@ -82,9 +82,12 @@ export default function AdminLayout({
   // Define all available navigation modules with permission keys and role gates
   const allNavLinks = [
     { name: 'Orders Dispatch', path: '/admin/orders', icon: ClipboardList, perm: 'orders' },
+    { name: 'Messages', path: '/admin/messages', icon: MessageSquare, perm: 'orders' },
+    { name: 'Broadcast', path: '/admin/broadcasts', icon: Radio, minRole: 'ADMIN' },
     { name: 'Registered Users', path: '/admin/business-accounts', icon: Users, perm: 'users' },
     { name: 'Product List', path: '/admin/products', icon: Package, perm: 'products' },
     { name: 'Categories', path: '/admin/categories', icon: Layers, perm: 'products' },
+    { name: 'Coupons & COD', path: '/admin/coupons', icon: Tag, perm: 'orders' },
     { name: 'Inventory Manager', path: '/admin/inventory', icon: BarChart3, perm: 'inventory' },
     { name: 'Reports & Analytics', path: '/admin/reports', icon: TrendingUp, perm: 'orders' },
     { name: 'Staff Management', path: '/admin/sub-admins', icon: Shield, minRole: 'ADMIN' },

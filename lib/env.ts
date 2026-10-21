@@ -24,6 +24,9 @@ const OPTIONAL_INTEGRATIONS: string[] = [
   'CLOUDINARY_CLOUD_NAME',
   'CLOUDINARY_API_KEY',
   'CLOUDINARY_API_SECRET',
+  'GOOGLE_SHEET_ID',
+  'GOOGLE_SERVICE_ACCOUNT_EMAIL',
+  'GOOGLE_PRIVATE_KEY',
 ]
 
 export function validateEnv(): void {
@@ -89,4 +92,7 @@ export const env = {
   FIREBASE_PROJECT_ID:   process.env.FIREBASE_PROJECT_ID   || '',
   FIREBASE_PRIVATE_KEY:  process.env.FIREBASE_PRIVATE_KEY  || '',
   FIREBASE_CLIENT_EMAIL: process.env.FIREBASE_CLIENT_EMAIL || '',
+  GOOGLE_SHEET_ID:              process.env.GOOGLE_SHEET_ID              || '',
+  GOOGLE_SERVICE_ACCOUNT_EMAIL: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || '',
+  GOOGLE_PRIVATE_KEY:           process.env.GOOGLE_PRIVATE_KEY           || '',
 } as const

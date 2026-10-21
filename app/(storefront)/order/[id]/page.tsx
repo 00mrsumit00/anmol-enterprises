@@ -4,7 +4,7 @@ import React, { useState, useEffect, Suspense } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Clock, ShieldCheck, MapPin, Truck, CheckCircle2, ChevronRight, Phone, CreditCard, AlertCircle, ShoppingBag } from 'lucide-react'
+import { ArrowLeft, Clock, ShieldCheck, MapPin, Truck, CheckCircle2, ChevronRight, Phone, CreditCard, AlertCircle, ShoppingBag, MessageSquare, Star, MessageCircleWarning, Edit, XCircle, Sparkles } from 'lucide-react'
 import { useSocket } from '@/hooks/useSocket'
 import { useToast } from '@/components/ui/Toast'
 import { OrderCelebrationModal } from '@/components/storefront/OrderCelebrationModal'
@@ -204,17 +204,19 @@ function OrderTrackingContent() {
   // Determine active timeline steps based on status
   const getTimelineState = (status: string) => {
     const steps = [
-      { key: 'CONFIRMED', label: 'Order Confirmed', timeKey: 'createdAt' },
-      { key: 'PACKED', label: 'Packed & Ready', timeKey: 'packedAt', subtext: 'Cold storage packing done' },
-      { key: 'OUT_FOR_DELIVERY', label: 'Out for Delivery', timeKey: 'dispatchedAt', subtext: 'In temperature-controlled van' },
-      { key: 'DELIVERED', label: 'Delivered', timeKey: 'deliveredAt' }
+      { key: 'PENDING', label: 'Awaiting Confirmation', timeKey: 'createdAt', subtext: 'Anmol team confirming availability' },
+      { key: 'CONFIRMED', label: 'Order Confirmed', timeKey: 'createdAt', subtext: 'Order accepted by Anmol admin' },
+      { key: 'PACKED', label: 'Packed & Cold Storage', timeKey: 'packedAt', subtext: 'Items packed in -18°C insulated pack' },
+      { key: 'ASSIGNED', label: 'With Delivery Boy', timeKey: 'dispatchedAt', subtext: 'Handed over for local doorstep dispatch' },
+      { key: 'DELIVERED', label: 'Delivered', timeKey: 'deliveredAt', subtext: 'Delivered to your kitchen doorstep' }
     ]
 
     let activeStepIdx = 0
-    if (status === 'PENDING' || status === 'CONFIRMED') activeStepIdx = 0
-    else if (status === 'PACKING' || status === 'PACKED') activeStepIdx = 1
-    else if (status === 'ASSIGNED' || status === 'OUT_FOR_DELIVERY') activeStepIdx = 2
-    else if (status === 'DELIVERED') activeStepIdx = 3
+    if (status === 'PENDING') activeStepIdx = 0
+    else if (status === 'CONFIRMED') activeStepIdx = 1
+    else if (status === 'PACKING' || status === 'PACKED') activeStepIdx = 2
+    else if (status === 'ASSIGNED' || status === 'OUT_FOR_DELIVERY') activeStepIdx = 3
+    else if (status === 'DELIVERED') activeStepIdx = 4
 
     return { steps, activeStepIdx }
   }
@@ -535,22 +537,166 @@ function OrderTrackingContent() {
         </div>
       </div>
 
-      {/* 5. Store Return & Support Buttons */}
-      <div className="flex gap-3 no-print">
+      {/* 5. Cancel or Edit Order (Available while Awaiting Confirmation / Confirmed) */}
+      {['PENDING', 'CONFIRMED'].includes(order.status) && (
+        <div className="bg-white border border-gray-200 rounded-card p-4 sm:p-5 shadow-sm space-y-3 no-print">
+          <div className="flex items-center justify-between">
+            <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wide">
+              Order Modification
+            </h4>
+            <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+              Allowed Before Packing
+            </span>
+          </div>
+          <p className="text-xs text-gray-600 leading-relaxed">
+            Need to change your delivery slot or cancel this order? You can do so now before our cold chain packing team begins preparation.
+          </p>
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <button
+              onClick={async () => {
+                const newSlot = window.prompt('Select Delivery Slot (MORNING / EVENING):', order.deliverySlot)
+                if (newSlot && ['MORNING', 'EVENING'].includes(newSlot.toUpperCase())) {
+                  try {
+                    const res = await fetch(`/api/orders/${order.id}/edit`, {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ deliverySlot: newSlot.toUpperCase() }),
+                    })
+                    if (res.ok) {
+                      showToast('Delivery slot updated successfully!', 'success')
+                      queryClient.invalidateQueries({ queryKey: ['order', orderId] })
+                    }
+                  } catch {}
+                }
+              }}
+              className="px-3.5 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 text-xs font-bold text-gray-700 flex items-center gap-1.5 transition tap-scale"
+            >
+              <Edit className="w-3.5 h-3.5 text-gray-500" />
+              <span>Change Slot</span>
+            </button>
+
+            <button
+              onClick={async () => {
+                const reason = window.prompt('Please enter cancellation reason (e.g. Placed by mistake, slot change):')
+                if (reason) {
+                  try {
+                    const res = await fetch(`/api/orders/${order.id}/cancel`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ reason }),
+                    })
+                    const data = await res.json()
+                    if (res.ok) {
+                      showToast('Order cancelled successfully. Any payment has been refunded.', 'info')
+                      queryClient.invalidateQueries({ queryKey: ['order', orderId] })
+                    } else {
+                      showToast(data.error || 'Failed to cancel order', 'error')
+                    }
+                  } catch {}
+                }
+              }}
+              className="px-3.5 py-2 rounded-lg border border-red-200 bg-red-50 hover:bg-red-100 text-xs font-bold text-red-600 flex items-center gap-1.5 transition tap-scale"
+            >
+              <XCircle className="w-3.5 h-3.5" />
+              <span>Cancel Order</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 6. Post-Delivery Reviews & Complaint Section */}
+      {order.status === 'DELIVERED' && (
+        <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-orange-200/80 rounded-card p-5 shadow-sm space-y-4 no-print">
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-orange-500" />
+              Rate Your Experience & Frozen Food
+            </h4>
+            <span className="text-[10px] font-black uppercase text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+              Delivered
+            </span>
+          </div>
+
+          <p className="text-xs text-gray-600 leading-relaxed">
+            How was the freshness, taste, and temperature of your delivery? Your feedback helps us maintain our strict -18°C cold chain.
+          </p>
+
+          <div className="flex items-center gap-2">
+            {[1, 2, 3, 4, 5].map((star) => (
+              <button
+                key={star}
+                type="button"
+                onClick={async () => {
+                  try {
+                    const res = await fetch(`/api/orders/${order.id}/review`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ rating: star, serviceGrade: star >= 4 ? 'EXCELLENT' : 'AVERAGE' }),
+                    })
+                    if (res.ok) {
+                      showToast(`⭐ Thank you for rating ${star} stars!`, 'success')
+                      queryClient.invalidateQueries({ queryKey: ['order', orderId] })
+                    }
+                  } catch {}
+                }}
+                className="p-1 hover:scale-125 transition text-amber-400 hover:text-amber-500"
+                title={`${star} Stars`}
+              >
+                <Star className="w-6 h-6 fill-current" />
+              </button>
+            ))}
+          </div>
+
+          <div className="pt-2 border-t border-orange-200/60 flex items-center justify-between">
+            <span className="text-xs text-gray-500">Any problem with this order?</span>
+            <button
+              onClick={async () => {
+                const desc = window.prompt('Report an issue (e.g. Defrosted item, wrong packet, damaged box):')
+                if (desc) {
+                  try {
+                    const res = await fetch(`/api/orders/${order.id}/complaint`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ issueType: 'DEFROSTED', description: desc }),
+                    })
+                    if (res.ok) {
+                      showToast('Complaint registered with Anmol Quality Team. We will contact you immediately.', 'info')
+                    }
+                  } catch {}
+                }
+              }}
+              className="text-xs font-bold text-red-600 hover:underline flex items-center gap-1"
+            >
+              <MessageCircleWarning className="w-3.5 h-3.5" />
+              Report Quality Issue
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 7. Store Return, Chat & Support Buttons */}
+      <div className="flex flex-col sm:flex-row gap-3 no-print">
+        <Link
+          href={`/chat`}
+          className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-display font-black text-xs sm:text-sm py-3.5 rounded-pill shadow-md flex items-center justify-center gap-2 tap-scale transition-all"
+        >
+          <MessageSquare className="w-4 h-4" />
+          <span>Chat About This Order</span>
+        </Link>
         <button
           onClick={() => router.push('/')}
-          className="flex-1 bg-gradient-to-r from-brand-orange to-orange-500 hover:from-brand-orange/95 hover:to-orange-500/95 text-white font-display font-black text-xs sm:text-sm py-3.5 rounded-pill shadow-md hover:shadow-orange-500/30 flex items-center justify-center gap-2 tap-scale transition-all"
+          className="flex-1 bg-white hover:bg-gray-50 border border-gray-300 text-gray-800 font-display font-black text-xs sm:text-sm py-3.5 rounded-pill shadow-xs flex items-center justify-center gap-2 tap-scale transition-all"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>Explore More Products</span>
+          <span>Explore More</span>
           <ShoppingBag className="w-4 h-4" />
         </button>
         <a
-          href="tel:+919422070000"
+          href="tel:+918237722744"
           className="flex-1 bg-brand-charcoal hover:bg-brand-charcoal/90 text-white font-bold py-3.5 rounded-pill flex items-center justify-center gap-2 tap-scale text-center text-sm"
         >
           <Phone className="w-4 h-4 fill-current text-brand-yellow" />
-          <span>Call Support</span>
+          <span>Call Helpline</span>
         </a>
       </div>
 

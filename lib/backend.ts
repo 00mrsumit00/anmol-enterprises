@@ -4918,4 +4918,1251 @@ apiRouter.get('/admin/audit-logs', authMiddleware, requireRole(['SUPER_ADMIN', '
   }
 })
 
+// ══════════════════════════════════════════════════════════════════════════════
+// ─── CUSTOMER CHAT & BROADCAST MESSAGING API ─────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+
+// In-memory rate limiting for chat messages: max 20 messages per user per minute
+const chatRateLimitTracker = new Map<string, number[]>()
+
+function checkChatRateLimit(userId: string): boolean {
+  const now = Date.now()
+  const windowMs = 60 * 1000 // 1 minute
+  const maxPerMin = 20
+
+  const timestamps = (chatRateLimitTracker.get(userId) || []).filter(t => now - t < windowMs)
+  if (timestamps.length >= maxPerMin) return false
+
+  timestamps.push(now)
+  chatRateLimitTracker.set(userId, timestamps)
+  return true
+}
+
+// ─── 1. CUSTOMER: Get active conversation & messages ──────────────────────────
+apiRouter.get('/chat/conversation', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const customerId = req.user!.id
+
+    let conversation = await prisma.chatConversation.findUnique({
+      where: { customerId },
+      include: {
+        messages: {
+          orderBy: { createdAt: 'asc' },
+          take: 100,
+        },
+      },
+    })
+
+    if (!conversation) {
+      conversation = await prisma.chatConversation.create({
+        data: {
+          customerId,
+          status: 'OPEN',
+          lastMessagePreview: 'Started conversation',
+        },
+        include: {
+          messages: true,
+        },
+      })
+    }
+
+    // Auto-mark unread messages for customer as read
+    if (conversation.unreadForCustomer > 0) {
+      await prisma.$transaction([
+        prisma.chatConversation.update({
+          where: { id: conversation.id },
+          data: { unreadForCustomer: 0 },
+        }),
+        prisma.chatMessage.updateMany({
+          where: {
+            conversationId: conversation.id,
+            senderRole: 'ADMIN',
+            readAt: null,
+          },
+          data: { readAt: new Date() },
+        }),
+      ])
+      conversation.unreadForCustomer = 0
+    }
+
+    return res.json({ conversation })
+  } catch (error: any) {
+    console.error('Get customer chat error:', error)
+    return res.status(500).json({ error: error.message || 'Failed to fetch conversation' })
+  }
+})
+
+// ─── 2. CUSTOMER: Send a chat message ─────────────────────────────────────────
+apiRouter.post('/chat/send', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const customerId = req.user!.id
+    if (!checkChatRateLimit(customerId)) {
+      return res.status(429).json({ error: 'Too many messages sent. Please slow down.' })
+    }
+
+    const schema = z.object({
+      body: z.string().trim().min(1, 'Message cannot be empty').max(2000, 'Message cannot exceed 2000 characters'),
+      orderId: z.string().optional().nullable(),
+      clientMessageId: z.string().optional(),
+    })
+
+    const parsed = schema.safeParse(req.body)
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid input' })
+    }
+
+    const { body, orderId, clientMessageId } = parsed.data
+
+    // Check optional order ownership if provided
+    if (orderId) {
+      const order = await prisma.order.findUnique({
+        where: { id: orderId },
+        select: { id: true, userId: true },
+      })
+      if (!order || (order.userId && order.userId !== customerId && !['SUPER_ADMIN', 'ADMIN', 'STAFF'].includes(req.user!.role))) {
+        return res.status(403).json({ error: 'Invalid order reference' })
+      }
+    }
+
+    // Upsert or retrieve conversation
+    let conversation = await prisma.chatConversation.findUnique({
+      where: { customerId },
+    })
+
+    if (!conversation) {
+      conversation = await prisma.chatConversation.create({
+        data: {
+          customerId,
+          status: 'OPEN',
+          orderId: orderId || null,
+        },
+      })
+    } else if (orderId && !conversation.orderId) {
+      conversation = await prisma.chatConversation.update({
+        where: { id: conversation.id },
+        data: { orderId },
+      })
+    }
+
+    // Idempotency check if clientMessageId is present
+    if (clientMessageId) {
+      const existing = await prisma.chatMessage.findUnique({
+        where: {
+          conversationId_clientMessageId: {
+            conversationId: conversation.id,
+            clientMessageId,
+          },
+        },
+      })
+      if (existing) {
+        return res.json({ message: existing, duplicate: true })
+      }
+    }
+
+    const preview = body.length > 80 ? `${body.substring(0, 77)}...` : body
+
+    const [newMessage, updatedConv] = await prisma.$transaction([
+      prisma.chatMessage.create({
+        data: {
+          conversationId: conversation.id,
+          senderRole: 'CUSTOMER',
+          senderId: customerId,
+          body,
+          orderId: orderId || conversation.orderId || null,
+          clientMessageId: clientMessageId || null,
+          sheetSyncStatus: 'PENDING',
+        },
+      }),
+      prisma.chatConversation.update({
+        where: { id: conversation.id },
+        data: {
+          status: 'OPEN',
+          lastMessageAt: new Date(),
+          lastMessagePreview: preview,
+          unreadForAdmin: { increment: 1 },
+        },
+      }),
+    ])
+
+    // Broadcast in real-time
+    if (ioInstance) {
+      ioInstance.to('admin').emit('chat:message', {
+        message: newMessage,
+        conversationId: conversation.id,
+        sender: {
+          id: req.user!.id,
+          name: req.user!.name,
+          phone: req.user!.phone,
+          isB2B: req.user!.isB2B,
+        },
+      })
+      ioInstance.to('admin').emit('chat:conversation-updated', {
+        conversation: updatedConv,
+      })
+      ioInstance.to(`user:${customerId}`).emit('chat:message', {
+        message: newMessage,
+        conversationId: conversation.id,
+      })
+    }
+
+    return res.status(201).json({ message: newMessage, conversation: updatedConv })
+  } catch (error: any) {
+    console.error('Customer send chat error:', error)
+    return res.status(500).json({ error: error.message || 'Failed to send message' })
+  }
+})
+
+// ─── 3. ADMIN: List all conversations ─────────────────────────────────────────
+apiRouter.get('/admin/chat/conversations', authMiddleware, requireRole(['SUPER_ADMIN', 'ADMIN', 'STAFF']), async (req: Request, res: Response) => {
+  try {
+    const search = (req.query.search as string || '').trim().toLowerCase()
+    const status = req.query.status as string // 'ALL' | 'OPEN' | 'RESOLVED'
+
+    const where: any = {}
+    if (status && status !== 'ALL') {
+      where.status = status
+    }
+
+    if (search) {
+      where.customer = {
+        OR: [
+          { name: { contains: search, mode: 'insensitive' } },
+          { phone: { contains: search } },
+          { businessName: { contains: search, mode: 'insensitive' } },
+        ],
+      }
+    }
+
+    const conversations = await prisma.chatConversation.findMany({
+      where,
+      orderBy: { lastMessageAt: 'desc' },
+      include: {
+        customer: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            email: true,
+            isB2B: true,
+            businessName: true,
+          },
+        },
+        order: {
+          select: {
+            id: true,
+            status: true,
+            totalAmount: true,
+            createdAt: true,
+          },
+        },
+      },
+    })
+
+    return res.json({ conversations })
+  } catch (error: any) {
+    console.error('Admin fetch chat conversations error:', error)
+    return res.status(500).json({ error: error.message || 'Failed to fetch conversations' })
+  }
+})
+
+// ─── 4. ADMIN: Get single conversation messages & mark admin read ─────────────
+apiRouter.get('/admin/chat/:conversationId/messages', authMiddleware, requireRole(['SUPER_ADMIN', 'ADMIN', 'STAFF']), async (req: Request, res: Response) => {
+  try {
+    const conversationId = String(req.params.conversationId)
+
+    const conversation = await prisma.chatConversation.findUnique({
+      where: { id: conversationId },
+      include: {
+        customer: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            email: true,
+            isB2B: true,
+            businessName: true,
+          },
+        },
+        order: {
+          select: {
+            id: true,
+            status: true,
+            totalAmount: true,
+            createdAt: true,
+          },
+        },
+      },
+    })
+
+    if (!conversation) {
+      return res.status(404).json({ error: 'Conversation not found' })
+    }
+
+    const messages = await prisma.chatMessage.findMany({
+      where: { conversationId },
+      orderBy: { createdAt: 'asc' },
+      take: 200,
+    })
+
+    // Reset unreadForAdmin and mark customer messages as read
+    if (conversation.unreadForAdmin > 0) {
+      await prisma.$transaction([
+        prisma.chatConversation.update({
+          where: { id: conversationId },
+          data: { unreadForAdmin: 0 },
+        }),
+        prisma.chatMessage.updateMany({
+          where: {
+            conversationId,
+            senderRole: 'CUSTOMER',
+            readAt: null,
+          },
+          data: { readAt: new Date() },
+        }),
+      ])
+      conversation.unreadForAdmin = 0
+
+      if (ioInstance) {
+        ioInstance.to(`user:${conversation.customerId}`).emit('chat:read', {
+          conversationId,
+        })
+      }
+    }
+
+    return res.json({ conversation, messages })
+  } catch (error: any) {
+    console.error('Admin fetch conversation messages error:', error)
+    return res.status(500).json({ error: error.message || 'Failed to fetch messages' })
+  }
+})
+
+// ─── 5. ADMIN: Send reply message to customer ─────────────────────────────────
+apiRouter.post('/admin/chat/:conversationId/reply', authMiddleware, requireRole(['SUPER_ADMIN', 'ADMIN', 'STAFF']), async (req: Request, res: Response) => {
+  try {
+    const conversationId = String(req.params.conversationId)
+
+    const schema = z.object({
+      body: z.string().trim().min(1, 'Reply cannot be empty').max(2000, 'Reply cannot exceed 2000 characters'),
+      orderId: z.string().optional().nullable(),
+      clientMessageId: z.string().optional(),
+    })
+
+    const parsed = schema.safeParse(req.body)
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid reply' })
+    }
+
+    const { body, orderId, clientMessageId } = parsed.data
+
+    const conversation = await prisma.chatConversation.findUnique({
+      where: { id: conversationId },
+    })
+
+    if (!conversation) {
+      return res.status(404).json({ error: 'Conversation not found' })
+    }
+
+    if (clientMessageId) {
+      const existing = await prisma.chatMessage.findUnique({
+        where: {
+          conversationId_clientMessageId: {
+            conversationId,
+            clientMessageId,
+          },
+        },
+      })
+      if (existing) {
+        return res.json({ message: existing, duplicate: true })
+      }
+    }
+
+    const preview = body.length > 80 ? `${body.substring(0, 77)}...` : body
+
+    const [replyMessage, updatedConv] = await prisma.$transaction([
+      prisma.chatMessage.create({
+        data: {
+          conversationId,
+          senderRole: 'ADMIN',
+          senderId: `${req.user!.name} (${req.user!.role})`,
+          body,
+          orderId: orderId || conversation.orderId || null,
+          clientMessageId: clientMessageId || null,
+          sheetSyncStatus: 'PENDING',
+        },
+      }),
+      prisma.chatConversation.update({
+        where: { id: conversationId },
+        data: {
+          lastMessageAt: new Date(),
+          lastMessagePreview: preview,
+          unreadForCustomer: { increment: 1 },
+          ...(orderId ? { orderId } : {}),
+        },
+      }),
+    ])
+
+    // Broadcast in real-time
+    if (ioInstance) {
+      ioInstance.to(`user:${conversation.customerId}`).emit('chat:message', {
+        message: replyMessage,
+        conversationId,
+      })
+      ioInstance.to('admin').emit('chat:message', {
+        message: replyMessage,
+        conversationId,
+      })
+      ioInstance.to('admin').emit('chat:conversation-updated', {
+        conversation: updatedConv,
+      })
+    }
+
+    return res.status(201).json({ message: replyMessage, conversation: updatedConv })
+  } catch (error: any) {
+    console.error('Admin reply error:', error)
+    return res.status(500).json({ error: error.message || 'Failed to send reply' })
+  }
+})
+
+// ─── 6. ADMIN: Update conversation status (OPEN / RESOLVED) ───────────────────
+apiRouter.patch('/admin/chat/:conversationId/status', authMiddleware, requireRole(['SUPER_ADMIN', 'ADMIN', 'STAFF']), async (req: Request, res: Response) => {
+  try {
+    const conversationId = String(req.params.conversationId)
+    const { status } = req.body
+
+    if (!['OPEN', 'RESOLVED'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid status. Must be OPEN or RESOLVED.' })
+    }
+
+    const conversation = await prisma.chatConversation.update({
+      where: { id: conversationId },
+      data: { status },
+      include: {
+        customer: {
+          select: { id: true, name: true, phone: true },
+        },
+      },
+    })
+
+    if (ioInstance) {
+      ioInstance.to('admin').emit('chat:conversation-updated', { conversation })
+    }
+
+    return res.json({ conversation })
+  } catch (error: any) {
+    console.error('Update conversation status error:', error)
+    return res.status(500).json({ error: error.message || 'Failed to update status' })
+  }
+})
+
+// ─── 7. ADMIN: Start or link chat for specific order (PDF point 5 requirement) 
+apiRouter.post('/admin/chat/for-order/:orderId', authMiddleware, requireRole(['SUPER_ADMIN', 'ADMIN', 'STAFF']), async (req: Request, res: Response) => {
+  try {
+    const orderId = String(req.params.orderId)
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      select: { id: true, userId: true, user: { select: { id: true, name: true, phone: true } } },
+    })
+
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' })
+    }
+
+    if (!order.userId) {
+      return res.status(400).json({ error: 'This order was placed by a guest without an account' })
+    }
+
+    let conversation = await prisma.chatConversation.findUnique({
+      where: { customerId: order.userId },
+    })
+
+    if (!conversation) {
+      conversation = await prisma.chatConversation.create({
+        data: {
+          customerId: order.userId,
+          status: 'OPEN',
+          orderId: order.id,
+          lastMessagePreview: `Order #${order.id.slice(-6)} query started`,
+        },
+      })
+    } else {
+      conversation = await prisma.chatConversation.update({
+        where: { id: conversation.id },
+        data: { orderId: order.id },
+      })
+    }
+
+    return res.json({ conversation })
+  } catch (error: any) {
+    console.error('Admin chat for order error:', error)
+    return res.status(500).json({ error: error.message || 'Failed to start chat for order' })
+  }
+})
+
+// ─── 8. BROADCASTS: Preview recipient count ───────────────────────────────────
+apiRouter.get('/admin/broadcasts/recipient-count', authMiddleware, requireRole(['SUPER_ADMIN', 'ADMIN']), async (req: Request, res: Response) => {
+  try {
+    const audience = (req.query.audience as string || 'ALL').toUpperCase()
+
+    const where: any = { isActive: true, role: 'CUSTOMER' }
+    if (audience === 'B2B') where.isB2B = true
+    if (audience === 'B2C') where.isB2B = false
+
+    const count = await prisma.user.count({ where })
+    return res.json({ count, audience })
+  } catch (error: any) {
+    console.error('Broadcast recipient count error:', error)
+    return res.status(500).json({ error: error.message || 'Failed to calculate recipient count' })
+  }
+})
+
+// ─── 9. ADMIN: Create and publish Broadcast ───────────────────────────────────
+apiRouter.post('/admin/broadcasts', authMiddleware, requireRole(['SUPER_ADMIN', 'ADMIN']), async (req: Request, res: Response) => {
+  try {
+    const schema = z.object({
+      title: z.string().trim().min(3, 'Title must be at least 3 characters').max(80, 'Title cannot exceed 80 characters'),
+      body: z.string().trim().min(5, 'Message must be at least 5 characters').max(1000, 'Message cannot exceed 1000 characters'),
+      audience: z.enum(['ALL', 'B2B', 'B2C']).default('ALL'),
+    })
+
+    const parsed = schema.safeParse(req.body)
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid input' })
+    }
+
+    const { title, body, audience } = parsed.data
+
+    const customerFilter: any = { isActive: true, role: 'CUSTOMER' }
+    if (audience === 'B2B') customerFilter.isB2B = true
+    if (audience === 'B2C') customerFilter.isB2B = false
+
+    const targetUsers = await prisma.user.findMany({
+      where: customerFilter,
+      select: { id: true },
+    })
+
+    if (targetUsers.length === 0) {
+      return res.status(400).json({ error: `No active customers found for audience "${audience}"` })
+    }
+
+    const broadcast = await prisma.broadcast.create({
+      data: {
+        title,
+        body,
+        audience,
+        createdBy: req.user!.id,
+        recipientCount: targetUsers.length,
+        sheetSyncStatus: 'PENDING',
+        recipients: {
+          createMany: {
+            data: targetUsers.map((u) => ({
+              customerId: u.id,
+            })),
+          },
+        },
+      },
+      include: {
+        author: {
+          select: { name: true, role: true },
+        },
+      },
+    })
+
+    // Log in admin audit logs
+    await prisma.adminAuditLog.create({
+      data: {
+        adminId: req.user!.id,
+        adminName: req.user!.name,
+        adminRole: req.user!.role,
+        action: 'CREATE_BROADCAST',
+        targetId: broadcast.id,
+        targetName: broadcast.title,
+        details: `Created broadcast "${title}" targeting ${audience} (${targetUsers.length} recipients)`,
+      },
+    })
+
+    // Emit live event to each recipient user room and to admin room
+    if (ioInstance) {
+      targetUsers.forEach((u) => {
+        ioInstance!.to(`user:${u.id}`).emit('broadcast:new', {
+          id: broadcast.id,
+          title: broadcast.title,
+          body: broadcast.body,
+          createdAt: broadcast.createdAt,
+        })
+      })
+      ioInstance.to('admin').emit('broadcast:created', { broadcast })
+    }
+
+    return res.status(201).json({ broadcast, recipientCount: targetUsers.length })
+  } catch (error: any) {
+    console.error('Create broadcast error:', error)
+    return res.status(500).json({ error: error.message || 'Failed to create broadcast' })
+  }
+})
+
+// ─── 10. ADMIN: Get list of past broadcasts ───────────────────────────────────
+apiRouter.get('/admin/broadcasts', authMiddleware, requireRole(['SUPER_ADMIN', 'ADMIN', 'STAFF']), async (req: Request, res: Response) => {
+  try {
+    const broadcasts = await prisma.broadcast.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+      include: {
+        author: {
+          select: { name: true, role: true },
+        },
+        _count: {
+          select: {
+            recipients: true,
+          },
+        },
+      },
+    })
+
+    return res.json({ broadcasts })
+  } catch (error: any) {
+    console.error('Fetch broadcasts error:', error)
+    return res.status(500).json({ error: error.message || 'Failed to fetch broadcasts' })
+  }
+})
+
+// ─── 11. CUSTOMER: Get personal broadcast updates ─────────────────────────────
+apiRouter.get('/updates', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const customerId = req.user!.id
+
+    const recipientRecords = await prisma.broadcastRecipient.findMany({
+      where: { customerId },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+      include: {
+        broadcast: {
+          select: {
+            id: true,
+            title: true,
+            body: true,
+            createdAt: true,
+            audience: true,
+            author: {
+              select: { name: true },
+            },
+          },
+        },
+      },
+    })
+
+    const updates = recipientRecords.map((r) => ({
+      id: r.id,
+      broadcastId: r.broadcast.id,
+      title: r.broadcast.title,
+      body: r.broadcast.body,
+      createdAt: r.broadcast.createdAt,
+      readAt: r.readAt,
+      author: r.broadcast.author.name,
+    }))
+
+    const unreadCount = updates.filter((u) => !u.readAt).length
+
+    return res.json({ updates, unreadCount })
+  } catch (error: any) {
+    console.error('Fetch customer updates error:', error)
+    return res.status(500).json({ error: error.message || 'Failed to fetch updates' })
+  }
+})
+
+// ─── 12. CUSTOMER: Mark a broadcast update as read ────────────────────────────
+apiRouter.patch('/updates/:recipientId/read', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const customerId = req.user!.id
+    const recipientId = String(req.params.recipientId)
+
+    const record = await prisma.broadcastRecipient.findFirst({
+      where: { id: recipientId, customerId },
+    })
+
+    if (!record) {
+      return res.status(404).json({ error: 'Update not found' })
+    }
+
+    const updated = await prisma.broadcastRecipient.update({
+      where: { id: recipientId },
+      data: { readAt: new Date() },
+    })
+
+    return res.json({ success: true, update: updated })
+  } catch (error: any) {
+    console.error('Mark update read error:', error)
+    return res.status(500).json({ error: error.message || 'Failed to mark update as read' })
+  }
+})
+
+// ─── 13. CUSTOMER: Get combined unread counters for badge in navbar ───────────
+apiRouter.get('/chat/badges', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const customerId = req.user!.id
+
+    const [conv, unreadUpdatesCount] = await prisma.$transaction([
+      prisma.chatConversation.findUnique({
+        where: { customerId },
+        select: { unreadForCustomer: true },
+      }),
+      prisma.broadcastRecipient.count({
+        where: { customerId, readAt: null },
+      }),
+    ])
+
+    const unreadChat = conv?.unreadForCustomer || 0
+    const totalUnread = unreadChat + unreadUpdatesCount
+
+    return res.json({
+      unreadChat,
+      unreadUpdates: unreadUpdatesCount,
+      totalUnread,
+    })
+  } catch (error: any) {
+    console.error('Get chat badges error:', error)
+    return res.status(500).json({ error: error.message || 'Failed to fetch badges' })
+  }
+})
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ─── ORDER ACCEPT, CANCEL & EDIT WORKFLOW ──────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+
+// 1. ADMIN: Accept Order (moves from PENDING / Awaiting Confirmation -> CONFIRMED)
+apiRouter.put('/orders/:id/accept', authMiddleware, requireRole(['SUPER_ADMIN', 'ADMIN', 'STAFF']), async (req: Request, res: Response) => {
+  try {
+    const id = String(req.params.id)
+    const order = await prisma.order.findUnique({ where: { id } })
+    if (!order) return res.status(404).json({ error: 'Order not found' })
+
+    const updated = await prisma.order.update({
+      where: { id },
+      data: {
+        status: 'CONFIRMED',
+        statusHistory: {
+          create: {
+            fromStatus: order.status,
+            toStatus: 'CONFIRMED',
+            changedBy: req.user!.name,
+            note: 'Order confirmed and accepted by Anmol admin',
+          },
+        },
+      },
+      include: { items: true },
+    })
+
+    if (ioInstance) {
+      ioInstance.to(`order-${id}`).emit('order_status_update', updated)
+      ioInstance.to('admin').emit('order_list_update')
+      if (order.userId) {
+        ioInstance.to(`user:${order.userId}`).emit('order_status_update', updated)
+      }
+    }
+
+    return res.json(updated)
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to accept order' })
+  }
+})
+
+// 2. CUSTOMER: Cancel Order (allowed while PENDING or CONFIRMED before packing)
+apiRouter.post('/orders/:id/cancel', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const id = String(req.params.id)
+    const { reason } = req.body
+    const customerId = req.user!.id
+
+    const order = await prisma.order.findUnique({
+      where: { id },
+      include: { items: true },
+    })
+
+    if (!order) return res.status(404).json({ error: 'Order not found' })
+    if (order.userId !== customerId && !['SUPER_ADMIN', 'ADMIN', 'STAFF'].includes(req.user!.role)) {
+      return res.status(403).json({ error: 'Unauthorized to cancel this order' })
+    }
+
+    if (!['PENDING', 'CONFIRMED'].includes(order.status)) {
+      return res.status(400).json({ error: `Cannot cancel order in "${order.status}" status. Cold chain dispatch already underway.` })
+    }
+
+    // Restore stock counts for variants
+    for (const item of order.items) {
+      if (item.variantId) {
+        await prisma.productVariant.update({
+          where: { id: item.variantId },
+          data: { stockCount: { increment: item.quantity } },
+        }).catch(() => {})
+      }
+    }
+
+    const updated = await prisma.order.update({
+      where: { id },
+      data: {
+        status: 'CANCELLED',
+        cancellationReason: reason || 'Cancelled by customer',
+        statusHistory: {
+          create: {
+            fromStatus: order.status,
+            toStatus: 'CANCELLED',
+            changedBy: req.user!.name,
+            note: `Cancelled: ${reason || 'Customer requested cancellation'}`,
+          },
+        },
+      },
+    })
+
+    if (ioInstance) {
+      ioInstance.to(`order-${id}`).emit('order_status_update', updated)
+      ioInstance.to('admin').emit('order_list_update')
+    }
+
+    return res.json({ success: true, order: updated })
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to cancel order' })
+  }
+})
+
+// 3. CUSTOMER: Edit Order (slot, notes, address note while PENDING or CONFIRMED)
+apiRouter.put('/orders/:id/edit', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const id = String(req.params.id)
+    const { deliverySlot, notes } = req.body
+    const customerId = req.user!.id
+
+    const order = await prisma.order.findUnique({ where: { id } })
+    if (!order) return res.status(404).json({ error: 'Order not found' })
+    if (order.userId !== customerId && !['SUPER_ADMIN', 'ADMIN', 'STAFF'].includes(req.user!.role)) {
+      return res.status(403).json({ error: 'Unauthorized to edit this order' })
+    }
+
+    if (!['PENDING', 'CONFIRMED'].includes(order.status)) {
+      return res.status(400).json({ error: 'Order packing has begun. Details cannot be modified.' })
+    }
+
+    const updated = await prisma.order.update({
+      where: { id },
+      data: {
+        ...(deliverySlot ? { deliverySlot } : {}),
+        ...(notes !== undefined ? { notes } : {}),
+      },
+    })
+
+    if (ioInstance) {
+      ioInstance.to(`order-${id}`).emit('order_status_update', updated)
+      ioInstance.to('admin').emit('order_list_update')
+    }
+
+    return res.json({ success: true, order: updated })
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to edit order' })
+  }
+})
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ─── COUPON MANAGEMENT & COD VALIDATION ───────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+
+// 4. ADMIN: List coupons
+apiRouter.get('/admin/coupons', authMiddleware, requireRole(['SUPER_ADMIN', 'ADMIN', 'STAFF']), async (_req: Request, res: Response) => {
+  try {
+    const coupons = await prisma.coupon.findMany({
+      orderBy: { createdAt: 'desc' },
+      include: { _count: { select: { orders: true } } },
+    })
+    return res.json({ coupons })
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to fetch coupons' })
+  }
+})
+
+// 5. ADMIN: Create coupon
+apiRouter.post('/admin/coupons', authMiddleware, requireRole(['SUPER_ADMIN', 'ADMIN']), async (req: Request, res: Response) => {
+  try {
+    const schema = z.object({
+      code: z.string().trim().min(2).max(20).toUpperCase(),
+      description: z.string().optional(),
+      discountType: z.enum(['PERCENTAGE', 'FIXED']).default('FIXED'),
+      discountValue: z.number().positive(),
+      minOrderAmount: z.number().nonnegative().default(0),
+      maxDiscountAmount: z.number().positive().optional().nullable(),
+      paymentConstraint: z.enum(['ALL', 'COD_ONLY', 'ONLINE_ONLY']).default('COD_ONLY'),
+      usageLimit: z.number().int().positive().optional().nullable(),
+      expiresAt: z.string().optional().nullable(),
+    })
+
+    const parsed = schema.safeParse(req.body)
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid coupon data' })
+    }
+
+    const { code, description, discountType, discountValue, minOrderAmount, maxDiscountAmount, paymentConstraint, usageLimit, expiresAt } = parsed.data
+
+    const existing = await prisma.coupon.findUnique({ where: { code } })
+    if (existing) return res.status(400).json({ error: `Coupon code "${code}" already exists.` })
+
+    const coupon = await prisma.coupon.create({
+      data: {
+        code,
+        description,
+        discountType,
+        discountValue,
+        minOrderAmount,
+        maxDiscountAmount,
+        paymentConstraint,
+        usageLimit,
+        expiresAt: expiresAt ? new Date(expiresAt) : null,
+      },
+    })
+
+    return res.status(201).json({ coupon })
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to create coupon' })
+  }
+})
+
+// 6. ADMIN: Toggle coupon status
+apiRouter.patch('/admin/coupons/:id/toggle', authMiddleware, requireRole(['SUPER_ADMIN', 'ADMIN']), async (req: Request, res: Response) => {
+  try {
+    const id = String(req.params.id)
+    const coupon = await prisma.coupon.findUnique({ where: { id } })
+    if (!coupon) return res.status(404).json({ error: 'Coupon not found' })
+
+    const updated = await prisma.coupon.update({
+      where: { id },
+      data: { isActive: !coupon.isActive },
+    })
+
+    return res.json({ coupon: updated })
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to toggle coupon' })
+  }
+})
+
+// 7. STOREFRONT: Validate & Calculate Coupon
+apiRouter.post('/coupons/validate', async (req: Request, res: Response) => {
+  try {
+    const { code, orderAmount, paymentMethod } = req.body
+    if (!code || typeof code !== 'string') {
+      return res.status(400).json({ error: 'Please enter a coupon code' })
+    }
+
+    const cleanCode = code.trim().toUpperCase()
+    const coupon = await prisma.coupon.findUnique({ where: { code: cleanCode } })
+
+    if (!coupon || !coupon.isActive) {
+      return res.status(404).json({ error: 'Invalid or inactive coupon code' })
+    }
+
+    if (coupon.expiresAt && new Date(coupon.expiresAt) < new Date()) {
+      return res.status(400).json({ error: 'This coupon has expired' })
+    }
+
+    if (coupon.usageLimit && coupon.timesUsed >= coupon.usageLimit) {
+      return res.status(400).json({ error: 'Coupon usage limit reached' })
+    }
+
+    const subtotal = Number(orderAmount) || 0
+    if (subtotal < coupon.minOrderAmount) {
+      return res.status(400).json({ error: `Minimum order amount of ₹${coupon.minOrderAmount} required for this coupon.` })
+    }
+
+    // Payment method restriction
+    if (coupon.paymentConstraint === 'COD_ONLY' && paymentMethod && paymentMethod !== 'CASH_ON_DELIVERY') {
+      return res.status(400).json({ error: 'This coupon is exclusively valid on Cash on Delivery orders.' })
+    }
+
+    if (coupon.paymentConstraint === 'ONLINE_ONLY' && paymentMethod === 'CASH_ON_DELIVERY') {
+      return res.status(400).json({ error: 'This coupon is exclusively valid on Online Prepaid orders.' })
+    }
+
+    // Calculate discount
+    let discount = 0
+    if (coupon.discountType === 'FIXED') {
+      discount = Math.min(coupon.discountValue, subtotal)
+    } else {
+      discount = (subtotal * coupon.discountValue) / 100
+      if (coupon.maxDiscountAmount) {
+        discount = Math.min(discount, coupon.maxDiscountAmount)
+      }
+    }
+    discount = Math.round(discount * 100) / 100
+
+    return res.json({
+      valid: true,
+      code: coupon.code,
+      discount,
+      discountType: coupon.discountType,
+      discountValue: coupon.discountValue,
+      description: coupon.description,
+      finalAmount: Math.max(0, subtotal - discount),
+    })
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to validate coupon' })
+  }
+})
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ─── DELIVERY BOY (DRIVER) PORTAL & DISTANCE COMMISSION ───────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+
+// 8. DRIVER: Authenticate Driver by Phone
+apiRouter.post('/driver/auth', async (req: Request, res: Response) => {
+  try {
+    const { phone } = req.body
+    if (!phone) return res.status(400).json({ error: 'Phone number is required' })
+
+    const cleanPhone = String(phone).replace(/\D/g, '').slice(-10)
+    const driver = await prisma.driver.findFirst({
+      where: {
+        phone: { contains: cleanPhone },
+        isActive: true,
+      },
+    })
+
+    if (!driver) {
+      return res.status(404).json({ error: 'Driver profile not found or inactive. Contact Anmol Operations.' })
+    }
+
+    const token = signToken(driver.id, 'DRIVER')
+
+    res.cookie('driver_token', token, {
+      httpOnly: true,
+      secure: env.isProd,
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      sameSite: 'lax',
+    })
+
+    return res.json({ driver, token })
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Driver authentication failed' })
+  }
+})
+
+// 9. DRIVER: Get Assigned Orders & Daily Commission Summary
+apiRouter.get('/driver/orders', async (req: Request, res: Response) => {
+  try {
+    const driverId = (req.query.driverId as string) || (req.headers['x-driver-id'] as string)
+    if (!driverId) return res.status(400).json({ error: 'Driver ID required' })
+
+    const orders = await prisma.order.findMany({
+      where: {
+        driverId,
+        status: { in: ['ASSIGNED', 'OUT_FOR_DELIVERY', 'DELIVERED'] },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+      include: {
+        items: true,
+        driverCommission: true,
+      },
+    })
+
+    const totalDelivered = orders.filter((o) => o.status === 'DELIVERED').length
+    const totalEarnings = orders
+      .filter((o) => o.status === 'DELIVERED' && o.driverCommission)
+      .reduce((sum, o) => sum + (o.driverCommission?.totalCommission || 0), 0)
+
+    return res.json({
+      orders,
+      stats: {
+        totalDelivered,
+        totalEarnings,
+        activeOrders: orders.filter((o) => o.status !== 'DELIVERED').length,
+      },
+    })
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to fetch driver orders' })
+  }
+})
+
+// 10. DRIVER: Mark Order Delivered & Record Distance Commission
+apiRouter.post('/driver/orders/:id/deliver', async (req: Request, res: Response) => {
+  try {
+    const id = String(req.params.id)
+    const { driverId, distanceKm } = req.body
+
+    const order = await prisma.order.findUnique({
+      where: { id },
+      include: { driver: true },
+    })
+
+    if (!order) return res.status(404).json({ error: 'Order not found' })
+
+    const dist = Math.max(1, Number(distanceKm) || 4.5) // default 4.5km if GPS not provided
+    const baseFee = 25
+    const perKmRate = 8
+    const totalCommission = Math.round((baseFee + dist * perKmRate) * 100) / 100
+
+    const now = new Date()
+
+    const [updatedOrder, commLog] = await prisma.$transaction([
+      prisma.order.update({
+        where: { id },
+        data: {
+          status: 'DELIVERED',
+          deliveredAt: now,
+          statusHistory: {
+            create: {
+              fromStatus: order.status,
+              toStatus: 'DELIVERED',
+              changedBy: order.driver?.name || 'Driver',
+              note: `Delivered safely. Distance: ${dist} km.`,
+            },
+          },
+        },
+      }),
+      prisma.driverCommissionLog.upsert({
+        where: { orderId: id },
+        create: {
+          driverId: driverId || order.driverId!,
+          orderId: id,
+          distanceKm: dist,
+          baseFee,
+          perKmRate,
+          totalCommission,
+        },
+        update: {
+          distanceKm: dist,
+          totalCommission,
+        },
+      }),
+    ])
+
+    if (ioInstance) {
+      ioInstance.to(`order-${id}`).emit('order_status_update', updatedOrder)
+      ioInstance.to('admin').emit('order_list_update')
+      if (order.userId) {
+        ioInstance.to(`user:${order.userId}`).emit('order_status_update', updatedOrder)
+      }
+    }
+
+    return res.json({ success: true, order: updatedOrder, commission: commLog })
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to mark delivery' })
+  }
+})
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ─── REVIEWS, COMPLAINTS & SERVICE RATINGS ─────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+
+// 11. CUSTOMER: Submit Review & Service Grade for Delivered Order
+apiRouter.post('/orders/:id/review', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const orderId = String(req.params.id)
+    const customerId = req.user!.id
+
+    const schema = z.object({
+      rating: z.number().int().min(1).max(5),
+      serviceGrade: z.enum(['EXCELLENT', 'GOOD', 'AVERAGE', 'POOR']).default('EXCELLENT'),
+      comment: z.string().max(500).optional(),
+    })
+
+    const parsed = schema.safeParse(req.body)
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid review data' })
+    }
+
+    const { rating, serviceGrade, comment } = parsed.data
+
+    const order = await prisma.order.findUnique({ where: { id: orderId } })
+    if (!order) return res.status(404).json({ error: 'Order not found' })
+    if (order.userId !== customerId) return res.status(403).json({ error: 'Unauthorized' })
+    if (order.status !== 'DELIVERED') {
+      return res.status(400).json({ error: 'You can review orders after they are delivered.' })
+    }
+
+    const review = await prisma.orderReview.upsert({
+      where: { orderId },
+      create: {
+        orderId,
+        userId: customerId,
+        rating,
+        serviceGrade,
+        comment,
+      },
+      update: {
+        rating,
+        serviceGrade,
+        comment,
+      },
+    })
+
+    return res.status(201).json({ success: true, review })
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to submit review' })
+  }
+})
+
+// 12. CUSTOMER: Raise an Order Complaint
+apiRouter.post('/orders/:id/complaint', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const orderId = String(req.params.id)
+    const customerId = req.user!.id
+
+    const schema = z.object({
+      issueType: z.enum(['DEFROSTED', 'DAMAGED_PACKET', 'WRONG_ITEM', 'LATE_DELIVERY', 'COLD_CHAIN_BROKEN', 'OTHER']),
+      description: z.string().min(5, 'Please provide complaint details').max(1000),
+    })
+
+    const parsed = schema.safeParse(req.body)
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid complaint data' })
+    }
+
+    const { issueType, description } = parsed.data
+
+    const order = await prisma.order.findUnique({ where: { id: orderId } })
+    if (!order) return res.status(404).json({ error: 'Order not found' })
+    if (order.userId !== customerId) return res.status(403).json({ error: 'Unauthorized' })
+
+    const complaint = await prisma.orderComplaint.upsert({
+      where: { orderId },
+      create: {
+        orderId,
+        userId: customerId,
+        issueType,
+        description,
+        status: 'OPEN',
+      },
+      update: {
+        issueType,
+        description,
+        status: 'OPEN',
+      },
+    })
+
+    if (ioInstance) {
+      ioInstance.to('admin').emit('new_complaint', {
+        orderId,
+        complaint,
+        customerName: req.user!.name,
+      })
+    }
+
+    return res.status(201).json({ success: true, complaint })
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to submit complaint' })
+  }
+})
+
+// 13. ADMIN: Get all complaints
+apiRouter.get('/admin/complaints', authMiddleware, requireRole(['SUPER_ADMIN', 'ADMIN', 'STAFF']), async (_req: Request, res: Response) => {
+  try {
+    const complaints = await prisma.orderComplaint.findMany({
+      orderBy: { createdAt: 'desc' },
+      include: {
+        user: { select: { name: true, phone: true } },
+        order: { select: { id: true, orderNumber: true, totalAmount: true, status: true } },
+      },
+    })
+    return res.json({ complaints })
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to fetch complaints' })
+  }
+})
+
+
+
 

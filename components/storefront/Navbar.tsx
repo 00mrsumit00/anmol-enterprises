@@ -1,11 +1,12 @@
 'use client'
 
-import React, { useState, useEffect, Suspense } from 'react'
+import React, { useState, useEffect, useRef, useMemo, Suspense } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
+import { useQuery } from '@tanstack/react-query'
 import { 
   Snowflake, User, LogOut, 
-  LayoutDashboard, MapPin, ChevronDown, Zap, Mic, Search, Wallet
+  LayoutDashboard, MapPin, ChevronDown, Zap, Mic, Search, Wallet, Sparkles, ArrowRight, MessageSquare
 } from 'lucide-react'
 import { useCart } from '@/hooks/useCart'
 import { useToast } from '@/components/ui/Toast'
@@ -33,6 +34,9 @@ function NavbarContent() {
   const isProfileOrCheckout = pathname.startsWith('/account') || pathname.startsWith('/checkout')
 
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '')
+  const [isSearchFocused, setIsSearchFocused] = useState(false)
+  const searchContainerRef = useRef<HTMLDivElement>(null)
+
   const [user, setUser] = useState<any>(null)
   const [showDropdown, setShowDropdown] = useState(false)
   const [showLocationModal, setShowLocationModal] = useState(false)
@@ -40,6 +44,71 @@ function NavbarContent() {
   const [savedAddressText, setSavedAddressText] = useState('Home - Latur City, Maharashtra')
   const [isScrolled, setIsScrolled] = useState(false)
   const [placeholderIndex, setPlaceholderIndex] = useState(0)
+
+  // Fetch live products & categories for instant search suggestions
+  const { data: allProducts = [] } = useQuery({
+    queryKey: ['products'],
+    queryFn: async () => {
+      const res = await fetch('/api/products')
+      if (!res.ok) return []
+      return res.json()
+    },
+    staleTime: 60000,
+  })
+
+  const { data: allCategories = [] } = useQuery({
+    queryKey: ['categories'],
+    queryFn: async () => {
+      const res = await fetch('/api/categories')
+      if (!res.ok) return []
+      return res.json()
+    },
+    staleTime: 60000,
+  })
+
+  // Fetch unread messages & broadcast updates badges
+  const { data: badgeData } = useQuery({
+    queryKey: ['chat-badges'],
+    queryFn: async () => {
+      const res = await fetch('/api/chat/badges')
+      if (!res.ok) return { totalUnread: 0, unreadChat: 0, unreadUpdates: 0 }
+      return res.json() as Promise<{ totalUnread: number; unreadChat: number; unreadUpdates: number }>
+    },
+    refetchInterval: 15000,
+  })
+  const totalUnreadBadges = badgeData?.totalUnread || 0
+
+  // Dismiss search dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
+        setIsSearchFocused(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  // Calculate live matching suggestions
+  const searchSuggestions = useMemo(() => {
+    if (!searchQuery.trim() || !allProducts.length) return { items: [], cats: [] }
+    const q = searchQuery.toLowerCase().trim()
+    const tokens = q.split(/\s+/).filter(Boolean)
+
+    const matches = allProducts.filter((p: any) => {
+      const name = (p.name || '').toLowerCase()
+      const desc = (p.description || '').toLowerCase()
+      const cat = (p.category?.name || '').toLowerCase()
+      return tokens.some((t: string) => name.includes(t) || cat.includes(t) || desc.includes(t))
+    }).slice(0, 4)
+
+    const matchedCats = allCategories.filter((c: any) => {
+      const cName = (c.name || '').toLowerCase()
+      return tokens.some((t: string) => cName.includes(t))
+    }).slice(0, 2)
+
+    return { items: matches, cats: matchedCats }
+  }, [searchQuery, allProducts, allCategories])
 
   // Rotating placeholder effect every 2.5s
   useEffect(() => {
@@ -202,7 +271,10 @@ function NavbarContent() {
 
             {/* Middle: Single Permanent Search Bar (Center on desktop, Row 2 on mobile) */}
             {!isProfileOrCheckout && (
-              <div className="order-3 lg:order-2 w-full lg:w-auto lg:flex-1 max-w-none lg:max-w-xl xl:max-w-2xl lg:mx-4 sm:lg:mx-6 pb-1 lg:pb-0 transition-all duration-200">
+              <div 
+                ref={searchContainerRef}
+                className="order-3 lg:order-2 w-full lg:w-auto lg:flex-1 max-w-none lg:max-w-xl xl:max-w-2xl lg:mx-4 sm:lg:mx-6 pb-1 lg:pb-0 transition-all duration-200 relative"
+              >
                 <form onSubmit={handleSearchSubmit} className="w-full relative">
                   <div className="relative flex items-center">
                     <Search className="w-4 h-4 text-gray-400 absolute left-3.5 pointer-events-none shrink-0" />
@@ -210,13 +282,20 @@ function NavbarContent() {
                       type="text"
                       placeholder={PLACEHOLDERS[placeholderIndex]}
                       value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onFocus={() => setIsSearchFocused(true)}
+                      onChange={(e) => {
+                        setSearchQuery(e.target.value)
+                        setIsSearchFocused(true)
+                      }}
                       className="w-full bg-[#f4f6fb] hover:bg-[#edf1f7] focus:bg-white border border-gray-200 focus:border-[#0c831f] text-gray-900 placeholder-gray-400 text-sm font-medium rounded-2xl pl-10 pr-10 py-2.5 focus:outline-none transition-all shadow-xs focus:shadow-md focus:shadow-emerald-600/10"
                     />
                     {searchQuery ? (
                       <button
                         type="button"
-                        onClick={() => setSearchQuery('')}
+                        onClick={() => {
+                          setSearchQuery('')
+                          setIsSearchFocused(false)
+                        }}
                         className="absolute right-3.5 text-gray-400 hover:text-gray-700 font-bold text-sm"
                       >
                         ✕
@@ -232,11 +311,122 @@ function NavbarContent() {
                     )}
                   </div>
                 </form>
+
+                {/* Instant Live Autocomplete Dropdown Preview */}
+                {isSearchFocused && searchQuery.trim().length >= 1 && (
+                  <div className="absolute top-full left-0 right-0 mt-1.5 bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden z-50 animate-in fade-in slide-in-from-top-1 duration-150 font-sans">
+                    {/* Category shortcuts if matched */}
+                    {searchSuggestions.cats.length > 0 && (
+                      <div className="p-2 border-b border-gray-100 bg-gray-50/70 flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider px-1">Categories:</span>
+                        {searchSuggestions.cats.map((c: any) => (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onClick={() => {
+                              setIsSearchFocused(false)
+                              router.push(`/?category=${c.slug}#catalog`)
+                            }}
+                            className="inline-flex items-center gap-1 bg-white hover:bg-emerald-50 text-gray-800 hover:text-[#0c831f] text-xs font-bold px-2.5 py-1 rounded-xl border border-gray-200 transition-colors"
+                          >
+                            <span>{c.emoji || '🍟'}</span>
+                            <span>{c.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Matching Products Preview */}
+                    {searchSuggestions.items.length > 0 ? (
+                      <div className="divide-y divide-gray-100">
+                        {searchSuggestions.items.map((prod: any) => {
+                          const singleVar = prod.variants?.find((v: any) => v.packagingType === 'SINGLE') || {}
+                          const price = isB2BMode ? (singleVar.b2bPrice || prod.price) : (singleVar.retailPrice || prod.price)
+                          const packLabel = singleVar.unitsInPack > 1 ? `${singleVar.unitsInPack} Pcs` : `${singleVar.weightGrams || 400}g`
+
+                          return (
+                            <button
+                              key={prod.id}
+                              type="button"
+                              onClick={() => {
+                                setIsSearchFocused(false)
+                                router.push(`/product/${prod.slug}`)
+                              }}
+                              className="w-full flex items-center justify-between p-2.5 sm:p-3 hover:bg-emerald-50/60 transition-colors text-left group"
+                            >
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <div className="w-10 h-10 rounded-xl bg-gray-50 border border-gray-200 p-0.5 shrink-0 flex items-center justify-center overflow-hidden">
+                                  <img
+                                    src={prod.imageUrl || '/images/products/mccain-smiles.jpg'}
+                                    alt={prod.name}
+                                    className="max-h-full max-w-full object-contain"
+                                    onError={(e) => {
+                                      (e.target as HTMLImageElement).src = '/images/products/mccain-smiles.jpg'
+                                    }}
+                                  />
+                                </div>
+                                <div className="min-w-0">
+                                  <h4 className="text-xs font-bold text-gray-900 group-hover:text-[#0c831f] transition-colors truncate">
+                                    {prod.name}
+                                  </h4>
+                                  <div className="flex items-center gap-2 text-[10px] text-gray-400 font-semibold mt-0.5">
+                                    <span>{packLabel}</span>
+                                    <span>•</span>
+                                    <span className="text-gray-500">{prod.category?.name || 'McCain'}</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-2 shrink-0 pl-2">
+                                <span className="font-black text-xs text-gray-900">
+                                  ₹{price}
+                                </span>
+                                <ArrowRight className="w-3.5 h-3.5 text-gray-400 group-hover:text-[#0c831f] group-hover:translate-x-0.5 transition-all" />
+                              </div>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    ) : (
+                      <div className="p-3 text-center text-xs text-gray-500">
+                        Press Enter to view all results & suggestions for &ldquo;{searchQuery}&rdquo;
+                      </div>
+                    )}
+
+                    {/* View all search results link */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsSearchFocused(false)
+                        router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`)
+                      }}
+                      className="w-full p-2.5 bg-gray-50 hover:bg-emerald-50 border-t border-gray-100 text-xs font-bold text-[#0c831f] flex items-center justify-center gap-1.5 transition-colors"
+                    >
+                      <span>View all matching products for &ldquo;{searchQuery}&rdquo;</span>
+                      <ArrowRight className="w-3 h-3" />
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
             {/* Right: Wallet + Admin badge + B2B indicator + User avatar (order-2 on mobile, lg:order-3 on desktop) */}
             <div className="flex items-center gap-2 shrink-0 order-2 lg:order-3">
+
+              {/* Helpdesk & Chat Pill */}
+              <Link
+                href="/chat"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange-50 hover:bg-orange-100 text-orange-600 text-xs font-bold transition-all border border-orange-200/80 shadow-xs relative active:scale-95"
+                title="Customer Helpdesk & Chat"
+              >
+                <MessageSquare className="w-3.5 h-3.5 text-orange-500" />
+                <span className="hidden sm:inline">Help & Chat</span>
+                {totalUnreadBadges > 0 && (
+                  <span className="min-w-4 h-4 px-1 rounded-full bg-orange-500 text-white text-[10px] font-black flex items-center justify-center animate-pulse">
+                    {totalUnreadBadges}
+                  </span>
+                )}
+              </Link>
 
               {/* Wallet Pill */}
               <Link

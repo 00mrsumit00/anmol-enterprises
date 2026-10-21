@@ -53,13 +53,60 @@ export default function Homepage() {
   const filteredProducts = getFilteredProducts()
   const featuredProducts = products.filter((p: any) => p.isFeatured)
 
+  // Selected category / filter products
+  const selectedCategory = categories.find((c: any) => c.slug === activeFilter)
+
+  // When a user selects a specific category or filter, display their selection first,
+  // and gather all other category products to display below it.
+  const otherCategories = React.useMemo(() => {
+    if (activeFilter === 'all' || products.length === 0) return []
+    
+    // Filter out products that were already shown in filteredProducts
+    const shownIds = new Set(filteredProducts.map((p: any) => p.id))
+    const remainingProducts = products.filter((p: any) => !shownIds.has(p.id))
+    if (remainingProducts.length === 0) return []
+
+    // Group remaining products by category
+    const categoryGroups: { category: any; items: any[] }[] = []
+
+    // Map by known categories list first to maintain proper sorting
+    categories.forEach((cat: any) => {
+      // Don't show the category if it was the selected one
+      if (cat.slug === activeFilter) return
+
+      const items = remainingProducts.filter(
+        (p: any) => p.category?.slug === cat.slug || p.categoryId === cat.id
+      )
+      if (items.length > 0) {
+        categoryGroups.push({ category: cat, items })
+      }
+    })
+
+    // Catch any remaining items that didn't match the known categories
+    const alreadyGroupedIds = new Set(categoryGroups.flatMap(g => g.items.map(i => i.id)))
+    const uncategorizedItems = remainingProducts.filter((p: any) => !alreadyGroupedIds.has(p.id))
+    if (uncategorizedItems.length > 0) {
+      categoryGroups.push({
+        category: {
+          id: 'other-specials',
+          name: 'More Frozen Products',
+          slug: 'more-frozen',
+          emoji: '❄️'
+        },
+        items: uncategorizedItems
+      })
+    }
+
+    return categoryGroups
+  }, [activeFilter, products, filteredProducts, categories])
+
   return (
     <div className="flex flex-col gap-3.5 sm:gap-4 md:gap-5 font-sans">
       
       {/* A. Hero Banner */}
       <HeroBanner />
 
-      {/* B. Category Chips Strip */}
+      {/* B. Category Exploration & Quick Access (Restored below Hero Banner) */}
       <CategoryStrip activeFilter={activeFilter} onFilterChange={setActiveFilter} />
 
       {/* C. "McCain Specials" Horizontal Carousel */}
@@ -97,7 +144,7 @@ export default function Homepage() {
       {/* D. Trust Strip */}
       <TrustStrip />
 
-      {/* E. Main Products Grid Section (Blinkit Card Layout) */}
+      {/* E. Main Products Grid Section (User's Selected Category First) */}
       <section className="no-print">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
@@ -105,6 +152,8 @@ export default function Homepage() {
               <Flame className="w-5 h-5 text-amber-600 animate-bounce" />
             ) : activeFilter === 'new' ? (
               <Zap className="w-5 h-5 text-yellow-500" />
+            ) : selectedCategory?.emoji ? (
+              <span className="text-xl leading-none">{selectedCategory.emoji}</span>
             ) : (
               <Snowflake className="w-5 h-5 text-[#0c831f]" />
             )}
@@ -113,8 +162,7 @@ export default function Homepage() {
               {activeFilter === 'featured' && 'Featured Products'}
               {activeFilter === 'deals' && 'Hot Deals & Discounts'}
               {activeFilter === 'new' && 'New Arrivals'}
-              {categories.find((c: any) => c.slug === activeFilter) && 
-                `${categories.find((c: any) => c.slug === activeFilter).name}`}
+              {selectedCategory && selectedCategory.name}
             </h3>
           </div>
           <span className="text-xs text-gray-400 font-bold uppercase tracking-wider">
@@ -125,7 +173,47 @@ export default function Homepage() {
         <ProductGrid products={filteredProducts} isLoading={productsLoading} />
       </section>
 
-      {/* F. B2B Wholesale Banner */}
+      {/* F. Other Category Products Below (when a specific category is selected) */}
+      {activeFilter !== 'all' && otherCategories.length > 0 && (
+        <section className="no-print space-y-8 pt-6 border-t-2 border-dashed border-gray-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <h4 className="font-extrabold text-lg sm:text-xl text-gray-900 flex items-center gap-2">
+                <span>❄️</span>
+                <span>More Products from Other Categories</span>
+              </h4>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Showing other frozen snacks available in our store
+              </p>
+            </div>
+            <button
+              onClick={() => setActiveFilter('all')}
+              className="text-xs font-bold text-[#0c831f] hover:underline"
+            >
+              View All Products
+            </button>
+          </div>
+
+          {otherCategories.map(({ category, items }) => (
+            <div key={category.id || category.slug} className="space-y-3">
+              <div className="flex items-center justify-between bg-gray-50/90 px-3.5 py-2.5 rounded-xl border border-gray-100">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg leading-none">{category.emoji || '🍟'}</span>
+                  <h5 className="font-bold text-sm sm:text-base text-gray-900">
+                    {category.name}
+                  </h5>
+                </div>
+                <span className="text-xs text-gray-500 font-medium">
+                  {items.length} {items.length === 1 ? 'item' : 'items'}
+                </span>
+              </div>
+              <ProductGrid products={items} isLoading={false} />
+            </div>
+          ))}
+        </section>
+      )}
+
+      {/* G. B2B Wholesale Banner */}
       <B2BBanner />
 
       {/* G. Footer */}
