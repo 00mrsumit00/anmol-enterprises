@@ -234,7 +234,7 @@ export default function Homepage() {
             <h5 className="font-extrabold text-gray-900 text-sm mb-2">
               Delivery Coverage Hubs
             </h5>
-            <p>Latur City (Express 10-Min), Osmanabad, Nanded, Bidar</p>
+            <p>Latur City (Express Delivery), Osmanabad, Nanded, Bidar</p>
             <p className="mt-2 font-bold text-gray-900">
               🕐 Operating Hours: 9:00 AM – 8:00 PM
             </p>

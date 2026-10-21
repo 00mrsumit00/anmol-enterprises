@@ -2990,7 +2990,7 @@ const orderCreateSchema = z.object({
   deliveryAddress: z.string(),
   deliveryCity: z.string(),
   deliveryPincode: z.string(),
-  deliverySlot: z.string().optional().default('EXPRESS_10MIN'),
+  deliverySlot: z.string().optional().default('EXPRESS_LOCAL'),
   deliveryDate: z.string().optional().transform(str => str ? new Date(str) : new Date()),
   paymentMethod: z.enum(['CASH_ON_DELIVERY', 'UPI', 'CARD', 'CREDIT_ACCOUNT']),
   items: z.array(orderItemSchema).min(1, 'Order must contain at least 1 item'),
@@ -5428,6 +5428,95 @@ apiRouter.post('/admin/chat/for-order/:orderId', authMiddleware, requireRole(['S
   } catch (error: any) {
     console.error('Admin chat for order error:', error)
     return res.status(500).json({ error: error.message || 'Failed to start chat for order' })
+  }
+})
+
+// ─── 7b. ADMIN: Send in-app chat message directly for an order ──────────────
+apiRouter.post('/admin/chat/send-for-order', authMiddleware, requireRole(['SUPER_ADMIN', 'ADMIN', 'STAFF']), async (req: Request, res: Response) => {
+  try {
+    const { orderId, body } = req.body
+    if (!orderId || !body || !body.trim()) {
+      return res.status(400).json({ error: 'orderId and body are required' })
+    }
+
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: { user: true },
+    })
+
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' })
+    }
+
+    let customerId = order.userId
+    if (!customerId) {
+      const phoneClean = (order.guestPhone || '').replace(/\D/g, '').slice(-10)
+      if (phoneClean) {
+        const matched = await prisma.user.findFirst({
+          where: { phone: { contains: phoneClean } }
+        })
+        if (matched) customerId = matched.id
+      }
+    }
+
+    if (!customerId) {
+      return res.status(400).json({ error: 'Customer account not found for this order. You can still reach them on WhatsApp.' })
+    }
+
+    let conversation = await prisma.chatConversation.findUnique({
+      where: { customerId },
+    })
+
+    const preview = body.length > 80 ? `${body.substring(0, 77)}...` : body
+
+    if (!conversation) {
+      conversation = await prisma.chatConversation.create({
+        data: {
+          customerId,
+          status: 'OPEN',
+          orderId: order.id,
+          lastMessagePreview: preview,
+          lastMessageAt: new Date(),
+        },
+      })
+    } else {
+      conversation = await prisma.chatConversation.update({
+        where: { id: conversation.id },
+        data: {
+          orderId: order.id,
+          lastMessagePreview: preview,
+          lastMessageAt: new Date(),
+        },
+      })
+    }
+
+    const chatMsg = await prisma.chatMessage.create({
+      data: {
+        conversationId: conversation.id,
+        senderRole: 'ADMIN',
+        senderId: `${req.user!.name} (${req.user!.role})`,
+        body: body.trim(),
+        orderId: order.id,
+        sheetSyncStatus: 'PENDING',
+      },
+    })
+
+    if (ioInstance) {
+      ioInstance.to(`user:${customerId}`).emit('chat:message', {
+        message: chatMsg,
+        conversationId: conversation.id,
+      })
+      ioInstance.to('admin').emit('chat:message', {
+        message: chatMsg,
+        conversationId: conversation.id,
+      })
+      ioInstance.to('admin').emit('chat:conversation-updated', { conversation })
+    }
+
+    return res.json({ success: true, message: chatMsg, conversationId: conversation.id })
+  } catch (error: any) {
+    console.error('Send chat for order error:', error)
+    return res.status(500).json({ error: error.message || 'Failed to send chat message' })
   }
 })
 

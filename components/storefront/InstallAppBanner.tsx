@@ -1,20 +1,26 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
-import { Download, X, Share, PlusSquare, Smartphone, Monitor, CheckCircle, Sparkles, Activity } from 'lucide-react'
+import { Download, X, Share, PlusSquare, Smartphone, Monitor, CheckCircle, ChevronUp } from 'lucide-react'
 
 export default function InstallAppBanner() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
   const [showBanner, setShowBanner] = useState(false)
+  const [isDismissing, setIsDismissing] = useState(false)
   const [deviceType, setDeviceType] = useState<'ios' | 'android' | 'desktop'>('desktop')
   const [showTutorialModal, setShowTutorialModal] = useState(false)
   const [isInstalled, setIsInstalled] = useState(false)
 
+  // Touch swipe handling
+  const touchStartY = useRef<number | null>(null)
+  const touchCurrentY = useRef<number | null>(null)
+  const [swipeOffset, setSwipeOffset] = useState(0)
+
   useEffect(() => {
     if (typeof window === 'undefined') return
 
-    // 1. Check if already running in standalone PWA mode (already installed & opened from home screen)
+    // 1. Check if running in standalone PWA mode
     const isStandalone = 
       window.matchMedia('(display-mode: standalone)').matches ||
       (window.navigator as any).standalone === true ||
@@ -25,16 +31,16 @@ export default function InstallAppBanner() {
       return
     }
 
-    // 2. Check if user dismissed the banner recently (within 3 days)
+    // 2. Check if user dismissed recently (within 2 days)
     const dismissedAt = localStorage.getItem('anmol_install_banner_dismissed')
     if (dismissedAt) {
       const daysSinceDismiss = (Date.now() - parseInt(dismissedAt, 10)) / (1000 * 60 * 60 * 24)
-      if (daysSinceDismiss < 3) {
+      if (daysSinceDismiss < 2) {
         return
       }
     }
 
-    // 3. Detect device type accurately
+    // 3. Detect device type
     const userAgent = window.navigator.userAgent.toLowerCase()
     const isIosDevice = /iphone|ipad|ipod/.test(userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
     const isAndroidDevice = /android/.test(userAgent)
@@ -47,7 +53,7 @@ export default function InstallAppBanner() {
       setDeviceType('desktop')
     }
 
-    // 4. Capture native beforeinstallprompt event (Android Chrome, Edge, desktop)
+    // 4. Capture native beforeinstallprompt event
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault()
       setDeferredPrompt(e)
@@ -63,10 +69,10 @@ export default function InstallAppBanner() {
       setDeferredPrompt(null)
     })
 
-    // Slide in gracefully after 2 seconds without shifting the page layout
+    // Slide down gracefully from the top after 1.5 seconds
     const timer = setTimeout(() => {
       setShowBanner(true)
-    }, 2000)
+    }, 1500)
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
@@ -75,7 +81,6 @@ export default function InstallAppBanner() {
   }, [])
 
   const handleInstallClick = async () => {
-    // 1. If native PWA install prompt is ready (Android Chrome / Edge / Desktop Chrome):
     if (deferredPrompt) {
       try {
         deferredPrompt.prompt()
@@ -91,17 +96,49 @@ export default function InstallAppBanner() {
       return
     }
 
-    // 2. If native prompt is not available, show platform-appropriate tutorial modal
-    // (Only iPhone sees the Safari Share sheet guide; Android & Desktop see their respective steps)
     setShowTutorialModal(true)
   }
 
   const handleDismiss = () => {
-    setShowBanner(false)
-    setShowTutorialModal(false)
-    try {
-      localStorage.setItem('anmol_install_banner_dismissed', Date.now().toString())
-    } catch {}
+    setIsDismissing(true)
+    setTimeout(() => {
+      setShowBanner(false)
+      setIsDismissing(false)
+      setShowTutorialModal(false)
+      try {
+        localStorage.setItem('anmol_install_banner_dismissed', Date.now().toString())
+      } catch {}
+    }, 300)
+  }
+
+  // Touch event handlers for swipe-up dismiss
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartY.current = e.touches[0].clientY
+    touchCurrentY.current = e.touches[0].clientY
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (touchStartY.current === null) return
+    touchCurrentY.current = e.touches[0].clientY
+    const diff = touchCurrentY.current - touchStartY.current
+    if (diff < 0) {
+      // Swiping up
+      setSwipeOffset(diff)
+    }
+  }
+
+  const handleTouchEnd = () => {
+    if (touchStartY.current !== null && touchCurrentY.current !== null) {
+      const diff = touchCurrentY.current - touchStartY.current
+      if (diff < -35) {
+        // Swiped up by more than 35px -> dismiss
+        handleDismiss()
+      } else {
+        setSwipeOffset(0)
+      }
+    }
+    touchStartY.current = null
+    touchCurrentY.current = null
   }
 
   if (!showBanner || isInstalled) return null
@@ -109,34 +146,53 @@ export default function InstallAppBanner() {
   return (
     <>
       {/* 
-        Cyber-Luxury Floating App Node 
-        Inspired by vstechworks.co.in production node glassmorphism
-        - Position: Floating in bottom-right corner (desktop) / bottom sheet above nav (mobile)
-        - Zero page layout push (preserves full navbar cleanliness)
+        Top Push Notification Pop-up
+        - Pops down from top of screen with smooth bounce/slide animation
+        - Swipe or slide up gesture to dismiss immediately
       */}
       <aside
-        aria-label="App Installation Suggestion"
-        className="fixed bottom-20 left-4 right-4 sm:bottom-6 sm:left-auto sm:right-6 sm:max-w-[360px] z-[90] select-none animate-slide-in-right"
+        aria-label="App Installation Notification"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        style={{
+          transform: isDismissing 
+            ? 'translateY(-120%) scale(0.95)' 
+            : swipeOffset < 0 
+            ? `translateY(${swipeOffset}px)` 
+            : 'translateY(0)',
+          transition: isDismissing ? 'transform 300ms cubic-bezier(0.4, 0, 0.2, 1), opacity 250ms' : swipeOffset !== 0 ? 'none' : 'transform 400ms cubic-bezier(0.16, 1, 0.3, 1)'
+        }}
+        className={`fixed top-3 left-3 right-3 sm:left-auto sm:right-6 sm:max-w-[390px] z-[999] select-none ${
+          isDismissing ? 'opacity-0' : 'opacity-100'
+        } transition-opacity duration-300`}
       >
-        <div className="relative overflow-hidden rounded-3xl bg-slate-950/90 backdrop-blur-2xl border border-emerald-500/30 shadow-[0_20px_50px_rgba(0,0,0,0.55),0_0_25px_rgba(16,185,129,0.2)] p-4 text-white">
+        <div className="relative overflow-hidden rounded-2xl bg-slate-950/95 backdrop-blur-2xl border border-emerald-500/30 shadow-[0_20px_45px_rgba(0,0,0,0.65),0_0_20px_rgba(16,185,129,0.25)] p-3.5 text-white">
           
-          {/* Ambient Glowing Halo Orbs (Like vstechworks) */}
-          <div className="absolute -top-10 -right-10 w-28 h-28 bg-emerald-500/25 rounded-full blur-2xl pointer-events-none" />
-          <div className="absolute -bottom-10 -left-10 w-24 h-24 bg-cyan-500/20 rounded-full blur-2xl pointer-events-none" />
+          {/* Subtle Swipe-Up Indicator Bar at Top */}
+          <div className="flex justify-center -mt-1 mb-1.5 opacity-60 hover:opacity-100 transition-opacity">
+            <div className="w-10 h-1 rounded-full bg-slate-600 flex items-center justify-center">
+              <ChevronUp className="w-2.5 h-2.5 text-slate-400" />
+            </div>
+          </div>
+
+          {/* Ambient Glowing Halo */}
+          <div className="absolute -top-8 -right-8 w-24 h-24 bg-emerald-500/20 rounded-full blur-xl pointer-events-none" />
+          <div className="absolute -bottom-8 -left-8 w-20 h-20 bg-cyan-500/15 rounded-full blur-xl pointer-events-none" />
 
           {/* Top Live Node Status Header */}
-          <div className="relative flex items-center justify-between pb-3 border-b border-white/10 mb-3">
+          <div className="relative flex items-center justify-between pb-2 border-b border-white/10 mb-2.5">
             <div className="flex items-center gap-2">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
               </span>
               <span className="text-[10px] font-mono font-bold tracking-wider uppercase text-emerald-400">
-                OFFICIAL APP &bull; 10-MIN EXPRESS
+                OFFICIAL APP &bull; LATUR EXPRESS
               </span>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               <span className="text-[9px] font-mono text-slate-300 bg-white/5 border border-white/10 px-2 py-0.5 rounded-md">
                 Latur City
               </span>
@@ -144,7 +200,8 @@ export default function InstallAppBanner() {
                 onClick={handleDismiss}
                 type="button"
                 className="text-slate-400 hover:text-white p-1 rounded-full hover:bg-white/10 transition-colors cursor-pointer"
-                aria-label="Close app suggestion"
+                aria-label="Dismiss app notification"
+                title="Swipe up or click to dismiss"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -152,20 +209,20 @@ export default function InstallAppBanner() {
           </div>
 
           {/* Middle App Identity & Value Proposition */}
-          <div className="relative flex items-center gap-3.5 mb-4">
+          <div className="relative flex items-center gap-3 mb-3">
             {/* 3D Glowing App Icon with Glass Frame using Official Brand Emblem */}
-            <div className="relative shrink-0 w-13 h-13 rounded-2xl shadow-[0_4px_20px_rgba(16,185,129,0.35)] flex items-center justify-center">
+            <div className="relative shrink-0 w-12 h-12 rounded-xl shadow-[0_4px_16px_rgba(16,185,129,0.35)] flex items-center justify-center bg-slate-900 border border-emerald-500/30 p-1">
               <Image
                 src="/icons/emblem.png"
                 alt="Anmol Enterprises Emblem"
-                width={52}
-                height={52}
+                width={44}
+                height={44}
                 className="w-full h-full object-contain"
                 priority
               />
             </div>
 
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5 flex-wrap">
                 <h4 className="text-sm font-extrabold text-white tracking-tight leading-tight">
                   Anmol Enterprises
@@ -175,23 +232,36 @@ export default function InstallAppBanner() {
                 </span>
               </div>
               <p className="text-[11px] text-amber-300 font-semibold mt-0.5">
-                Official McCain Distributor App
+                McCain Foods • Fast Latur Delivery
               </p>
-              <p className="text-[11px] text-slate-300 mt-0.5 line-clamp-2 leading-tight">
-                10-Min cold delivery & live order tracking.
+              <p className="text-[10px] text-slate-300 mt-0.5 line-clamp-1 leading-tight">
+                Live order tracking, instant updates & discounts.
               </p>
             </div>
           </div>
 
-          {/* Bottom Electric Glowing CTA Button */}
-          <button
-            onClick={handleInstallClick}
-            type="button"
-            className="group relative w-full inline-flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-500 hover:from-emerald-300 hover:to-teal-200 text-slate-950 font-black text-xs sm:text-sm py-2.5 px-4 rounded-xl shadow-[0_0_20px_rgba(52,211,153,0.35)] hover:shadow-[0_0_25px_rgba(52,211,153,0.55)] active:scale-[0.98] transition-all duration-200 cursor-pointer"
-          >
-            <Download className="w-4 h-4 shrink-0 transition-transform group-hover:-translate-y-0.5" />
-            <span>Install Anmol Enterprises</span>
-          </button>
+          {/* Action Row */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleInstallClick}
+              type="button"
+              className="flex-1 inline-flex items-center justify-center gap-1.5 bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-500 hover:from-emerald-300 hover:to-teal-200 text-slate-950 font-black text-xs py-2 px-3 rounded-xl shadow-[0_0_15px_rgba(52,211,153,0.35)] active:scale-[0.98] transition-all cursor-pointer"
+            >
+              <Download className="w-3.5 h-3.5 shrink-0" />
+              <span>Install App</span>
+            </button>
+            <button
+              onClick={handleDismiss}
+              type="button"
+              className="px-3 py-2 text-[11px] font-bold text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 rounded-xl transition-colors border border-white/5"
+            >
+              Later
+            </button>
+          </div>
+
+          <p className="text-[9px] text-center text-slate-400 mt-2 font-medium">
+            Swipe up to dismiss &uarr;
+          </p>
 
         </div>
       </aside>

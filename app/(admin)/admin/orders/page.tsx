@@ -8,7 +8,7 @@ import {
   DollarSign, Package, X, Clock, Download, Phone, Truck,
   AlertCircle, ChevronRight, Snowflake, AlertTriangle, MessageCircle,
   Eye, FileText, CheckCircle2, Sparkles, MapPin, User, ExternalLink,
-  FileSpreadsheet, Zap
+  FileSpreadsheet, Zap, Send, Plus, Trash2, MessageSquare
 } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import { useSocket } from '@/hooks/useSocket'
@@ -58,6 +58,21 @@ export default function AdminOrdersPage() {
   const [whatsAppModalOrder, setWhatsAppModalOrder] = useState<any | null>(null)
   const [whatsAppMessage, setWhatsAppMessage] = useState<string>('')
   const [selectedTemplateKey, setSelectedTemplateKey] = useState<string>('DISPATCH')
+  const [isSendingInApp, setIsSendingInApp] = useState(false)
+  const [customTemplates, setCustomTemplates] = useState<Array<{ key: string; title: string; badge: string; text: string }>>([])
+  const [isCreatingTemplate, setIsCreatingTemplate] = useState(false)
+  const [newTemplateTitle, setNewTemplateTitle] = useState('')
+  const [newTemplateBadge, setNewTemplateBadge] = useState('')
+
+  // Load custom templates from localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('anmol_admin_chat_templates')
+      if (saved) {
+        setCustomTemplates(JSON.parse(saved))
+      }
+    } catch {}
+  }, [])
 
   // Flash tracking for real-time new orders
   const [flashingOrders, setFlashingOrders] = useState<Record<string, boolean>>({})
@@ -403,6 +418,73 @@ export default function AdminOrdersPage() {
     window.open(`https://wa.me/91${phone}?text=${encoded}`, '_blank')
     showToast('Opening WhatsApp chat...', 'success')
     setWhatsAppModalOrder(null)
+  }
+
+  // Save new custom template to localStorage
+  const handleSaveCustomTemplate = () => {
+    if (!newTemplateTitle.trim() || !whatsAppMessage.trim()) {
+      showToast('Please enter a template title and message content', 'error')
+      return
+    }
+    const newTpl = {
+      key: `custom_${Date.now()}`,
+      title: newTemplateTitle.trim(),
+      badge: newTemplateBadge.trim() || 'Custom',
+      text: whatsAppMessage.trim(),
+    }
+    const updated = [newTpl, ...customTemplates]
+    setCustomTemplates(updated)
+    try {
+      localStorage.setItem('anmol_admin_chat_templates', JSON.stringify(updated))
+    } catch {}
+    setIsCreatingTemplate(false)
+    setNewTemplateTitle('')
+    setNewTemplateBadge('')
+    showToast('Custom template saved successfully!', 'success')
+  }
+
+  // Delete custom template from localStorage
+  const handleDeleteCustomTemplate = (key: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    const updated = customTemplates.filter(t => t.key !== key)
+    setCustomTemplates(updated)
+    try {
+      localStorage.setItem('anmol_admin_chat_templates', JSON.stringify(updated))
+    } catch {}
+    showToast('Template deleted', 'info')
+  }
+
+  // Send message directly to customer's in-app chat
+  const handleSendInAppChat = async () => {
+    if (!whatsAppModalOrder) return
+    if (!whatsAppMessage.trim()) {
+      showToast('Please type a message before sending', 'error')
+      return
+    }
+
+    setIsSendingInApp(true)
+    try {
+      const res = await fetch('/api/admin/chat/send-for-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId: whatsAppModalOrder.id,
+          body: whatsAppMessage.trim(),
+        }),
+      })
+
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to send in-app message')
+      }
+
+      showToast(`Sent directly to customer's in-app chat!`, 'success')
+      setWhatsAppModalOrder(null)
+    } catch (err: any) {
+      showToast(err.message || 'Failed to send message', 'error')
+    } finally {
+      setIsSendingInApp(false)
+    }
   }
 
   return (
@@ -1164,7 +1246,7 @@ export default function AdminOrdersPage() {
         </div>
       )}
 
-      {/* 6. WHATSAPP QUICK TEMPLATES MODAL */}
+      {/* 6. IN-APP & WHATSAPP CUSTOMER MESSAGING MODAL */}
       {whatsAppModalOrder && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
           <div className="bg-[#111625] rounded-3xl max-w-xl w-full p-6 shadow-2xl flex flex-col gap-4 border border-slate-800 max-h-[90vh] overflow-y-auto">
@@ -1172,12 +1254,15 @@ export default function AdminOrdersPage() {
             {/* Header */}
             <div className="flex items-start justify-between pb-3 border-b border-slate-800">
               <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shadow-md">
-                  <MessageCircle className="w-6 h-6 fill-emerald-400/20" />
+                <div className="w-11 h-11 rounded-2xl bg-orange-500/20 border border-orange-500/30 text-orange-400 flex items-center justify-center shadow-md">
+                  <MessageSquare className="w-6 h-6 fill-orange-400/20" />
                 </div>
                 <div>
-                  <h3 className="font-extrabold text-base text-white">
-                    WhatsApp Chat with Customer
+                  <h3 className="font-extrabold text-base text-white flex items-center gap-2">
+                    <span>Message Customer</span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                      In-App & WhatsApp
+                    </span>
                   </h3>
                   <p className="text-xs text-slate-400 font-medium mt-0.5">
                     Order #{whatsAppModalOrder.orderNumber} • {whatsAppModalOrder.guestName || whatsAppModalOrder.user?.name || 'Customer'} (+91 {whatsAppModalOrder.guestPhone || whatsAppModalOrder.user?.phone})
@@ -1187,7 +1272,7 @@ export default function AdminOrdersPage() {
 
               <button 
                 onClick={() => setWhatsAppModalOrder(null)}
-                className="w-8 h-8 rounded-full bg-[#0B0F19] hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center font-bold text-sm border border-slate-800 transition-all"
+                className="w-8 h-8 rounded-full bg-[#0B0F19] hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center font-bold text-sm border border-slate-800 transition-all cursor-pointer"
               >
                 ✕
               </button>
@@ -1195,11 +1280,61 @@ export default function AdminOrdersPage() {
 
             {/* Predefined Templates Choice */}
             <div className="flex flex-col gap-2">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                Select Predefined Message Template
-              </span>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                  Select Message Template
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsCreatingTemplate(!isCreatingTemplate)}
+                  className="text-xs font-bold text-orange-400 hover:text-orange-300 flex items-center gap-1 transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>{isCreatingTemplate ? 'Cancel New' : '+ New Template'}</span>
+                </button>
+              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {/* Add Custom Template Form */}
+              {isCreatingTemplate && (
+                <div className="p-3 bg-[#0B0F19] rounded-2xl border border-orange-500/30 flex flex-col gap-2.5 animate-in fade-in">
+                  <span className="text-[11px] font-bold text-orange-300">Save current message text as a template:</span>
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      type="text"
+                      placeholder="Template Title (e.g. Cold Chain Alert)"
+                      value={newTemplateTitle}
+                      onChange={(e) => setNewTemplateTitle(e.target.value)}
+                      className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-orange-500"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Badge Tag (e.g. Alert)"
+                      value={newTemplateBadge}
+                      onChange={(e) => setNewTemplateBadge(e.target.value)}
+                      className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-orange-500"
+                    />
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsCreatingTemplate(false)}
+                      className="px-3 py-1 text-xs text-slate-400 hover:text-white"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSaveCustomTemplate}
+                      className="px-3 py-1 bg-orange-600 hover:bg-orange-500 text-white font-bold rounded-lg text-xs"
+                    >
+                      Save Template
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
+                {/* Built-in templates */}
                 {getWhatsAppTemplates(whatsAppModalOrder).map((tpl) => {
                   const isSelected = selectedTemplateKey === tpl.key
 
@@ -1222,42 +1357,103 @@ export default function AdminOrdersPage() {
                     </button>
                   )
                 })}
+
+                {/* Custom Admin Templates */}
+                {customTemplates.map((tpl) => {
+                  const isSelected = selectedTemplateKey === tpl.key
+
+                  return (
+                    <div
+                      key={tpl.key}
+                      onClick={() => handleSelectTemplate(tpl)}
+                      className={`p-3 rounded-2xl border text-left transition-all flex flex-col gap-1 cursor-pointer relative group ${
+                        isSelected 
+                          ? 'border-orange-500 bg-orange-500/10 ring-2 ring-orange-500/20 shadow-xs' 
+                          : 'border-slate-800 bg-[#0B0F19] hover:bg-slate-800/60'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-xs text-white">{tpl.title}</span>
+                        <div className="flex items-center gap-1.5">
+                          {isSelected && <Check className="w-3.5 h-3.5 text-orange-400" />}
+                          <button
+                            type="button"
+                            onClick={(e) => handleDeleteCustomTemplate(tpl.key, e)}
+                            className="opacity-0 group-hover:opacity-100 p-0.5 text-rose-400 hover:text-rose-300 transition-opacity"
+                            title="Delete template"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+                      <span className="text-[10px] text-orange-400/80 font-medium">{tpl.badge}</span>
+                    </div>
+                  )
+                })}
               </div>
             </div>
 
             {/* Live Editable Text Area */}
             <div className="flex flex-col gap-1.5">
               <div className="flex items-center justify-between text-xs">
-                <span className="font-bold text-slate-300">Message Preview (Editable):</span>
+                <span className="font-bold text-slate-300">Message Content (Editable):</span>
                 <span className="text-[10px] text-slate-500">{whatsAppMessage.length} characters</span>
               </div>
               <textarea
                 rows={5}
                 value={whatsAppMessage}
                 onChange={(e) => setWhatsAppMessage(e.target.value)}
-                className="w-full bg-[#0B0F19] border border-slate-800 rounded-2xl p-3 text-xs text-slate-200 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 resize-none leading-relaxed"
-                placeholder="Type your WhatsApp message..."
+                className="w-full bg-[#0B0F19] border border-slate-800 rounded-2xl p-3 text-xs text-slate-200 font-medium focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 resize-none leading-relaxed"
+                placeholder="Type your message..."
               />
             </div>
 
             {/* Bottom Modal Actions */}
-            <div className="pt-2 flex items-center justify-end gap-2.5">
-              <button
-                type="button"
-                onClick={() => setWhatsAppModalOrder(null)}
-                className="px-4 py-2 text-xs font-bold text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-xl transition-all"
+            <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-800/80">
+              <Link
+                href={`/admin/messages?search=${encodeURIComponent((whatsAppModalOrder.guestPhone || whatsAppModalOrder.user?.phone || '').slice(-10))}`}
+                className="text-xs text-slate-400 hover:text-orange-400 flex items-center gap-1 font-semibold transition-colors"
+                target="_blank"
               >
-                Cancel
-              </button>
+                <ExternalLink className="w-3.5 h-3.5" />
+                <span>Open Full Chat Thread</span>
+              </Link>
 
-              <button
-                type="button"
-                onClick={handleSendWhatsApp}
-                className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-extrabold shadow-md shadow-emerald-600/20 transition-all active:scale-95 cursor-pointer"
-              >
-                <MessageCircle className="w-4 h-4 fill-white/20" />
-                <span>Send on WhatsApp</span>
-              </button>
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                <button
+                  type="button"
+                  onClick={() => setWhatsAppModalOrder(null)}
+                  className="px-3.5 py-2 text-xs font-bold text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-xl transition-all"
+                >
+                  Cancel
+                </button>
+
+                {/* Secondary Option: WhatsApp */}
+                <button
+                  type="button"
+                  onClick={handleSendWhatsApp}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-[#0B0F19] hover:bg-slate-800 border border-emerald-500/40 text-emerald-400 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer"
+                  title="Forward to customer via WhatsApp"
+                >
+                  <MessageCircle className="w-3.5 h-3.5" />
+                  <span>WhatsApp</span>
+                </button>
+
+                {/* Primary Option: In-App Chat Message */}
+                <button
+                  type="button"
+                  onClick={handleSendInAppChat}
+                  disabled={isSendingInApp || !whatsAppMessage.trim()}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 disabled:opacity-60 text-white rounded-xl text-xs font-black shadow-md shadow-orange-500/20 transition-all active:scale-95 cursor-pointer"
+                >
+                  {isSendingInApp ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Send className="w-3.5 h-3.5" />
+                  )}
+                  <span>Send In-App Chat</span>
+                </button>
+              </div>
             </div>
 
           </div>

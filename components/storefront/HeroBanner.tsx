@@ -48,7 +48,7 @@ export default function HeroBanner() {
             Stock up on McCain frozen <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-yellow-100 to-emerald-200">favourites</span>
           </h1>
           <p className="text-white/90 text-[11px] sm:text-xs font-medium mt-1 max-w-md leading-snug drop-shadow-xs line-clamp-2 sm:line-clamp-none">
-            Crispy French Fries, Potato Smiles & party snacks delivered sub-zero cold in 10 minutes.
+            Crispy French Fries, Potato Smiles & party snacks delivered sub-zero cold across Latur.
           </p>
 
           <div className="flex items-center gap-3 mt-3 flex-wrap">

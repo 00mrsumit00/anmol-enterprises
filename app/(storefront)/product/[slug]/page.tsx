@@ -392,10 +392,10 @@ export default function ProductDetailPage() {
                 </div>
                 <div>
                   <h4 className="text-xs font-bold text-gray-900 leading-tight">
-                    Round The Clock 10-Minute Delivery
+                    Fast & Fresh Latur Delivery
                   </h4>
                   <p className="text-[11px] text-gray-500 leading-relaxed mt-0.5">
-                    Get items delivered to your doorstep from dark stores near you, whenever you need them.
+                    Sub-zero cold chain delivery straight to your doorstep across Latur city.
                   </p>
                 </div>
               </div>

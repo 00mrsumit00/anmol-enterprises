@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { MapPin, ArrowRight, Building2, User, Home, Plus, CheckCircle2, BookmarkPlus, Trash2 } from 'lucide-react'
 import { useCart } from '@/hooks/useCart'
 import { useToast } from '@/components/ui/Toast'
+import { getLaturDeliveryEstimate } from '@/lib/deliverySchedule'
 
 export default function CheckoutDeliveryPage() {
   const router = useRouter()
@@ -23,6 +24,7 @@ export default function CheckoutDeliveryPage() {
   const [saveAddressToAccount, setSaveAddressToAccount] = useState(true)
   const [isB2BCheckout, setIsB2BCheckout] = useState(false)
   const [businessName, setBusinessName] = useState('')
+  const estimate = getLaturDeliveryEstimate()
 
   // Saved Addresses state
   const [savedAddresses, setSavedAddresses] = useState<any[]>([])
@@ -167,10 +169,11 @@ export default function CheckoutDeliveryPage() {
       fullAddress: `${flatNo}, ${street}${landmark ? `, Near ${landmark}` : ''}, ${city} - ${pincode}`
     }
 
-    // Save express slot automatically behind the scenes
+    // Save dynamic Latur local slot automatically behind the scenes
     const slotInfo = {
-      slot: 'MORNING',
-      slotLabel: '⚡ Express 10-Minute Cold Chain Delivery',
+      slot: estimate.slotKey === 'TOMORROW_MORNING' ? 'MORNING' : 'EVENING',
+      deliverySlot: estimate.slotKey === 'TOMORROW_MORNING' ? 'MORNING' : 'EVENING',
+      slotLabel: `⚡ ${estimate.headline}`,
       deliveryDate: new Date().toISOString()
     }
 
@@ -200,6 +203,20 @@ export default function CheckoutDeliveryPage() {
       {/* Main Card */}
       <div className="bg-white rounded-card border border-ice-blue-dk/20 shadow-md p-5 sm:p-6">
         
+        {/* Dynamic Latur Local Delivery Window Banner */}
+        <div className="mb-5 p-3.5 rounded-2xl bg-amber-50/90 border border-amber-200/90 flex items-center justify-between gap-3 text-amber-950">
+          <div className="flex items-center gap-2.5">
+            <span className="text-xl">⚡</span>
+            <div>
+              <p className="text-xs font-black tracking-tight">Expected Delivery: {estimate.headline}</p>
+              <p className="text-[11px] text-amber-800 font-medium leading-tight mt-0.5">{estimate.summary}</p>
+            </div>
+          </div>
+          <span className="shrink-0 text-[10px] font-black uppercase px-2.5 py-1 rounded-full bg-amber-200/70 text-amber-900 border border-amber-300/60">
+            Latur Local
+          </span>
+        </div>
+
         {/* Title */}
         <div className="flex items-center gap-2 mb-6 border-b border-gray-100 pb-4">
           <div className="p-3 bg-brand-orange-light text-brand-orange rounded-card">

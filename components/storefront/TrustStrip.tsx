@@ -2,7 +2,7 @@ import React from 'react'
 
 const TRUST_ITEMS = [
   { icon: '❄️', label: '-18°C Cold Chain', sub: 'Sub-zero guaranteed', bg: 'bg-blue-50/70 hover:bg-blue-50', border: 'border-blue-200/80', text: 'text-blue-800' },
-  { icon: '⚡', label: '10-Min Express',   sub: 'Latur City delivery',  bg: 'bg-amber-50/70 hover:bg-amber-50', border: 'border-amber-200/80', text: 'text-amber-800' },
+  { icon: '⚡', label: 'Latur Express',   sub: 'Fast local delivery',  bg: 'bg-amber-50/70 hover:bg-amber-50', border: 'border-amber-200/80', text: 'text-amber-800' },
   { icon: '✅', label: '100% Fresh',       sub: 'Or full replacement',  bg: 'bg-emerald-50/70 hover:bg-emerald-50', border: 'border-emerald-200/80', text: 'text-emerald-800' },
   { icon: '🎉', label: 'Free 1st Delivery',sub: '₹0 for new customers', bg: 'bg-orange-50/70 hover:bg-orange-50', border: 'border-orange-200/80', text: 'text-orange-800' },
   { icon: '🏆', label: 'Authorised McCain',sub: 'Official distributor', bg: 'bg-purple-50/70 hover:bg-purple-50', border: 'border-purple-200/80', text: 'text-purple-800' },

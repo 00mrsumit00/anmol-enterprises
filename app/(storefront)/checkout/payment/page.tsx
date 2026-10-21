@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { useQueryClient } from '@tanstack/react-query'
 import { CreditCard, ArrowLeft, ArrowRight, ShieldCheck, CheckCircle2, Building2, Tag, Sparkles, X } from 'lucide-react'
 import confetti from 'canvas-confetti'
 import { useCart } from '@/hooks/useCart'
@@ -10,6 +11,7 @@ import { OrderCelebrationModal } from '@/components/storefront/OrderCelebrationM
 
 export default function CheckoutPaymentPage() {
   const router = useRouter()
+  const queryClient = useQueryClient()
   const { total, items, clear } = useCart()
   const { showToast } = useToast()
 
@@ -231,12 +233,28 @@ export default function CheckoutPaymentPage() {
         throw new Error(orderData.error || 'Failed to place order')
       }
 
-      const cleanupStorage = () => {
+      const cleanupStorage = (placedOrder?: any) => {
         clear()
         localStorage.removeItem('checkout_delivery_info')
         localStorage.removeItem('checkout_slot_info')
         localStorage.removeItem('phoneOtpToken')
         localStorage.removeItem('emailOtpToken')
+
+        // Eagerly update React Query cache so the order shows instantly without reloading
+        try {
+          if (placedOrder) {
+            queryClient.setQueryData(['past-orders'], (old: any) => {
+              if (!old || !Array.isArray(old)) return [placedOrder]
+              if (old.some((o: any) => o.id === placedOrder.id)) return old
+              return [placedOrder, ...old]
+            })
+          }
+          queryClient.invalidateQueries({ queryKey: ['past-orders'] })
+          queryClient.invalidateQueries({ queryKey: ['customer-orders'] })
+          queryClient.invalidateQueries({ queryKey: ['orders'] })
+        } catch (e) {
+          console.error('Failed to update orders query cache:', e)
+        }
       }
 
       // ─── PATH A: CASH ON DELIVERY or B2B CREDIT ACCOUNT ──────────────────
@@ -248,7 +266,7 @@ export default function CheckoutPaymentPage() {
             : 'B2B Credit order confirmed!', 
           'success'
         )
-        cleanupStorage()
+        cleanupStorage(orderData)
         setCelebratedOrder(orderData)
         return
       }
@@ -288,7 +306,7 @@ export default function CheckoutPaymentPage() {
           })
           if (verifyRes.ok) {
             showToast('Payment verified successfully!', 'success')
-            cleanupStorage()
+            cleanupStorage(orderData)
             setCelebratedOrder({
               ...orderData,
               paymentMethod: 'ONLINE_UPI',
@@ -351,7 +369,7 @@ export default function CheckoutPaymentPage() {
             const verifyData = await verifyRes.json()
             if (verifyRes.ok) {
               showToast('Payment successful & verified!', 'success')
-              cleanupStorage()
+              cleanupStorage(orderData)
               setCelebratedOrder({
                 ...orderData,
                 paymentMethod: 'ONLINE_UPI',
@@ -705,16 +723,16 @@ export default function CheckoutPaymentPage() {
             <button
               type="button"
               onClick={() => router.push('/checkout')}
-              className="flex-1 border border-gray-200 hover:bg-gray-50 text-brand-charcoal font-bold py-3.5 rounded-pill flex items-center justify-center gap-2 tap-scale"
+              className="shrink-0 px-4 sm:px-5 border border-gray-200 hover:bg-gray-50 text-brand-charcoal font-bold py-3.5 rounded-pill flex items-center justify-center gap-1.5 tap-scale"
             >
               <ArrowLeft className="w-4 h-4" />
-              <span>Back to Address</span>
+              <span>Back</span>
             </button>
             
             <button
               type="submit"
               disabled={isSubmitting}
-              className="flex-[2] bg-brand-orange hover:bg-brand-orange-dark disabled:bg-brand-orange/70 text-white font-body text-sm font-extrabold py-4 rounded-pill shadow-xl hover:shadow-brand-orange/20 flex items-center justify-center gap-2 tap-scale"
+              className="flex-1 bg-brand-orange hover:bg-brand-orange-dark disabled:bg-brand-orange/70 text-white font-body text-sm font-extrabold py-4 rounded-pill shadow-xl hover:shadow-brand-orange/20 flex items-center justify-center gap-2 tap-scale"
             >
               {isSubmitting ? (
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />

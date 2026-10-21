@@ -24,8 +24,8 @@ export default function CheckoutSlotPage() {
     if (!localStorage.getItem('checkout_slot_info')) {
       localStorage.setItem('checkout_slot_info', JSON.stringify({
         deliveryDate: new Date().toISOString(),
-        deliverySlot: 'MORNING',
-        slotLabel: '⚡ Express 10-Minute Cold Chain Delivery'
+        deliverySlot: 'EVENING',
+        slotLabel: '⚡ Latur Local Frozen Delivery'
       }))
     }
     router.replace('/checkout/payment')

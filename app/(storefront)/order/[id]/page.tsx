@@ -677,7 +677,7 @@ function OrderTrackingContent() {
       {/* 7. Store Return, Chat & Support Buttons */}
       <div className="flex flex-col sm:flex-row gap-3 no-print">
         <Link
-          href={`/chat`}
+          href={`/chat?orderId=${order.id}&orderNumber=${order.orderNumber}`}
           className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-display font-black text-xs sm:text-sm py-3.5 rounded-pill shadow-md flex items-center justify-center gap-2 tap-scale transition-all"
         >
           <MessageSquare className="w-4 h-4" />

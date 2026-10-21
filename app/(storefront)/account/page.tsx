@@ -9,13 +9,14 @@ import {
   ChevronRight, ShieldCheck, Clock, AlertTriangle, Store, Utensils, 
   Coffee, ShoppingBag, BadgePercent, CreditCard, Sparkles, CheckCircle2, ArrowRight, ArrowLeft,
   Package, UploadCloud, ClipboardList, BarChart3, Truck, Mail, RotateCcw, MapPin, Heart, HelpCircle, Bell, Moon,
-  Home, Plus, Edit2, Trash2, Check, Star, X
+  Home, Plus, Edit2, Trash2, Check, Star, X, MessageSquare
 } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import OtpVerificationModal from '@/components/storefront/OtpVerificationModal'
 import { GoogleLogin } from '@react-oauth/google'
 import { useCart } from '@/hooks/useCart'
 import { getProductPacketImage } from '@/lib/productImages'
+import { useSocket } from '@/hooks/useSocket'
 
 export default function AccountPage() {
   const router = useRouter()
@@ -110,15 +111,45 @@ export default function AccountPage() {
     fetchUser()
   }, [])
 
-  // Past orders query
-  const { data: pastOrders = [], isLoading: ordersLoading } = useQuery({
+  const socket = useSocket()
+
+  // Real-time socket listener to instantly reflect new orders without reload
+  useEffect(() => {
+    if (!socket) return
+
+    if (user?.id) {
+      socket.emit('join_user', user.id)
+    }
+
+    const handleOrderSync = () => {
+      queryClient.invalidateQueries({ queryKey: ['past-orders'] })
+    }
+
+    socket.on('new_order', handleOrderSync)
+    socket.on('order_created', handleOrderSync)
+    socket.on('order_status_update', handleOrderSync)
+    socket.on('order_list_update', handleOrderSync)
+
+    return () => {
+      socket.off('new_order', handleOrderSync)
+      socket.off('order_created', handleOrderSync)
+      socket.off('order_status_update', handleOrderSync)
+      socket.off('order_list_update', handleOrderSync)
+    }
+  }, [socket, user?.id, queryClient])
+
+  // Past orders query - always fresh, refetches on mount and window focus
+  const { data: pastOrders = [], isLoading: ordersLoading, refetch: refetchOrders } = useQuery({
     queryKey: ['past-orders'],
     queryFn: async () => {
       const res = await fetch('/api/orders')
       if (!res.ok) throw new Error('Failed to fetch orders')
       return res.json()
     },
-    enabled: !!user
+    enabled: !!user,
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
   })
 
   // User saved addresses query
@@ -1022,9 +1053,18 @@ export default function AccountPage() {
                           <CheckCircle2 className="w-4 h-4" />
                         </div>
                         <div>
-                          <h4 className="font-display text-xs font-black text-brand-charcoal">
-                            {order.status === 'DELIVERED' ? 'Arrived in 10-15 minutes' : `Order #${order.orderNumber}`}
-                          </h4>
+                          <div className="flex items-center gap-1.5">
+                            <h4 className="font-display text-xs font-black text-brand-charcoal">
+                              Order #{order.orderNumber}
+                            </h4>
+                            <Link
+                              href={`/chat?orderId=${order.id}&orderNumber=${order.orderNumber}`}
+                              className="text-emerald-600 hover:text-emerald-700 p-1 hover:bg-emerald-50 rounded-lg transition-colors"
+                              title="Chat with store support about this order"
+                            >
+                              <MessageSquare className="w-3.5 h-3.5" />
+                            </Link>
+                          </div>
                           <span className="text-[10px] text-gray-400 font-semibold block">
                             ₹{order.totalAmount} • {new Date(order.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                           </span>
@@ -1040,73 +1080,83 @@ export default function AccountPage() {
                       </span>
                     </div>
 
-                    {/* Product Thumbnails Grid Preview */}
-                    <div className="flex items-center gap-2 overflow-x-auto py-1 no-scrollbar">
-                      {order.items.slice(0, 4).map((item: any, idx: number) => {
-                        const productSlug = item.product?.slug || item.variant?.product?.slug || (item.productName ? item.productName.toLowerCase().replace(/[^a-z0-9]+/g, '-') : '')
-                        const rawImg = item.product?.imageUrl || item.variant?.product?.imageUrl || item.imageUrl
-                        const imgSrc = getProductPacketImage(productSlug, rawImg)
+                  {/* Product Thumbnails Grid Preview */}
+                  <div className="flex items-center gap-2 overflow-x-auto py-1 no-scrollbar">
+                    {order.items.slice(0, 4).map((item: any, idx: number) => {
+                      const productSlug = item.product?.slug || item.variant?.product?.slug || (item.productName ? item.productName.toLowerCase().replace(/[^a-z0-9]+/g, '-') : '')
+                      const rawImg = item.product?.imageUrl || item.variant?.product?.imageUrl || item.imageUrl
+                      const imgSrc = getProductPacketImage(productSlug, rawImg)
 
-                        return (
-                          <div 
-                            key={idx}
-                            className="w-14 h-14 rounded-xl bg-white border border-gray-200/80 p-1 flex items-center justify-center shrink-0 shadow-xs relative overflow-hidden"
-                            title={item.productName}
-                          >
-                            <img 
-                              src={imgSrc} 
-                              alt={item.productName || 'Item'}
-                              className="w-full h-full object-contain"
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).src = '/images/products/mccain-french-fries-420g.jpg'
-                              }}
-                            />
-                            {item.quantity > 1 && (
-                              <span className="absolute -top-1.5 -right-1.5 bg-brand-charcoal text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center border border-white">
-                                {item.quantity}
-                              </span>
-                            )}
-                          </div>
-                        )
-                      })}
-                      {order.items.length > 4 && (
-                        <div className="w-14 h-14 rounded-xl bg-gray-100 text-gray-500 font-black text-xs flex items-center justify-center shrink-0 border border-dashed border-gray-300">
-                          +{order.items.length - 4} more
+                      return (
+                        <div 
+                          key={idx}
+                          className="w-14 h-14 rounded-xl bg-white border border-gray-200/80 p-1 flex items-center justify-center shrink-0 shadow-xs relative overflow-hidden"
+                          title={item.productName}
+                        >
+                          <img 
+                            src={imgSrc} 
+                            alt={item.productName || 'Item'}
+                            className="w-full h-full object-contain"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = '/images/products/mccain-french-fries-420g.jpg'
+                            }}
+                          />
+                          {item.quantity > 1 && (
+                            <span className="absolute -top-1.5 -right-1.5 bg-brand-charcoal text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center border border-white">
+                              {item.quantity}
+                            </span>
+                          )}
                         </div>
-                      )}
-                    </div>
+                      )
+                    })}
+                    {order.items.length > 4 && (
+                      <div className="w-14 h-14 rounded-xl bg-gray-100 text-gray-500 font-black text-xs flex items-center justify-center shrink-0 border border-dashed border-gray-300">
+                        +{order.items.length - 4} more
+                      </div>
+                    )}
+                  </div>
 
-                    {/* Action Bar: 1-Tap Reorder & Tax Invoice */}
-                    <div className="flex items-center justify-between border-t border-gray-100 pt-2.5 mt-0.5">
-                      <button
-                        type="button"
-                        onClick={() => handleReorder(order.items)}
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-display text-xs font-extrabold px-4 py-2 rounded-xl shadow-md hover:shadow-emerald-600/20 flex items-center gap-1.5 tap-scale transition-all"
+                  {/* Action Bar: 1-Tap Reorder, Chat & Tax Invoice */}
+                  <div className="flex items-center justify-between border-t border-gray-100 pt-2.5 mt-0.5">
+                    <button
+                      type="button"
+                      onClick={() => handleReorder(order.items)}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-display text-xs font-extrabold px-4 py-2 rounded-xl shadow-md hover:shadow-emerald-600/20 flex items-center gap-1.5 tap-scale transition-all"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>Reorder</span>
+                    </button>
+
+                    <div className="flex items-center gap-2">
+                      {/* Direct Chat Icon Button with Store */}
+                      <Link
+                        href={`/chat?orderId=${order.id}&orderNumber=${order.orderNumber}`}
+                        className="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all tap-scale"
+                        title="Chat with store about this order"
                       >
-                        <RotateCcw className="w-3.5 h-3.5" />
-                        <span>Reorder</span>
-                      </button>
+                        <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Chat</span>
+                      </Link>
 
-                      <div className="flex items-center gap-2">
-                        {order.status === 'PENDING' ? (
-                          <span
-                            className="px-3 py-2 bg-gray-100 text-gray-400 border border-gray-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-not-allowed select-none"
-                            title="Official Tax Invoice will be generated once order is confirmed"
-                          >
-                            <FileText className="w-3.5 h-3.5 text-gray-400" />
-                            <span>Invoice (Pending)</span>
-                          </span>
-                        ) : (
-                          <Link
-                            href={`/admin/orders/${order.id}/invoice`}
-                            target="_blank"
-                            className="px-3 py-2 bg-purple-50 hover:bg-purple-100 text-purple-900 border border-purple-200 rounded-xl text-xs font-bold flex items-center gap-1 transition-all tap-scale shadow-xs"
-                            title="Download Official Tax Invoice"
-                          >
-                            <FileText className="w-3.5 h-3.5 text-purple-700" />
-                            <span>Tax Invoice</span>
-                          </Link>
-                        )}
+                      {order.status === 'PENDING' ? (
+                        <span
+                          className="px-3 py-2 bg-gray-100 text-gray-400 border border-gray-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-not-allowed select-none"
+                          title="Official Tax Invoice will be generated once order is confirmed"
+                        >
+                          <FileText className="w-3.5 h-3.5 text-gray-400" />
+                          <span>Invoice (Pending)</span>
+                        </span>
+                      ) : (
+                        <Link
+                          href={`/admin/orders/${order.id}/invoice`}
+                          target="_blank"
+                          className="px-3 py-2 bg-purple-50 hover:bg-purple-100 text-purple-900 border border-purple-200 rounded-xl text-xs font-bold flex items-center gap-1 transition-all tap-scale shadow-xs"
+                          title="Download Official Tax Invoice"
+                        >
+                          <FileText className="w-3.5 h-3.5 text-purple-700" />
+                          <span>Tax Invoice</span>
+                        </Link>
+                      )}
 
                         <button
                           type="button"

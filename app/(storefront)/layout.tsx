@@ -7,6 +7,7 @@ import CartDrawer from '@/components/storefront/CartDrawer'
 import FloatingCartBar from '@/components/storefront/FloatingCartBar'
 import SplashScreen from '@/components/storefront/SplashScreen'
 import InstallAppBanner from '@/components/storefront/InstallAppBanner'
+import OrderNotificationListener from '@/components/storefront/OrderNotificationListener'
 
 export default function StorefrontLayout({
   children,
@@ -15,6 +16,9 @@ export default function StorefrontLayout({
 }) {
   return (
     <div className="flex flex-col min-h-screen">
+      {/* Real-time Step-by-Step Delivery Notifications & Post-Delivery Review Modal */}
+      <OrderNotificationListener />
+
       {/* Cold Launch Brand Splash Screen (5 seconds) */}
       <SplashScreen />
 

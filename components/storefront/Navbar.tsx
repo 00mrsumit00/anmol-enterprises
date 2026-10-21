@@ -11,6 +11,7 @@ import {
 import { useCart } from '@/hooks/useCart'
 import { useToast } from '@/components/ui/Toast'
 import AnimatedLogo from './AnimatedLogo'
+import { getLaturDeliveryEstimate } from '@/lib/deliverySchedule'
 
 const PLACEHOLDERS = [
   'Search "french fries"',
@@ -77,6 +78,7 @@ function NavbarContent() {
     refetchInterval: 15000,
   })
   const totalUnreadBadges = badgeData?.totalUnread || 0
+  const deliveryEstimate = useMemo(() => getLaturDeliveryEstimate(), [])
 
   // Dismiss search dropdown on click outside
   useEffect(() => {
@@ -237,7 +239,7 @@ function NavbarContent() {
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
                       <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
                     </span>
-                    Express 10 Min
+                    {deliveryEstimate.badge}
                   </span>
                   <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded-md border border-emerald-200">
                     nearby
@@ -260,7 +262,7 @@ function NavbarContent() {
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
                     <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
                   </span>
-                  10 Min
+                  {deliveryEstimate.badge}
                 </span>
                 <span className="text-[10px] text-gray-500 font-semibold flex items-center gap-0.5 leading-tight truncate">
                   <span className="truncate">{savedAddressText.split('-')[0] || selectedCity}</span>
@@ -580,7 +582,7 @@ function NavbarContent() {
             </p>
 
             <div className="flex flex-col gap-2">
-              {['Latur City (Express 10-Min)', 'Osmanabad Regional', 'Nanded Metro', 'Bidar Hub'].map((city) => (
+              {['Latur City (Express Delivery)', 'Osmanabad Regional', 'Nanded Metro', 'Bidar Hub'].map((city) => (
                 <button
                   key={city}
                   onClick={() => {
