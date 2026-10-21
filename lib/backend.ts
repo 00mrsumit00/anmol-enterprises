@@ -2995,6 +2995,8 @@ const orderCreateSchema = z.object({
   paymentMethod: z.enum(['CASH_ON_DELIVERY', 'UPI', 'CARD', 'CREDIT_ACCOUNT']),
   items: z.array(orderItemSchema).min(1, 'Order must contain at least 1 item'),
   notes: z.string().optional(),
+  couponCode: z.string().optional().nullable(),
+  couponDiscount: z.number().optional().default(0),
 })
 
 apiRouter.post('/orders', async (req: Request, res: Response) => {
@@ -3015,6 +3017,12 @@ apiRouter.post('/orders', async (req: Request, res: Response) => {
 
     const data = orderCreateSchema.parse(req.body)
     const orderNumber = generateOrderNumber()
+
+    // Normalize contact phone
+    let cleanContactPhone = (data.guestPhone || loggedInUser?.phone || '').replace(/\D/g, '')
+    if (cleanContactPhone.length > 10 && cleanContactPhone.startsWith('91')) {
+      cleanContactPhone = cleanContactPhone.substring(2)
+    }
 
     // Database transaction to validate stock and create order atomically
     const order = await prisma.$transaction(async (tx) => {
@@ -3075,7 +3083,7 @@ apiRouter.post('/orders', async (req: Request, res: Response) => {
       // 2. Calculate fees
       // First order for a customer: FREE delivery (₹0).
       // Anti-abuse check: Verified via Phone OR Email, and no previous orders tied to User ID, phone, or email.
-      const customerPhone = loggedInUser?.phone || (data.guestPhone ? data.guestPhone.replace(/\D/g, '') : null)
+      const customerPhone = loggedInUser?.phone || (cleanContactPhone || null)
       const customerEmail = loggedInUser?.email || (req.body as any).guestEmail || null
       
       let deliveryFee = 49
@@ -3164,7 +3172,7 @@ apiRouter.post('/orders', async (req: Request, res: Response) => {
         deliveryFee = 49
       }
       const convenienceFee = 2
-      const totalAmount = subtotal + deliveryFee + convenienceFee
+      const rawTotalAmount = subtotal + deliveryFee + convenienceFee
 
       // 3. Handle credit limit checks for B2B
       if (data.paymentMethod === 'CREDIT_ACCOUNT') {
@@ -3180,8 +3188,8 @@ apiRouter.post('/orders', async (req: Request, res: Response) => {
           throw new Error('B2B Store Credit facility is not enabled for your account. Please contact Anmol Enterprises administration.')
         }
         const remainingCredit = liveUser.creditLimit - liveUser.creditUsed
-        if (remainingCredit < totalAmount) {
-          throw new Error(`Insufficient credit limit. Available: ₹${remainingCredit.toFixed(2)}, Order Total: ₹${totalAmount.toFixed(2)}`)
+        if (remainingCredit < rawTotalAmount) {
+          throw new Error(`Insufficient credit limit. Available: ₹${remainingCredit.toFixed(2)}, Order Total: ₹${rawTotalAmount.toFixed(2)}`)
         }
 
         // Update credit used
@@ -3189,29 +3197,35 @@ apiRouter.post('/orders', async (req: Request, res: Response) => {
           where: { id: loggedInUser.id },
           data: {
             creditUsed: {
-              increment: totalAmount
+              increment: rawTotalAmount
             }
           }
         })
       }
 
-      // Normalize contact phone
-      let cleanContactPhone = (data.guestPhone || loggedInUser?.phone || '').replace(/\D/g, '')
-      if (cleanContactPhone.length > 10 && cleanContactPhone.startsWith('91')) {
-        cleanContactPhone = cleanContactPhone.substring(2)
+      // Validate addressId foreign key if provided
+      let validAddressId: string | null = null
+      if (data.addressId) {
+        const addr = await tx.address.findUnique({ where: { id: data.addressId } })
+        if (addr) validAddressId = data.addressId
       }
 
-      // Sync phone to user profile if user registered with email and didn't have phone
-      if (loggedInUser && !loggedInUser.phone && cleanContactPhone.length === 10) {
-        try {
-          await tx.user.update({
-            where: { id: loggedInUser.id },
-            data: { phone: cleanContactPhone }
-          })
-        } catch (e) {}
+      // Validate couponCode foreign key if provided
+      let validCouponCode: string | null = null
+      let validCouponDiscount = 0
+      const rawCouponCode = data.couponCode || (req.body as any).couponCode
+      if (rawCouponCode && typeof rawCouponCode === 'string' && rawCouponCode.trim()) {
+        const cleanCode = rawCouponCode.trim().toUpperCase()
+        const existingCoupon = await tx.coupon.findUnique({ where: { code: cleanCode } })
+        if (existingCoupon && existingCoupon.isActive) {
+          validCouponCode = existingCoupon.code
+          validCouponDiscount = Number(data.couponDiscount || (req.body as any).couponDiscount) || 0
+        }
       }
 
-      // 4. Create Order
+      const finalTotalAmount = Math.max(0, rawTotalAmount - validCouponDiscount)
+
+      // 4. Create Order (Starts in PENDING - Awaiting Admin Confirmation)
       const newOrder = await tx.order.create({
         data: {
           orderNumber,
@@ -3219,7 +3233,7 @@ apiRouter.post('/orders', async (req: Request, res: Response) => {
           businessName: loggedInUser?.isB2B ? loggedInUser.businessName : null,
           guestName: data.guestName || loggedInUser?.name || null,
           guestPhone: cleanContactPhone || loggedInUser?.phone || null,
-          addressId: data.addressId || null,
+          addressId: validAddressId,
           deliveryAddress: data.deliveryAddress,
           deliveryCity: data.deliveryCity,
           deliveryPincode: data.deliveryPincode,
@@ -3227,11 +3241,13 @@ apiRouter.post('/orders', async (req: Request, res: Response) => {
           deliveryDate: data.deliveryDate,
           paymentMethod: data.paymentMethod,
           paymentStatus: data.paymentMethod === 'CREDIT_ACCOUNT' ? 'CREDIT_PENDING' : 'PENDING',
-          status: 'CONFIRMED',
+          status: 'PENDING',
           subtotal,
           deliveryFee,
           coldHandlingFee: convenienceFee,
-          totalAmount,
+          couponCode: validCouponCode,
+          couponDiscount: validCouponDiscount,
+          totalAmount: finalTotalAmount,
           notes: data.notes,
           items: {
             create: processedItems
@@ -3239,9 +3255,9 @@ apiRouter.post('/orders', async (req: Request, res: Response) => {
           statusHistory: {
             create: {
               fromStatus: null,
-              toStatus: 'CONFIRMED',
+              toStatus: 'PENDING',
               changedBy: (loggedInUser?.id || 'system') as string,
-              note: 'Order placed & automatically confirmed'
+              note: 'Order placed & awaiting confirmation'
             }
           }
         }
@@ -3249,6 +3265,23 @@ apiRouter.post('/orders', async (req: Request, res: Response) => {
 
       return newOrder
     }, { maxWait: 10000, timeout: 20000 })
+
+    // 5. Outside transaction: safely update user profile phone if needed without risking order abort
+    if (loggedInUser && !loggedInUser.phone && cleanContactPhone.length === 10) {
+      try {
+        const existingPhoneUser = await prisma.user.findFirst({
+          where: { phone: cleanContactPhone }
+        })
+        if (!existingPhoneUser) {
+          await prisma.user.update({
+            where: { id: loggedInUser.id },
+            data: { phone: cleanContactPhone }
+          })
+        }
+      } catch (phoneErr) {
+        console.warn('Could not sync phone to user profile:', phoneErr)
+      }
+    }
 
     // Notify administrators via socket in real-time
     if (ioInstance) {
