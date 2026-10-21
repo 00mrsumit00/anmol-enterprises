@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, Suspense } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useSearchParams } from 'next/navigation'
@@ -58,7 +58,7 @@ const CUSTOMER_SUGGESTION_CHIPS = [
   { icon: '📞', label: 'Request support callback', prompt: 'Please have someone from customer support call me regarding my inquiry.' }
 ]
 
-export default function CustomerChatPage() {
+function CustomerChatContent() {
   const searchParams = useSearchParams()
   const orderIdParam = searchParams.get('orderId')
   const orderNumberParam = searchParams.get('orderNumber')
@@ -542,5 +542,21 @@ export default function CustomerChatPage() {
 
       </div>
     </div>
+  )
+}
+
+export default function CustomerChatPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-[88vh] bg-slate-100 dark:bg-slate-950 py-6 flex items-center justify-center font-sans">
+          <div className="w-full max-w-2xl bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-8 text-center text-sm text-slate-400">
+            Loading Helpdesk & Chat...
+          </div>
+        </div>
+      }
+    >
+      <CustomerChatContent />
+    </Suspense>
   )
 }
