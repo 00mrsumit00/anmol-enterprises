@@ -1009,7 +1009,7 @@ export default function AdminProductsPage() {
                             <div className="w-3.5 h-3.5 rounded-xs border border-emerald-500 p-0.5 flex items-center justify-center bg-white">
                               <div className="w-1.5 h-1.5 rounded-full bg-emerald-700" />
                             </div>
-                            <span>Veg (Green Dot)</span>
+                            <span>Veg</span>
                           </button>
 
                           <button
@@ -1024,7 +1024,7 @@ export default function AdminProductsPage() {
                             <div className="w-3.5 h-3.5 rounded-xs border border-red-600 p-0.5 flex items-center justify-center bg-white">
                               <div className="w-0 h-0 border-l-[3.5px] border-l-transparent border-r-[3.5px] border-r-transparent border-b-[6px] border-b-red-700" />
                             </div>
-                            <span>Non-Veg (Red Dot)</span>
+                            <span>Non-Veg</span>
                           </button>
                         </div>
                       </div>

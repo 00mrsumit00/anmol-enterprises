@@ -251,24 +251,6 @@ function NavbarContent() {
                   <ChevronDown className="w-3 h-3 text-gray-400 shrink-0 ml-0.5" />
                 </span>
               </button>
-
-              {/* Delivery ETA — mobile compact pill */}
-              <button
-                onClick={() => setShowLocationModal(!showLocationModal)}
-                className="flex sm:hidden flex-col text-left max-w-[140px]"
-              >
-                <span className="flex items-center gap-1.5 font-black text-xs text-gray-900 leading-tight">
-                  <span className="relative flex h-1.5 w-1.5 shrink-0">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
-                  </span>
-                  {deliveryEstimate.badge}
-                </span>
-                <span className="text-[10px] text-gray-500 font-semibold flex items-center gap-0.5 leading-tight truncate">
-                  <span className="truncate">{savedAddressText.split('-')[0] || selectedCity}</span>
-                  <ChevronDown className="w-2.5 h-2.5 text-gray-400 shrink-0" />
-                </span>
-              </button>
             </div>
 
             {/* Middle: Single Permanent Search Bar (Center on desktop, Row 2 on mobile) */}

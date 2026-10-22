@@ -3,7 +3,6 @@
 import React, { useRef } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
-import { useCart } from '@/hooks/useCart'
 
 interface CategoryStripProps {
   activeFilter: string
@@ -11,7 +10,6 @@ interface CategoryStripProps {
 }
 
 export default function CategoryStrip({ activeFilter, onFilterChange }: CategoryStripProps) {
-  const { toggleB2B } = useCart()
   const scrollContainerRef = useRef<HTMLDivElement>(null)
 
   const scroll = (direction: 'left' | 'right') => {
@@ -123,19 +121,6 @@ export default function CategoryStrip({ activeFilter, onFilterChange }: Category
             </button>
           )
         })}
-
-        {/* B2B Wholesale Toggle Pill */}
-        <button
-          type="button"
-          onClick={() => toggleB2B()}
-          className="relative flex items-center gap-2 shrink-0 px-4 py-2.5 rounded-full border border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 font-bold text-sm transition-all duration-200 active:scale-95 select-none whitespace-nowrap"
-        >
-          <span className="text-base leading-none">💼</span>
-          <span>B2B Wholesale</span>
-          <span className="text-[8px] font-black bg-purple-600 text-white px-1.5 py-0.5 rounded-full uppercase">
-            Bulk
-          </span>
-        </button>
 
       </div>
     </section>
