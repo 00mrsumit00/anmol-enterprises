@@ -42,8 +42,8 @@ function BottomNavContent() {
     }
   }, [pathname])
 
-  // Hide on admin/driver dashboard pages
-  if (pathname.startsWith('/admin') || pathname.startsWith('/driver')) {
+  // Hide on admin/driver dashboard pages and chat section
+  if (pathname.startsWith('/admin') || pathname.startsWith('/driver') || pathname.startsWith('/chat')) {
     return null
   }
 

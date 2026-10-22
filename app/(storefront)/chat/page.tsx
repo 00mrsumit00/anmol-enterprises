@@ -10,12 +10,10 @@ import {
   Send,
   Phone,
   ArrowLeft,
-  Check,
   CheckCheck,
   Clock,
   Sparkles,
   RefreshCw,
-  MoreVertical,
   Plus,
   Package,
   RotateCcw,
@@ -92,12 +90,11 @@ function CustomerChatContent() {
 
   const [activeTab, setActiveTab] = useState<'CHAT' | 'UPDATES'>('CHAT')
   const [inputText, setInputText] = useState('')
-  const [showMenu, setShowMenu] = useState(false)
   const [statusRequestedTime, setStatusRequestedTime] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // 1. Fetch support chat conversation & messages
+  // 1. Fetch support chat conversation & messages with high-frequency auto-refresh (every 3s)
   const {
     data: convData,
     isLoading: convLoading,
@@ -116,7 +113,8 @@ function CustomerChatContent() {
         }
       }>
     },
-    refetchInterval: 10000,
+    refetchInterval: 3000, // Seamless auto-refresh every 3 seconds
+    refetchOnWindowFocus: true,
   })
 
   const conversation = convData?.conversation
@@ -137,7 +135,7 @@ function CustomerChatContent() {
     },
   })
 
-  // 3. Fetch broadcast updates
+  // 3. Fetch broadcast updates (every 10s auto-refresh)
   const {
     data: updatesData,
     isLoading: updatesLoading,
@@ -152,26 +150,29 @@ function CustomerChatContent() {
         unreadCount: number
       }>
     },
+    refetchInterval: 10000,
   })
 
   const updates = updatesData?.updates || []
   const unreadUpdatesCount = updatesData?.unreadCount || 0
 
-  // Auto-scroll messages to bottom
+  // Auto-scroll messages to bottom smoothly
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, activeTab, statusRequestedTime])
 
-  // Real-time socket events
+  // Real-time socket events for instant push synchronization
   useEffect(() => {
     if (!socket) return
 
     const handleChatMessage = () => {
+      refetchChat()
       queryClient.invalidateQueries({ queryKey: ['customer-chat-conversation'] })
       queryClient.invalidateQueries({ queryKey: ['chat-badges'] })
     }
 
     const handleNewBroadcast = () => {
+      refetchUpdates()
       queryClient.invalidateQueries({ queryKey: ['customer-updates'] })
       queryClient.invalidateQueries({ queryKey: ['chat-badges'] })
       showToast('New broadcast announcement received!', 'info')
@@ -184,7 +185,7 @@ function CustomerChatContent() {
       socket.off('chat:message', handleChatMessage)
       socket.off('broadcast:new', handleNewBroadcast)
     }
-  }, [socket, queryClient, showToast])
+  }, [socket, queryClient, refetchChat, refetchUpdates, showToast])
 
   // Send message mutation
   const sendMessageMutation = useMutation({
@@ -289,16 +290,16 @@ function CustomerChatContent() {
   }
 
   return (
-    <div className="min-h-[calc(100dvh-4rem)] bg-[#F4F6F8] px-3 sm:px-4 py-2 sm:py-3 flex items-center justify-center font-sans">
-      {/* ─── MAIN CHAT CARD CONTAINER (Approved Reference UI) ────────────── */}
-      <div className="w-full max-w-lg md:max-w-xl mx-auto bg-white rounded-3xl border border-slate-200/90 shadow-xl overflow-hidden flex flex-col h-[calc(100dvh-8rem)] md:h-[780px] max-h-[850px]">
+    <div className="flex-1 w-full bg-[#F4F6F8] flex flex-col font-sans">
+      {/* ─── MAIN CHAT CARD CONTAINER (Full width on mobile/PWA, elegant card on desktop) ────────────── */}
+      <div className="w-full flex-1 max-w-none md:max-w-4xl md:mx-auto bg-white md:my-3 md:rounded-3xl md:border md:border-slate-200/90 md:shadow-xl overflow-hidden flex flex-col h-[calc(100dvh-4rem)] md:h-[820px]">
         
         {/* ─── NAVY SUPPORT APP BAR (#0D2037) ─────────────── */}
         <div className="bg-[#0D2037] text-white px-4 py-3 sm:py-3.5 flex items-center justify-between shadow-sm select-none shrink-0 relative z-20">
           <div className="flex items-center gap-3">
             <Link
               href="/"
-              className="p-1 -ml-1 hover:bg-white/10 rounded-full transition-colors active:scale-95 text-white"
+              className="p-1.5 -ml-1 hover:bg-white/10 rounded-full transition-colors active:scale-95 text-white"
               aria-label="Back to storefront"
             >
               <ArrowLeft className="w-5 h-5" />
@@ -321,62 +322,29 @@ function CustomerChatContent() {
               <h1 className="font-extrabold text-[15px] sm:text-base text-white">
                 Anmol Support
               </h1>
-              <div className="text-[11px] sm:text-xs text-slate-300 font-medium flex items-center gap-1.5 mt-0.5">
+              {/* Clean Online Status Pill (Removed "Usually replies in a few minutes") */}
+              <div className="text-xs text-[#00D084] font-bold flex items-center gap-1.5 mt-0.5">
                 <span className="w-2 h-2 rounded-full bg-[#00D084] inline-block animate-pulse" />
-                <span className="text-[#00D084] font-bold">Online</span>
-                <span className="text-slate-300 font-normal">Usually replies in a few minutes</span>
+                <span>Online</span>
               </div>
             </div>
           </div>
 
-          <div className="relative flex items-center text-white">
-            <button
-              type="button"
-              onClick={() => setShowMenu(!showMenu)}
-              className="p-1.5 rounded-full hover:bg-white/10 text-white transition active:scale-95"
-              title="More options"
+          {/* Right Action: Direct Call Button (Replaced 3 dots) */}
+          <div className="flex items-center gap-2 text-white">
+            <a
+              href="tel:+918237722744"
+              className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 text-white flex items-center justify-center transition shadow-xs"
+              title="Call Helpline: +91 8237722744"
             >
-              <MoreVertical className="w-5 h-5 text-white" />
-            </button>
-
-            {/* Dropdown Menu */}
-            {showMenu && (
-              <>
-                <div
-                  className="fixed inset-0 z-30"
-                  onClick={() => setShowMenu(false)}
-                />
-                <div className="absolute right-0 top-full mt-1.5 w-52 bg-white rounded-2xl shadow-2xl border border-slate-100 py-2 z-40 text-xs font-semibold text-slate-700 animate-in fade-in slide-in-from-top-2 duration-150">
-                  <a
-                    href="tel:+918237722744"
-                    className="flex items-center gap-2.5 px-4 py-2.5 hover:bg-orange-50 hover:text-[#FF6B00] transition"
-                    onClick={() => setShowMenu(false)}
-                  >
-                    <Phone className="w-4 h-4 text-[#FF6B00]" />
-                    <span>Call Helpline</span>
-                  </a>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      refetchChat()
-                      refetchUpdates()
-                      setShowMenu(false)
-                      showToast('Messages refreshed', 'info')
-                    }}
-                    className="w-full flex items-center gap-2.5 px-4 py-2.5 hover:bg-slate-50 transition text-left"
-                  >
-                    <RefreshCw className="w-4 h-4 text-slate-500" />
-                    <span>Refresh Chat</span>
-                  </button>
-                </div>
-              </>
-            )}
+              <Phone className="w-4 h-4 fill-current text-white" />
+            </a>
           </div>
         </div>
 
-        {/* ─── TAB NAVIGATION: MESSAGES vs UPDATES (NO Top Order Card) ───────── */}
-        <div className="bg-white px-3 sm:px-4 py-2.5 border-b border-slate-100 select-none shrink-0">
-          <div className="flex bg-[#F1F3F5] p-1 rounded-2xl text-xs font-bold gap-1">
+        {/* ─── TAB NAVIGATION: MESSAGES vs UPDATES (Directly below navy bar, NO Top Order Card) ───────── */}
+        <div className="bg-white px-4 py-2.5 border-b border-slate-100 select-none shrink-0">
+          <div className="flex bg-[#F1F3F5] p-1 rounded-2xl text-xs font-bold gap-1 max-w-md mx-auto">
             <button
               onClick={() => setActiveTab('CHAT')}
               className={`flex-1 py-2 flex items-center justify-center gap-2 rounded-xl transition-all ${
@@ -413,7 +381,7 @@ function CustomerChatContent() {
           <div className="flex-1 flex flex-col min-h-0 bg-white relative">
             
             {/* Messages Scroll Area */}
-            <div className="flex-1 overflow-y-auto p-3.5 sm:p-4 space-y-3.5 relative z-10 bg-white">
+            <div className="flex-1 overflow-y-auto p-4 space-y-3.5 relative z-10 bg-white">
               
               {/* Centered Date Badge with subtle rule line */}
               <div className="relative flex items-center justify-center my-2 select-none">
@@ -506,8 +474,8 @@ function CustomerChatContent() {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* ─── QUICK ACTION PILLS (Approved Reference UI) ────── */}
-            <div className="relative z-10 px-3 py-2.5 bg-[#FAF7F2] border-t border-slate-100 overflow-x-auto no-scrollbar shrink-0">
+            {/* ─── QUICK ACTION PILLS ────── */}
+            <div className="relative z-10 px-4 py-2.5 bg-[#FAF7F2] border-t border-slate-100 overflow-x-auto no-scrollbar shrink-0">
               <div className="flex items-center gap-2 min-w-max">
                 {QUICK_ACTIONS.map((action) => {
                   const Icon = action.icon
@@ -526,10 +494,10 @@ function CustomerChatContent() {
               </div>
             </div>
 
-            {/* ─── COMPOSER BAR (Approved Reference UI) ──────────── */}
+            {/* ─── COMPOSER BAR ──────────── */}
             <form
               onSubmit={handleSendMessage}
-              className="relative z-10 p-2.5 sm:p-3 bg-white border-t border-slate-100 flex items-center gap-2 shrink-0 rounded-b-3xl"
+              className="relative z-10 p-3 bg-white border-t border-slate-100 flex items-center gap-2 shrink-0 md:rounded-b-3xl"
             >
               <button
                 type="button"

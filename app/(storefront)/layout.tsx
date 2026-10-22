@@ -1,6 +1,7 @@
 'use client'
 
 import React, { Suspense } from 'react'
+import { usePathname } from 'next/navigation'
 import Navbar from '@/components/storefront/Navbar'
 import BottomNav from '@/components/storefront/BottomNav'
 import CartDrawer from '@/components/storefront/CartDrawer'
@@ -14,6 +15,10 @@ export default function StorefrontLayout({
 }: {
   children: React.ReactNode
 }) {
+  const pathname = usePathname()
+  const isChat = pathname?.startsWith('/chat')
+  const isOrderAgain = pathname?.startsWith('/order-again')
+
   return (
     <div className="flex flex-col min-h-screen">
       {/* Real-time Step-by-Step Delivery Notifications & Post-Delivery Review Modal */}
@@ -31,15 +36,21 @@ export default function StorefrontLayout({
       </Suspense>
 
       {/* Main Storefront Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-6 pb-24 md:pb-12">
+      <main className={
+        isChat
+          ? "flex-1 w-full p-0 flex flex-col"
+          : isOrderAgain
+          ? "flex-1 w-full mx-auto p-0 pb-20 md:pb-12"
+          : "flex-1 max-w-7xl w-full mx-auto px-4 py-6 pb-24 md:pb-12"
+      }>
         {children}
       </main>
 
-      {/* Floating Bottom Cart Bar (Blinkit/Zepto Style) */}
-      <FloatingCartBar />
+      {/* Floating Bottom Cart Bar (Blinkit/Zepto Style) - hidden on chat */}
+      {!isChat && <FloatingCartBar />}
 
-      {/* PWA Mobile Bottom Tab Navigation */}
-      <BottomNav />
+      {/* PWA Mobile Bottom Tab Navigation - hidden on chat */}
+      {!isChat && <BottomNav />}
 
       {/* Side Slide Cart Drawer */}
       <CartDrawer />
