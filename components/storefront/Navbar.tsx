@@ -31,8 +31,8 @@ function NavbarContent() {
   const { isB2BMode } = useCart()
   const { showToast } = useToast()
 
-  // Hide search bar on profile/account & checkout pages
-  const isProfileOrCheckout = pathname.startsWith('/account') || pathname.startsWith('/checkout')
+  // Hide search bar on profile/account, checkout & chat pages
+  const isProfileOrCheckout = pathname.startsWith('/account') || pathname.startsWith('/checkout') || pathname.startsWith('/chat')
 
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '')
   const [isSearchFocused, setIsSearchFocused] = useState(false)
@@ -228,29 +228,49 @@ function NavbarContent() {
               {/* Animated Logo */}
               <AnimatedLogo />
 
-              {/* Delivery ETA — desktop */}
-              <button
-                onClick={() => setShowLocationModal(!showLocationModal)}
-                className="hidden sm:flex flex-col text-left hover:bg-orange-50/70 px-2 py-1 rounded-xl transition-all select-none max-w-[240px]"
-              >
-                <div className="flex items-center gap-1.5 leading-tight">
-                  <span className="flex items-center gap-1.5 font-black text-[13px] text-gray-900">
-                    <span className="relative flex h-2 w-2 shrink-0">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+              {/* On Chat route: compact Delivering to Home button matching approved reference */}
+              {pathname.startsWith('/chat') ? (
+                <button
+                  type="button"
+                  onClick={() => setShowLocationModal(true)}
+                  className="flex items-center gap-2 px-2.5 py-1 rounded-xl hover:bg-orange-50/70 transition-all select-none text-left border-l border-gray-200/80 pl-3 ml-1"
+                >
+                  <div className="w-7 h-7 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                    <MapPin className="w-3.5 h-3.5 text-emerald-500 fill-emerald-100" />
+                  </div>
+                  <div className="leading-tight text-left">
+                    <span className="text-[10px] text-gray-400 font-medium block">Delivering to</span>
+                    <span className="text-xs font-black text-gray-900 flex items-center gap-0.5">
+                      <span>{savedAddressText.split('-')[0]?.trim() || 'Home'}</span>
+                      <ChevronDown className="w-3 h-3 text-gray-400" />
                     </span>
-                    {deliveryEstimate.badge}
+                  </div>
+                </button>
+              ) : (
+                /* Delivery ETA — desktop */
+                <button
+                  onClick={() => setShowLocationModal(!showLocationModal)}
+                  className="hidden sm:flex flex-col text-left hover:bg-orange-50/70 px-2 py-1 rounded-xl transition-all select-none max-w-[240px]"
+                >
+                  <div className="flex items-center gap-1.5 leading-tight">
+                    <span className="flex items-center gap-1.5 font-black text-[13px] text-gray-900">
+                      <span className="relative flex h-2 w-2 shrink-0">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                      </span>
+                      {deliveryEstimate.badge}
+                    </span>
+                    <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded-md border border-emerald-200">
+                      nearby
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-gray-500 font-medium flex items-center gap-0.5 leading-tight mt-0.5 truncate">
+                    <MapPin className="w-3 h-3 text-[#FF6B00] shrink-0" />
+                    <span className="truncate">{savedAddressText}</span>
+                    <ChevronDown className="w-3 h-3 text-gray-400 shrink-0 ml-0.5" />
                   </span>
-                  <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded-md border border-emerald-200">
-                    nearby
-                  </span>
-                </div>
-                <span className="text-[11px] text-gray-500 font-medium flex items-center gap-0.5 leading-tight mt-0.5 truncate">
-                  <MapPin className="w-3 h-3 text-[#FF6B00] shrink-0" />
-                  <span className="truncate">{savedAddressText}</span>
-                  <ChevronDown className="w-3 h-3 text-gray-400 shrink-0 ml-0.5" />
-                </span>
-              </button>
+                </button>
+              )}
             </div>
 
             {/* Middle: Single Permanent Search Bar (Center on desktop, Row 2 on mobile) */}
