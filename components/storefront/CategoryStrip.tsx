@@ -1,6 +1,7 @@
 'use client'
 
-import React from 'react'
+import React, { useRef } from 'react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { useCart } from '@/hooks/useCart'
 
@@ -11,6 +12,14 @@ interface CategoryStripProps {
 
 export default function CategoryStrip({ activeFilter, onFilterChange }: CategoryStripProps) {
   const { toggleB2B } = useCart()
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+
+  const scroll = (direction: 'left' | 'right') => {
+    if (scrollContainerRef.current) {
+      const offset = direction === 'left' ? -280 : 280
+      scrollContainerRef.current.scrollBy({ left: offset, behavior: 'smooth' })
+    }
+  }
 
   // Dynamically fetch all active categories from database
   const { data: categories = [] } = useQuery({
@@ -34,9 +43,37 @@ export default function CategoryStrip({ activeFilter, onFilterChange }: Category
   const displayCategories = categories.length > 0 ? categories : defaultCategories
 
   return (
-    <section className="w-full font-sans no-print -mx-4 px-4">
+    <section className="w-full font-sans no-print -mx-4 px-4 relative group/strip">
+      {/* Desktop Left Scroll Button */}
+      <button
+        type="button"
+        onClick={() => scroll('left')}
+        className="hidden md:flex absolute left-2 top-1/2 -translate-y-1/2 z-30 w-8 h-8 rounded-full bg-white/95 hover:bg-white border border-gray-200 shadow-md text-gray-700 hover:text-black hover:scale-105 transition items-center justify-center opacity-0 group-hover/strip:opacity-100"
+        aria-label="Scroll left"
+      >
+        <ChevronLeft className="w-4 h-4" />
+      </button>
+
+      {/* Desktop Right Scroll Button */}
+      <button
+        type="button"
+        onClick={() => scroll('right')}
+        className="hidden md:flex absolute right-2 top-1/2 -translate-y-1/2 z-30 w-8 h-8 rounded-full bg-white/95 hover:bg-white border border-gray-200 shadow-md text-gray-700 hover:text-black hover:scale-105 transition items-center justify-center opacity-0 group-hover/strip:opacity-100"
+        aria-label="Scroll right"
+      >
+        <ChevronRight className="w-4 h-4" />
+      </button>
+
       {/* Horizontal scrollable pill row */}
-      <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-1 -mx-0">
+      <div 
+        ref={scrollContainerRef}
+        onWheel={(e) => {
+          if (e.deltaY !== 0) {
+            e.currentTarget.scrollLeft += e.deltaY
+          }
+        }}
+        className="flex gap-2.5 overflow-x-auto no-scrollbar pb-1 -mx-0 scroll-smooth"
+      >
         
         {/* All Products Sticky Pill */}
         <div className="sticky left-0 z-20 shrink-0 bg-white/95 pr-1 flex items-center">

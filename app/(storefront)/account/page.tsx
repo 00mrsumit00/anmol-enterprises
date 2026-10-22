@@ -1021,157 +1021,33 @@ export default function AccountPage() {
             )}
           </div>
 
-          {/* Past Orders History (Mobile App Inspired with 1-Tap Reorder) */}
-          <div id="orders-section" className="bg-white rounded-3xl border border-gray-100 p-5 shadow-sm">
-            <h3 className="font-display text-sm font-black text-brand-charcoal mb-4 pb-3 border-b border-gray-100 flex items-center justify-between">
-              <span className="flex items-center gap-2">
-                <ShoppingBag className="w-4 h-4 text-brand-orange" />
-                <span>Recent Orders</span>
-              </span>
-              <span className="text-[11px] font-semibold text-gray-400">
-                {pastOrders.length} placed
-              </span>
-            </h3>
-
-            {ordersLoading ? (
-              <div className="py-8 text-center text-xs text-gray-400">Loading order history...</div>
-            ) : pastOrders.length === 0 ? (
-              <div className="py-8 text-center text-xs text-gray-400 leading-normal">
-                No orders placed yet. Explore McCain frozen express items on the homepage!
+          {/* Recent Orders Dedicated Section (Centralized in /order-again) */}
+          <div id="orders-section" className="bg-gradient-to-br from-amber-50/80 via-white to-orange-50/50 rounded-3xl border border-amber-200/80 p-5 sm:p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-500 text-white flex items-center justify-center shrink-0 shadow-md shadow-orange-500/20">
+                <ShoppingBag className="w-5 h-5" />
               </div>
-            ) : (
-              <div className="flex flex-col gap-4">
-                {pastOrders.map((order: any) => (
-                  <div 
-                    key={order.id} 
-                    className="bg-gray-50/60 hover:bg-white border border-gray-100 hover:border-brand-orange/30 p-4 rounded-2xl transition-all flex flex-col gap-3 shadow-xs hover:shadow-md"
-                  >
-                    {/* Header Row: Status Badge & Delivery Details */}
-                    <div className="flex items-center justify-between border-b border-gray-100 pb-2.5">
-                      <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
-                          <CheckCircle2 className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-1.5">
-                            <h4 className="font-display text-xs font-black text-brand-charcoal">
-                              Order #{order.orderNumber}
-                            </h4>
-                            <Link
-                              href={`/chat?orderId=${order.id}&orderNumber=${order.orderNumber}`}
-                              className="text-emerald-600 hover:text-emerald-700 p-1 hover:bg-emerald-50 rounded-lg transition-colors"
-                              title="Chat with store support about this order"
-                            >
-                              <MessageSquare className="w-3.5 h-3.5" />
-                            </Link>
-                          </div>
-                          <span className="text-[10px] text-gray-400 font-semibold block">
-                            ₹{order.totalAmount} • {new Date(order.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                          </span>
-                        </div>
-                      </div>
-
-                      <span className={`text-[9px] font-black uppercase px-2.5 py-0.5 rounded-full border ${
-                        order.status === 'DELIVERED' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' :
-                        order.status === 'CANCELLED' ? 'bg-rose-50 border-rose-200 text-rose-600' :
-                        'bg-amber-50 border-amber-200 text-amber-700'
-                      }`}>
-                        {order.status}
-                      </span>
-                    </div>
-
-                  {/* Product Thumbnails Grid Preview */}
-                  <div className="flex items-center gap-2 overflow-x-auto py-1 no-scrollbar">
-                    {order.items.slice(0, 4).map((item: any, idx: number) => {
-                      const productSlug = item.product?.slug || item.variant?.product?.slug || (item.productName ? item.productName.toLowerCase().replace(/[^a-z0-9]+/g, '-') : '')
-                      const rawImg = item.product?.imageUrl || item.variant?.product?.imageUrl || item.imageUrl
-                      const imgSrc = getProductPacketImage(productSlug, rawImg)
-
-                      return (
-                        <div 
-                          key={idx}
-                          className="w-14 h-14 rounded-xl bg-white border border-gray-200/80 p-1 flex items-center justify-center shrink-0 shadow-xs relative overflow-hidden"
-                          title={item.productName}
-                        >
-                          <img 
-                            src={imgSrc} 
-                            alt={item.productName || 'Item'}
-                            className="w-full h-full object-contain"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src = '/images/products/mccain-french-fries-420g.jpg'
-                            }}
-                          />
-                          {item.quantity > 1 && (
-                            <span className="absolute -top-1.5 -right-1.5 bg-brand-charcoal text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center border border-white">
-                              {item.quantity}
-                            </span>
-                          )}
-                        </div>
-                      )
-                    })}
-                    {order.items.length > 4 && (
-                      <div className="w-14 h-14 rounded-xl bg-gray-100 text-gray-500 font-black text-xs flex items-center justify-center shrink-0 border border-dashed border-gray-300">
-                        +{order.items.length - 4} more
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Action Bar: 1-Tap Reorder, Chat & Tax Invoice */}
-                  <div className="flex items-center justify-between border-t border-gray-100 pt-2.5 mt-0.5">
-                    <button
-                      type="button"
-                      onClick={() => handleReorder(order.items)}
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-display text-xs font-extrabold px-4 py-2 rounded-xl shadow-md hover:shadow-emerald-600/20 flex items-center gap-1.5 tap-scale transition-all"
-                    >
-                      <RotateCcw className="w-3.5 h-3.5" />
-                      <span>Reorder</span>
-                    </button>
-
-                    <div className="flex items-center gap-2">
-                      {/* Direct Chat Icon Button with Store */}
-                      <Link
-                        href={`/chat?orderId=${order.id}&orderNumber=${order.orderNumber}`}
-                        className="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all tap-scale"
-                        title="Chat with store about this order"
-                      >
-                        <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>Chat</span>
-                      </Link>
-
-                      {order.status === 'PENDING' ? (
-                        <span
-                          className="px-3 py-2 bg-gray-100 text-gray-400 border border-gray-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-not-allowed select-none"
-                          title="Official Tax Invoice will be generated once order is confirmed"
-                        >
-                          <FileText className="w-3.5 h-3.5 text-gray-400" />
-                          <span>Invoice (Pending)</span>
-                        </span>
-                      ) : (
-                        <Link
-                          href={`/admin/orders/${order.id}/invoice`}
-                          target="_blank"
-                          className="px-3 py-2 bg-purple-50 hover:bg-purple-100 text-purple-900 border border-purple-200 rounded-xl text-xs font-bold flex items-center gap-1 transition-all tap-scale shadow-xs"
-                          title="Download Official Tax Invoice"
-                        >
-                          <FileText className="w-3.5 h-3.5 text-purple-700" />
-                          <span>Tax Invoice</span>
-                        </Link>
-                      )}
-
-                        <button
-                          type="button"
-                          onClick={() => router.push(`/order/${order.id}`)}
-                          className="p-2 text-gray-400 hover:text-brand-orange hover:bg-gray-100 rounded-xl transition-all"
-                        >
-                          <ChevronRight className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-
-                  </div>
-                ))}
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-display text-sm font-black text-brand-charcoal">
+                    Recent Orders & 1-Tap Reorder
+                  </h3>
+                  <span className="text-[10px] font-bold text-amber-700 bg-amber-100/70 px-2 py-0.5 rounded-full">
+                    {pastOrders.length} placed
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  View full order history, live tracking, tax invoices, and 1-tap reordering on the dedicated Order Again page.
+                </p>
               </div>
-            )}
+            </div>
+            <Link
+              href="/order-again"
+              className="bg-brand-charcoal hover:bg-black text-white font-extrabold text-xs px-5 py-3 rounded-xl shrink-0 transition flex items-center justify-center gap-1.5 shadow-sm active:scale-95"
+            >
+              <span>View Order Again</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </Link>
           </div>
 
           {/* Address Add / Edit Modal */}

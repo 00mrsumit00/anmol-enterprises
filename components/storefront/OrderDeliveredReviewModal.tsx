@@ -12,6 +12,7 @@ interface OrderDeliveredReviewModalProps {
     orderNumber: string
     totalAmount?: number
   } | null
+  isFirstOrder?: boolean
   onClose: () => void
   onSuccess?: () => void
 }
@@ -19,6 +20,7 @@ interface OrderDeliveredReviewModalProps {
 export function OrderDeliveredReviewModal({
   isOpen,
   order,
+  isFirstOrder = false,
   onClose,
   onSuccess
 }: OrderDeliveredReviewModalProps) {
@@ -82,15 +84,17 @@ export function OrderDeliveredReviewModal({
     <div className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200 select-none">
       <div className="relative w-full max-w-md bg-white rounded-3xl p-6 sm:p-7 shadow-2xl border border-gray-100 flex flex-col gap-4 text-center">
         
-        {/* Close Button */}
-        <button
-          onClick={onClose}
-          type="button"
-          className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-700 rounded-full hover:bg-gray-100 transition"
-          aria-label="Close review modal"
-        >
-          <X className="w-5 h-5" />
-        </button>
+        {/* Close Button (Hidden on First Order to make review mandatory) */}
+        {!isFirstOrder && (
+          <button
+            onClick={onClose}
+            type="button"
+            className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-700 rounded-full hover:bg-gray-100 transition"
+            aria-label="Close review modal"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        )}
 
         {/* Top Celebration Icon */}
         <div className="mx-auto w-16 h-16 rounded-2xl bg-gradient-to-tr from-amber-400 to-orange-500 text-white flex items-center justify-center shadow-lg shadow-orange-500/25">
@@ -98,14 +102,23 @@ export function OrderDeliveredReviewModal({
         </div>
 
         <div>
-          <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
-            Order Delivered
-          </span>
+          <div className="flex items-center justify-center gap-1.5 flex-wrap">
+            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+              Order Delivered
+            </span>
+            {isFirstOrder && (
+              <span className="text-[10px] font-black uppercase tracking-widest text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200">
+                1st Order Review
+              </span>
+            )}
+          </div>
           <h3 className="text-xl font-extrabold text-gray-900 mt-2">
             Rate Your Experience
           </h3>
           <p className="text-xs text-gray-500 mt-1">
-            Order #{order.orderNumber} has arrived! How was the freshness and delivery service?
+            {isFirstOrder
+              ? `Welcome to Anmol Enterprises! Since this is your first delivery (Order #${order.orderNumber}), please share your feedback so we can serve you best!`
+              : `Order #${order.orderNumber} has arrived! How was the freshness and delivery service?`}
           </p>
         </div>
 
@@ -170,18 +183,20 @@ export function OrderDeliveredReviewModal({
 
         {/* Submit & Cancel Buttons */}
         <div className="flex items-center gap-3 mt-1">
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex-1 py-3 text-xs font-bold text-gray-500 hover:text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition"
-          >
-            Later
-          </button>
+          {!isFirstOrder && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 py-3 text-xs font-bold text-gray-500 hover:text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition"
+            >
+              Later
+            </button>
+          )}
           <button
             type="button"
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className="flex-[2] py-3 text-xs font-black text-white bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 rounded-xl shadow-md shadow-orange-500/20 active:scale-98 transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-60"
+            className={`${isFirstOrder ? 'w-full' : 'flex-[2]'} py-3 text-xs font-black text-white bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 rounded-xl shadow-md shadow-orange-500/20 active:scale-98 transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-60`}
           >
             {isSubmitting ? (
               <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />

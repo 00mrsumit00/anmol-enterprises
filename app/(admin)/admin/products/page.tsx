@@ -406,6 +406,39 @@ export default function AdminProductsPage() {
     }
   }
 
+  // Helper for numeric inputs with auto-calculations & leading zero prevention
+  const handleNumericChange = (field: string, rawVal: string, isInt = false) => {
+    if (rawVal === '') {
+      setFormData(prev => ({ ...prev, [field]: 0 }))
+      return
+    }
+    const clean = rawVal.replace(/^0+(?=\d)/, '')
+    const num = isInt ? parseInt(clean, 10) || 0 : parseFloat(clean) || 0
+
+    setFormData(prev => {
+      const updated = { ...prev, [field]: num }
+      if (field === 'singlePrice') {
+        updated.boxPrice = Math.round(num * (prev.boxUnits || 10) * 0.95)
+        updated.cartonPrice = Math.round(num * (prev.cartonUnits || 50) * 0.90)
+      } else if (field === 'singleB2bPrice') {
+        updated.boxB2bPrice = Math.round(num * (prev.boxUnits || 10) * 0.95)
+        updated.cartonB2bPrice = Math.round(num * (prev.cartonUnits || 50) * 0.90)
+      } else if (field === 'singleStock') {
+        updated.boxStock = Math.floor(num / (prev.boxUnits || 10))
+        updated.cartonStock = Math.floor(num / (prev.cartonUnits || 50))
+      } else if (field === 'boxUnits') {
+        updated.boxStock = num > 0 ? Math.floor(prev.singleStock / num) : 0
+        if (prev.singlePrice > 0) updated.boxPrice = Math.round(prev.singlePrice * num * 0.95)
+        if (prev.singleB2bPrice > 0) updated.boxB2bPrice = Math.round(prev.singleB2bPrice * num * 0.95)
+      } else if (field === 'cartonUnits') {
+        updated.cartonStock = num > 0 ? Math.floor(prev.singleStock / num) : 0
+        if (prev.singlePrice > 0) updated.cartonPrice = Math.round(prev.singlePrice * num * 0.90)
+        if (prev.singleB2bPrice > 0) updated.cartonB2bPrice = Math.round(prev.singleB2bPrice * num * 0.90)
+      }
+      return updated
+    })
+  }
+
   // Set Primary Packet Image
   const handleSetPrimary = (url: string) => {
     const updated = [url, ...formData.galleryImages.filter((u) => u !== url)]
@@ -947,6 +980,56 @@ export default function AdminProductsPage() {
                       </div>
                     </div>
 
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {/* Brand Name */}
+                      <div className="flex flex-col gap-1">
+                        <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Brand Name</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. McCain, Fresh Catch, etc."
+                          value={formData.brand}
+                          onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
+                          className="w-full bg-[#111625] border border-slate-800 text-xs sm:text-sm text-white rounded-2xl px-4 py-3 font-semibold focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+
+                      {/* Dietary Type: Veg / Non-Veg */}
+                      <div className="flex flex-col gap-1">
+                        <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Dietary Category *</label>
+                        <div className="flex items-center gap-2 h-full">
+                          <button
+                            type="button"
+                            onClick={() => setFormData({ ...formData, isVeg: true })}
+                            className={`flex-1 flex items-center justify-center gap-2 py-3 px-3 rounded-2xl border text-xs font-bold transition-all cursor-pointer ${
+                              formData.isVeg
+                                ? 'bg-emerald-950/60 border-emerald-500 text-emerald-300 ring-1 ring-emerald-500/50 shadow-xs'
+                                : 'bg-[#111625] border-slate-800 text-slate-400 hover:text-white'
+                            }`}
+                          >
+                            <div className="w-3.5 h-3.5 rounded-xs border border-emerald-500 p-0.5 flex items-center justify-center bg-white">
+                              <div className="w-1.5 h-1.5 rounded-full bg-emerald-700" />
+                            </div>
+                            <span>Veg (Green Dot)</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setFormData({ ...formData, isVeg: false })}
+                            className={`flex-1 flex items-center justify-center gap-2 py-3 px-3 rounded-2xl border text-xs font-bold transition-all cursor-pointer ${
+                              !formData.isVeg
+                                ? 'bg-red-950/60 border-red-500 text-red-300 ring-1 ring-red-500/50 shadow-xs'
+                                : 'bg-[#111625] border-slate-800 text-slate-400 hover:text-white'
+                            }`}
+                          >
+                            <div className="w-3.5 h-3.5 rounded-xs border border-red-600 p-0.5 flex items-center justify-center bg-white">
+                              <div className="w-0 h-0 border-l-[3.5px] border-l-transparent border-r-[3.5px] border-r-transparent border-b-[6px] border-b-red-700" />
+                            </div>
+                            <span>Non-Veg (Red Dot)</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
                     <div className="flex flex-col gap-1">
                       <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Summary Description *</label>
                       <textarea
@@ -1178,8 +1261,9 @@ export default function AdminProductsPage() {
                             <label className="text-[9px] font-bold text-slate-400 block mb-1">Weight (g)</label>
                             <input
                               type="number"
-                              value={formData.singleWeight}
-                              onChange={(e) => setFormData({ ...formData, singleWeight: parseFloat(e.target.value) || 0 })}
+                              placeholder="0"
+                              value={formData.singleWeight === 0 ? '' : formData.singleWeight}
+                              onChange={(e) => handleNumericChange('singleWeight', e.target.value)}
                               className="w-full bg-[#0B0F19] border border-slate-800 rounded-xl p-2 text-xs font-black text-white focus:outline-none focus:border-amber-500"
                             />
                           </div>
@@ -1187,8 +1271,9 @@ export default function AdminProductsPage() {
                             <label className="text-[9px] font-bold text-emerald-400 block mb-1">Pack Stock (Qty)</label>
                             <input
                               type="number"
-                              value={formData.singleStock}
-                              onChange={(e) => setFormData({ ...formData, singleStock: parseInt(e.target.value) || 0 })}
+                              placeholder="0"
+                              value={formData.singleStock === 0 ? '' : formData.singleStock}
+                              onChange={(e) => handleNumericChange('singleStock', e.target.value, true)}
                               className="w-full bg-[#0B0F19] border border-slate-800 rounded-xl p-2 text-xs font-black text-emerald-300 focus:outline-none focus:border-emerald-500"
                             />
                           </div>
@@ -1196,8 +1281,9 @@ export default function AdminProductsPage() {
                             <label className="text-[9px] font-bold text-slate-400 block mb-1">Retail MRP (₹)</label>
                             <input
                               type="number"
-                              value={formData.singlePrice}
-                              onChange={(e) => setFormData({ ...formData, singlePrice: parseFloat(e.target.value) || 0 })}
+                              placeholder="0"
+                              value={formData.singlePrice === 0 ? '' : formData.singlePrice}
+                              onChange={(e) => handleNumericChange('singlePrice', e.target.value)}
                               className="w-full bg-[#0B0F19] border border-slate-800 rounded-xl p-2 text-xs font-black text-white focus:outline-none focus:border-amber-500"
                             />
                           </div>
@@ -1205,8 +1291,9 @@ export default function AdminProductsPage() {
                             <label className="text-[9px] font-bold text-purple-400 block mb-1">B2B Wholesale (₹)</label>
                             <input
                               type="number"
-                              value={formData.singleB2bPrice}
-                              onChange={(e) => setFormData({ ...formData, singleB2bPrice: parseFloat(e.target.value) || 0 })}
+                              placeholder="0"
+                              value={formData.singleB2bPrice === 0 ? '' : formData.singleB2bPrice}
+                              onChange={(e) => handleNumericChange('singleB2bPrice', e.target.value)}
                               className="w-full bg-[#0B0F19] border border-slate-800 rounded-xl p-2 text-xs font-black text-purple-300 focus:outline-none focus:border-purple-500"
                             />
                           </div>
@@ -1217,8 +1304,9 @@ export default function AdminProductsPage() {
                           <div className="flex items-center gap-1.5">
                             <input
                               type="number"
-                              value={formData.reorderLevel}
-                              onChange={(e) => setFormData({ ...formData, reorderLevel: parseInt(e.target.value) || 0 })}
+                              placeholder="0"
+                              value={formData.reorderLevel === 0 ? '' : formData.reorderLevel}
+                              onChange={(e) => handleNumericChange('reorderLevel', e.target.value, true)}
                               className="w-16 bg-[#0B0F19] border border-slate-800 rounded-lg px-2 py-0.5 text-xs font-black text-amber-300 text-center"
                             />
                             <span className="text-slate-500 font-bold">units</span>
@@ -1240,7 +1328,7 @@ export default function AdminProductsPage() {
                               <button
                                 key={u}
                                 type="button"
-                                onClick={() => setFormData({ ...formData, boxUnits: u })}
+                                onClick={() => handleNumericChange('boxUnits', String(u), true)}
                                 className={`text-[9px] font-bold px-1.5 py-0.2 rounded border ${
                                   formData.boxUnits === u
                                     ? 'bg-blue-500/20 text-blue-300 border-blue-500/40'
@@ -1258,8 +1346,9 @@ export default function AdminProductsPage() {
                             <label className="text-[9px] font-bold text-slate-400 block mb-1">Units In Box</label>
                             <input
                               type="number"
-                              value={formData.boxUnits}
-                              onChange={(e) => setFormData({ ...formData, boxUnits: parseInt(e.target.value) || 0 })}
+                              placeholder="0"
+                              value={formData.boxUnits === 0 ? '' : formData.boxUnits}
+                              onChange={(e) => handleNumericChange('boxUnits', e.target.value, true)}
                               className="w-full bg-[#0B0F19] border border-slate-800 rounded-xl p-2 text-xs font-black text-white focus:outline-none focus:border-blue-500"
                             />
                           </div>
@@ -1267,8 +1356,9 @@ export default function AdminProductsPage() {
                             <label className="text-[9px] font-bold text-emerald-400 block mb-1">Box Stock (Qty)</label>
                             <input
                               type="number"
-                              value={formData.boxStock}
-                              onChange={(e) => setFormData({ ...formData, boxStock: parseInt(e.target.value) || 0 })}
+                              placeholder="0"
+                              value={formData.boxStock === 0 ? '' : formData.boxStock}
+                              onChange={(e) => handleNumericChange('boxStock', e.target.value, true)}
                               className="w-full bg-[#0B0F19] border border-slate-800 rounded-xl p-2 text-xs font-black text-emerald-300 focus:outline-none focus:border-emerald-500"
                             />
                           </div>
@@ -1276,8 +1366,9 @@ export default function AdminProductsPage() {
                             <label className="text-[9px] font-bold text-slate-400 block mb-1">Retail Box (₹)</label>
                             <input
                               type="number"
-                              value={formData.boxPrice}
-                              onChange={(e) => setFormData({ ...formData, boxPrice: parseFloat(e.target.value) || 0 })}
+                              placeholder="0"
+                              value={formData.boxPrice === 0 ? '' : formData.boxPrice}
+                              onChange={(e) => handleNumericChange('boxPrice', e.target.value)}
                               className="w-full bg-[#0B0F19] border border-slate-800 rounded-xl p-2 text-xs font-black text-white focus:outline-none focus:border-amber-500"
                             />
                           </div>
@@ -1285,8 +1376,9 @@ export default function AdminProductsPage() {
                             <label className="text-[9px] font-bold text-purple-400 block mb-1">B2B Box (₹)</label>
                             <input
                               type="number"
-                              value={formData.boxB2bPrice}
-                              onChange={(e) => setFormData({ ...formData, boxB2bPrice: parseFloat(e.target.value) || 0 })}
+                              placeholder="0"
+                              value={formData.boxB2bPrice === 0 ? '' : formData.boxB2bPrice}
+                              onChange={(e) => handleNumericChange('boxB2bPrice', e.target.value)}
                               className="w-full bg-[#0B0F19] border border-slate-800 rounded-xl p-2 text-xs font-black text-purple-300 focus:outline-none focus:border-purple-500"
                             />
                           </div>
@@ -1307,7 +1399,7 @@ export default function AdminProductsPage() {
                               <button
                                 key={u}
                                 type="button"
-                                onClick={() => setFormData({ ...formData, cartonUnits: u })}
+                                onClick={() => handleNumericChange('cartonUnits', String(u), true)}
                                 className={`text-[9px] font-bold px-1.5 py-0.2 rounded border ${
                                   formData.cartonUnits === u
                                     ? 'bg-purple-500/20 text-purple-300 border-purple-500/40'
@@ -1325,8 +1417,9 @@ export default function AdminProductsPage() {
                             <label className="text-[9px] font-bold text-slate-400 block mb-1">Units In Carton</label>
                             <input
                               type="number"
-                              value={formData.cartonUnits}
-                              onChange={(e) => setFormData({ ...formData, cartonUnits: parseInt(e.target.value) || 0 })}
+                              placeholder="0"
+                              value={formData.cartonUnits === 0 ? '' : formData.cartonUnits}
+                              onChange={(e) => handleNumericChange('cartonUnits', e.target.value, true)}
                               className="w-full bg-[#0B0F19] border border-slate-800 rounded-xl p-2 text-xs font-black text-white focus:outline-none focus:border-purple-500"
                             />
                           </div>
@@ -1334,8 +1427,9 @@ export default function AdminProductsPage() {
                             <label className="text-[9px] font-bold text-emerald-400 block mb-1">Carton Stock (Qty)</label>
                             <input
                               type="number"
-                              value={formData.cartonStock}
-                              onChange={(e) => setFormData({ ...formData, cartonStock: parseInt(e.target.value) || 0 })}
+                              placeholder="0"
+                              value={formData.cartonStock === 0 ? '' : formData.cartonStock}
+                              onChange={(e) => handleNumericChange('cartonStock', e.target.value, true)}
                               className="w-full bg-[#0B0F19] border border-slate-800 rounded-xl p-2 text-xs font-black text-emerald-300 focus:outline-none focus:border-emerald-500"
                             />
                           </div>
@@ -1343,8 +1437,9 @@ export default function AdminProductsPage() {
                             <label className="text-[9px] font-bold text-slate-400 block mb-1">Retail Carton (₹)</label>
                             <input
                               type="number"
-                              value={formData.cartonPrice}
-                              onChange={(e) => setFormData({ ...formData, cartonPrice: parseFloat(e.target.value) || 0 })}
+                              placeholder="0"
+                              value={formData.cartonPrice === 0 ? '' : formData.cartonPrice}
+                              onChange={(e) => handleNumericChange('cartonPrice', e.target.value)}
                               className="w-full bg-[#0B0F19] border border-slate-800 rounded-xl p-2 text-xs font-black text-white focus:outline-none focus:border-amber-500"
                             />
                           </div>
@@ -1352,8 +1447,9 @@ export default function AdminProductsPage() {
                             <label className="text-[9px] font-bold text-purple-400 block mb-1">B2B Carton (₹)</label>
                             <input
                               type="number"
-                              value={formData.cartonB2bPrice}
-                              onChange={(e) => setFormData({ ...formData, cartonB2bPrice: parseFloat(e.target.value) || 0 })}
+                              placeholder="0"
+                              value={formData.cartonB2bPrice === 0 ? '' : formData.cartonB2bPrice}
+                              onChange={(e) => handleNumericChange('cartonB2bPrice', e.target.value)}
                               className="w-full bg-[#0B0F19] border border-slate-800 rounded-xl p-2 text-xs font-black text-purple-300 focus:outline-none focus:border-purple-500"
                             />
                           </div>
@@ -1436,12 +1532,20 @@ export default function AdminProductsPage() {
                         </span>
 
                         <div className="flex items-center gap-1.5">
-                          <span className="text-[10px] font-black bg-red-600 text-white px-2 py-0.5 rounded-md uppercase">
-                            McCain
-                          </span>
-                          <span className="w-4 h-4 rounded-sm border border-emerald-500 p-0.5 flex items-center justify-center bg-emerald-500/10" title="100% Vegetarian">
-                            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                          </span>
+                          {formData.brand?.toLowerCase() === 'mccain' && (
+                            <span className="text-[10px] font-black bg-red-600 text-white px-2 py-0.5 rounded-md uppercase">
+                              McCain
+                            </span>
+                          )}
+                          {formData.isVeg ? (
+                            <span className="w-4 h-4 rounded-xs border border-emerald-500 p-0.5 flex items-center justify-center bg-white" title="100% Vegetarian">
+                              <span className="w-2 h-2 rounded-full bg-emerald-600"></span>
+                            </span>
+                          ) : (
+                            <span className="w-4 h-4 rounded-xs border border-red-600 p-0.5 flex items-center justify-center bg-white" title="Non-Vegetarian">
+                              <span className="w-0 h-0 border-l-[3.5px] border-l-transparent border-r-[3.5px] border-r-transparent border-b-[6px] border-b-red-600"></span>
+                            </span>
+                          )}
                         </div>
                       </div>
 

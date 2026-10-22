@@ -191,9 +191,18 @@ export default function ProductCard({ product }: ProductCardProps) {
           />
         </button>
 
-        {/* Veg Square Icon */}
-        <div className="absolute top-2 right-10 z-20 w-3.5 h-3.5 rounded-xs border border-emerald-700 p-0.5 flex items-center justify-center bg-white/90 shadow-2xs" title="100% Vegetarian">
-          <div className="w-1.5 h-1.5 rounded-full bg-emerald-700" />
+        {/* Veg / Non-Veg Standard Food Mark */}
+        <div 
+          className={`absolute top-2 right-10 z-20 w-3.5 h-3.5 rounded-xs border p-0.5 flex items-center justify-center bg-white/95 shadow-2xs ${
+            product.isVeg !== false ? 'border-emerald-700' : 'border-red-700'
+          }`} 
+          title={product.isVeg !== false ? '100% Vegetarian' : 'Non-Vegetarian'}
+        >
+          {product.isVeg !== false ? (
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-700" />
+          ) : (
+            <div className="w-0 h-0 border-l-[3px] border-l-transparent border-r-[3px] border-r-transparent border-b-[5px] border-b-red-700" />
+          )}
         </div>
 
         {/* Official McCain Product Image */}

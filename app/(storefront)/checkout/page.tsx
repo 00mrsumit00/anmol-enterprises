@@ -119,24 +119,12 @@ export default function CheckoutDeliveryPage() {
 
   const minOrderValue = isB2BCheckout ? 1500 : 199
   const isBelowMinOrder = total < minOrderValue
+  const [showSaveAddressModal, setShowSaveAddressModal] = useState(false)
+  const [isSavingAddress, setIsSavingAddress] = useState(false)
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-
-    if (!name.trim()) return showToast('Please enter your name', 'error')
-    if (!phone.trim() || phone.length < 10) return showToast('Please enter a valid 10-digit phone number', 'error')
-    if (!flatNo.trim()) return showToast('Please enter house/flat/shop number', 'error')
-    if (!street.trim()) return showToast('Please enter street/area name', 'error')
-    if (!pincode.trim() || !/^[1-9][0-9]{5}$/.test(pincode.trim())) {
-      return showToast('Please enter a valid 6-digit Indian pincode (e.g. 413512)', 'error')
-    }
-    if (isBelowMinOrder) {
-      return showToast(`Minimum order amount is ₹${minOrderValue}. Please add ₹${minOrderValue - total} more to place your order.`, 'warning')
-    }
-    if (isB2BCheckout && !businessName.trim()) return showToast('Please enter your business name', 'error')
-
-    // If user selected "Add New Address" & checkbox is checked, save to DB
-    if (user && saveAddressToAccount && selectedAddressId === 'NEW') {
+  const executeProceed = async (shouldSave: boolean) => {
+    setIsSavingAddress(true)
+    if (user && shouldSave) {
       try {
         await fetch('/api/addresses', {
           method: 'POST',
@@ -179,9 +167,36 @@ export default function CheckoutDeliveryPage() {
 
     localStorage.setItem('checkout_delivery_info', JSON.stringify(deliveryInfo))
     localStorage.setItem('checkout_slot_info', JSON.stringify(slotInfo))
+    setShowSaveAddressModal(false)
+    setIsSavingAddress(false)
 
     // Directly skip slot step and proceed straight to payment!
     router.push('/checkout/payment')
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!name.trim()) return showToast('Please enter your name', 'error')
+    if (!phone.trim() || phone.length < 10) return showToast('Please enter a valid 10-digit phone number', 'error')
+    if (!flatNo.trim()) return showToast('Please enter house/flat/shop number', 'error')
+    if (!street.trim()) return showToast('Please enter street/area name', 'error')
+    if (!pincode.trim() || !/^[1-9][0-9]{5}$/.test(pincode.trim())) {
+      return showToast('Please enter a valid 6-digit Indian pincode (e.g. 413512)', 'error')
+    }
+    if (isBelowMinOrder) {
+      return showToast(`Minimum order amount is ₹${minOrderValue}. Please add ₹${minOrderValue - total} more to place your order.`, 'warning')
+    }
+    if (isB2BCheckout && !businessName.trim()) return showToast('Please enter your business name', 'error')
+
+    // If first-time ordering (no saved addresses) or new address added, prompt user with Save or Later
+    if (savedAddresses.length === 0 || selectedAddressId === 'NEW') {
+      setShowSaveAddressModal(true)
+      return
+    }
+
+    // Otherwise proceed with existing selected address
+    await executeProceed(false)
   }
 
   return (
@@ -551,6 +566,48 @@ export default function CheckoutDeliveryPage() {
 
         </form>
       </div>
+
+      {/* Save Address Confirmation Modal for First-time / New Address Customers */}
+      {showSaveAddressModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-sm bg-white rounded-3xl p-6 shadow-2xl border border-gray-100 text-center animate-in zoom-in-95">
+            <div className="w-14 h-14 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center mx-auto mb-3.5 text-2xl shadow-xs">
+              📍
+            </div>
+            <h3 className="font-extrabold text-gray-900 text-base mb-1.5">
+              Save Address for Future Orders?
+            </h3>
+            <p className="text-xs text-gray-500 mb-5 leading-relaxed">
+              Would you like to save <strong className="text-gray-800">{flatNo}, {street}</strong> to your account for fast 1-click checkout next time?
+            </p>
+            <div className="flex flex-col gap-2.5">
+              <button
+                type="button"
+                disabled={isSavingAddress}
+                onClick={() => executeProceed(true)}
+                className="w-full py-3 bg-[#FF6B00] hover:bg-[#e05e00] text-white font-extrabold text-sm rounded-xl shadow-md transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
+              >
+                {isSavingAddress ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <BookmarkPlus className="w-4 h-4" />
+                    <span>Save Address & Proceed</span>
+                  </>
+                )}
+              </button>
+              <button
+                type="button"
+                disabled={isSavingAddress}
+                onClick={() => executeProceed(false)}
+                className="w-full py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold text-xs rounded-xl transition cursor-pointer"
+              >
+                Later (Just for this order)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   )

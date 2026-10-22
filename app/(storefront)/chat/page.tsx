@@ -226,15 +226,15 @@ function CustomerChatContent() {
   }
 
   return (
-    <div className="min-h-[88vh] bg-slate-100 dark:bg-slate-950 py-2 sm:py-6 px-2 sm:px-4 flex items-center justify-center font-sans">
-      <div className="w-full max-w-2xl bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xl overflow-hidden flex flex-col h-[780px] max-h-[92vh]">
+    <div className="min-h-[88vh] bg-slate-50 dark:bg-slate-950 py-2 sm:py-6 px-2 sm:px-4 flex items-center justify-center font-sans">
+      <div className="w-full max-w-2xl bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden flex flex-col h-[780px] max-h-[92vh]">
         
-        {/* ─── WHATSAPP BRANDED TOP HEADER (#075E54 / #008069) ─────────────── */}
-        <div className="bg-[#075E54] dark:bg-[#005c4b] text-white px-4 py-3 flex items-center justify-between shadow-md select-none">
+        {/* ─── PREMIUM BRANDED TOP HEADER ─────────────── */}
+        <div className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white px-4 py-3.5 flex items-center justify-between border-b border-slate-200/90 dark:border-slate-800 select-none">
           <div className="flex items-center gap-3">
             <Link
               href="/"
-              className="p-1.5 -ml-1 hover:bg-black/20 rounded-full transition-colors tap-scale"
+              className="p-1.5 -ml-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors tap-scale text-slate-600 dark:text-slate-300"
               aria-label="Back to storefront"
             >
               <ArrowLeft className="w-5 h-5" />
@@ -242,27 +242,27 @@ function CustomerChatContent() {
 
             {/* Profile Avatar with Online Status Indicator */}
             <div className="relative">
-              <div className="w-10 h-10 rounded-full bg-white p-0.5 shadow-md flex items-center justify-center overflow-hidden">
+              <div className="w-10 h-10 rounded-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-1 flex items-center justify-center overflow-hidden">
                 <Image
                   src="/icons/emblem.png"
                   alt="Anmol Enterprises"
-                  width={38}
-                  height={38}
+                  width={36}
+                  height={36}
                   className="w-full h-full object-contain"
                 />
               </div>
-              <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-400 border-2 border-[#075E54] rounded-full" />
+              <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-white dark:border-slate-900 rounded-full animate-pulse" />
             </div>
 
             <div className="leading-tight">
-              <h1 className="font-extrabold text-sm sm:text-base flex items-center gap-1.5">
-                <span>Anmol Enterprises</span>
-                <span className="bg-emerald-400 text-slate-950 text-[9px] font-black px-1.5 py-0.2 rounded-full uppercase tracking-wider">
-                  Verified
+              <h1 className="font-extrabold text-sm sm:text-base flex items-center gap-1.5 text-slate-900 dark:text-white">
+                <span>Anmol Support Desk</span>
+                <span className="bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
+                  Official
                 </span>
               </h1>
-              <p className="text-[11px] text-emerald-100/90 font-medium">
-                online • Official Support Desk
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                Live Support • Typically replies in minutes
               </p>
             </div>
           </div>
@@ -271,7 +271,7 @@ function CustomerChatContent() {
             {/* Quick Call Button */}
             <a
               href="tel:+918237722744"
-              className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition tap-scale"
+              className="p-2 rounded-full bg-emerald-50 hover:bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800 transition tap-scale"
               title="Call Anmol Helpline: +91 8237722744"
             >
               <Phone className="w-4 h-4 fill-current" />
@@ -283,7 +283,7 @@ function CustomerChatContent() {
                 refetchUpdates()
                 showToast('Messages refreshed', 'info')
               }}
-              className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition tap-scale"
+              className="p-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-300 transition tap-scale"
               title="Refresh messages"
             >
               <RefreshCw className="w-4 h-4" />
@@ -292,50 +292,43 @@ function CustomerChatContent() {
         </div>
 
         {/* ─── TAB NAVIGATION: CHAT vs UPDATES ───────────────────────────────── */}
-        <div className="flex bg-[#054c44] text-white/80 border-t border-white/10 text-xs font-bold tracking-wider uppercase select-none">
-          <button
-            onClick={() => setActiveTab('CHAT')}
-            className={`flex-1 py-2.5 flex items-center justify-center gap-2 border-b-3 transition-colors ${
-              activeTab === 'CHAT'
-                ? 'border-white text-white bg-black/10'
-                : 'border-transparent text-white/70 hover:text-white'
-            }`}
-          >
-            <MessageSquare className="w-3.5 h-3.5" />
-            <span>Chat</span>
-          </button>
+        <div className="p-2 bg-slate-50 dark:bg-slate-950/60 border-b border-slate-200 dark:border-slate-800 select-none">
+          <div className="flex bg-slate-200/70 dark:bg-slate-800/80 p-1 rounded-2xl text-xs font-bold gap-1">
+            <button
+              onClick={() => setActiveTab('CHAT')}
+              className={`flex-1 py-2 flex items-center justify-center gap-2 rounded-xl transition-all ${
+                activeTab === 'CHAT'
+                  ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs font-black'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+              }`}
+            >
+              <MessageSquare className="w-3.5 h-3.5" />
+              <span>Live Chat</span>
+            </button>
 
-          <button
-            onClick={() => setActiveTab('UPDATES')}
-            className={`flex-1 py-2.5 flex items-center justify-center gap-2 border-b-3 transition-colors relative ${
-              activeTab === 'UPDATES'
-                ? 'border-white text-white bg-black/10'
-                : 'border-transparent text-white/70 hover:text-white'
-            }`}
-          >
-            <Radio className="w-3.5 h-3.5" />
-            <span>Broadcasts</span>
-            {unreadUpdatesCount > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full text-[9px] font-black bg-amber-400 text-slate-950">
-                {unreadUpdatesCount}
-              </span>
-            )}
-          </button>
+            <button
+              onClick={() => setActiveTab('UPDATES')}
+              className={`flex-1 py-2 flex items-center justify-center gap-2 rounded-xl transition-all relative ${
+                activeTab === 'UPDATES'
+                  ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs font-black'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+              }`}
+            >
+              <Radio className="w-3.5 h-3.5" />
+              <span>Announcements</span>
+              {unreadUpdatesCount > 0 && (
+                <span className="px-1.5 py-0.2 rounded-full text-[9px] font-black bg-amber-500 text-white">
+                  {unreadUpdatesCount}
+                </span>
+              )}
+            </button>
+          </div>
         </div>
 
-        {/* ─── TAB 1: WHATSAPP-STYLE SUPPORT CHAT ────────────────────────────── */}
+        {/* ─── TAB 1: PREMIUM SUPPORT CHAT ────────────────────────────── */}
         {activeTab === 'CHAT' && (
-          <div className="flex-1 flex flex-col min-h-0 bg-[#EFEAE2] dark:bg-[#0b141a] relative">
+          <div className="flex-1 flex flex-col min-h-0 bg-slate-50/50 dark:bg-slate-950 relative">
             
-            {/* Subtle WhatsApp-style doodle pattern overlay */}
-            <div 
-              className="absolute inset-0 opacity-[0.035] dark:opacity-[0.025] pointer-events-none"
-              style={{
-                backgroundImage: 'radial-gradient(#075e54 1.5px, transparent 1.5px)',
-                backgroundSize: '24px 24px'
-              }}
-            />
-
             {/* Inquiring Order Context Ribbon if provided */}
             {orderNumberParam && (
               <div className="relative z-10 bg-amber-50 dark:bg-amber-950/40 border-b border-amber-200/80 dark:border-amber-900/60 px-4 py-2 flex items-center justify-between text-xs text-amber-950 dark:text-amber-200">
@@ -353,28 +346,20 @@ function CustomerChatContent() {
               </div>
             )}
 
-            {/* End-to-end Encryption Notice Banner (WhatsApp signature) */}
-            <div className="relative z-10 px-4 pt-3 flex justify-center">
-              <div className="inline-flex items-center gap-1.5 bg-amber-100/80 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/40 px-3 py-1 rounded-xl text-[10px] text-amber-900 dark:text-amber-200 shadow-2xs text-center max-w-sm">
-                <ShieldCheck className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                <span>Messages are securely logged to official Anmol Enterprises support ledger.</span>
-              </div>
-            </div>
-
             {/* Messages Scroll Area */}
             <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 relative z-10">
               {convLoading ? (
                 <div className="p-8 text-center text-xs text-slate-500">Loading conversation...</div>
               ) : messages.length === 0 ? (
                 <div className="text-center py-10 px-4">
-                  <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 mx-auto flex items-center justify-center mb-2.5">
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 mx-auto flex items-center justify-center mb-2.5 shadow-xs">
                     <MessageSquare className="w-6 h-6" />
                   </div>
                   <h3 className="font-extrabold text-slate-900 dark:text-slate-100 text-sm">
                     Welcome to Anmol Enterprises Helpdesk
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-xs mx-auto leading-relaxed">
-                    Ask questions about orders, today&apos;s delivery slots, or wholesale pricing. Use the quick query buttons below or type your message.
+                    Ask questions about orders, today&apos;s delivery slots in Latur, or wholesale pricing. Use the quick query buttons below or type your message.
                   </p>
                 </div>
               ) : (
@@ -387,17 +372,17 @@ function CustomerChatContent() {
                       className={`flex flex-col ${isCustomer ? 'items-end' : 'items-start'}`}
                     >
                       <div
-                        className={`relative max-w-[85%] sm:max-w-[75%] rounded-2xl p-3 shadow-xs ${
+                        className={`relative max-w-[85%] sm:max-w-[75%] rounded-2xl p-3.5 shadow-xs ${
                           isCustomer
-                            ? 'bg-[#E7FFDB] dark:bg-[#005c4b] text-slate-950 dark:text-white rounded-tr-xs border border-emerald-200/60 dark:border-transparent'
-                            : 'bg-white dark:bg-[#202c33] text-slate-900 dark:text-white rounded-tl-xs border border-slate-200 dark:border-slate-800'
+                            ? 'bg-[#0c831f] text-white rounded-tr-xs shadow-md shadow-[#0c831f]/10'
+                            : 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-tl-xs border border-slate-200/90 dark:border-slate-800 shadow-sm'
                         }`}
                       >
                         {/* Admin Badge */}
                         {!isCustomer && (
-                          <div className="flex items-center gap-1 text-[11px] font-extrabold text-emerald-700 dark:text-emerald-400 mb-1">
+                          <div className="flex items-center gap-1.5 text-[11px] font-extrabold text-emerald-700 dark:text-emerald-400 mb-1 pb-1 border-b border-slate-100 dark:border-slate-800">
                             <ShieldCheck className="w-3.5 h-3.5" />
-                            <span>Anmol Support ({msg.senderId})</span>
+                            <span>Anmol Helpdesk ({msg.senderId})</span>
                           </div>
                         )}
 
@@ -407,15 +392,15 @@ function CustomerChatContent() {
 
                         <div
                           className={`flex items-center justify-end gap-1 mt-1 text-[10px] ${
-                            isCustomer ? 'text-emerald-800/80 dark:text-emerald-200' : 'text-slate-400'
+                            isCustomer ? 'text-emerald-100' : 'text-slate-400'
                           }`}
                         >
                           <span>{formatTime(msg.createdAt)}</span>
                           {isCustomer && (
                             msg.readAt ? (
-                              <CheckCheck className="w-3.5 h-3.5 text-[#53bdeb]" />
+                              <CheckCheck className="w-3.5 h-3.5 text-emerald-200" />
                             ) : (
-                              <CheckCheck className="w-3.5 h-3.5 text-slate-400" />
+                              <Check className="w-3.5 h-3.5 text-emerald-200/70" />
                             )
                           )}
                         </div>
@@ -427,8 +412,8 @@ function CustomerChatContent() {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* ─── QUICK AUTO-SUGGESTION CHIPS (WhatsApp Query Templates) ────── */}
-            <div className="relative z-10 px-3 py-2 bg-white/70 dark:bg-slate-900/70 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 overflow-x-auto no-scrollbar">
+            {/* ─── QUICK AUTO-SUGGESTION CHIPS ────── */}
+            <div className="relative z-10 px-3 py-2 bg-white dark:bg-slate-900 border-t border-slate-200/80 dark:border-slate-800 overflow-x-auto no-scrollbar">
               <div className="flex items-center gap-2 min-w-max">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider shrink-0">
                   Quick Query:
@@ -438,7 +423,7 @@ function CustomerChatContent() {
                     key={idx}
                     type="button"
                     onClick={() => handleSelectSuggestion(chip.prompt)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/50 text-xs font-bold transition tap-scale shadow-2xs"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-100 hover:bg-emerald-50 dark:bg-slate-800 dark:hover:bg-emerald-950/40 text-slate-700 hover:text-emerald-700 dark:text-slate-300 dark:hover:text-emerald-300 border border-slate-200 hover:border-emerald-300 dark:border-slate-700 text-xs font-bold transition tap-scale shadow-2xs"
                   >
                     <span>{chip.icon}</span>
                     <span>{chip.label}</span>
@@ -447,17 +432,17 @@ function CustomerChatContent() {
               </div>
             </div>
 
-            {/* ─── WHATSAPP COMPOSER ─────────────────────────────────────────── */}
+            {/* ─── COMPOSER BAR ─────────────────────────────────────────── */}
             <form
               onSubmit={handleSendMessage}
-              className="relative z-10 p-2.5 sm:p-3 bg-[#F0F2F5] dark:bg-[#111b21] border-t border-slate-200 dark:border-slate-800 flex items-center gap-2"
+              className="relative z-10 p-2.5 sm:p-3 bg-white dark:bg-slate-900 border-t border-slate-200/80 dark:border-slate-800 flex items-center gap-2"
             >
-              <div className="flex-1 flex items-center bg-white dark:bg-[#2a3942] rounded-full px-3.5 py-1.5 border border-slate-200 dark:border-slate-700 shadow-2xs">
+              <div className="flex-1 flex items-center bg-slate-100 dark:bg-slate-800 rounded-2xl px-4 py-2 border border-slate-200/80 dark:border-slate-700">
                 <input
                   type="text"
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
-                  placeholder="Type a message..."
+                  placeholder="Ask a question or inquire about delivery..."
                   maxLength={2000}
                   className="flex-1 bg-transparent text-slate-900 dark:text-white placeholder-slate-400 text-xs sm:text-sm focus:outline-none py-1"
                 />
@@ -466,7 +451,7 @@ function CustomerChatContent() {
               <button
                 type="submit"
                 disabled={!inputText.trim() || sendMessageMutation.isPending}
-                className="w-10 h-10 rounded-full bg-[#00A884] hover:bg-[#008f6f] disabled:opacity-40 text-white flex items-center justify-center shadow-md active:scale-95 transition-all shrink-0 cursor-pointer"
+                className="w-11 h-11 rounded-2xl bg-[#0c831f] hover:bg-[#096918] disabled:opacity-40 text-white flex items-center justify-center shadow-md shadow-[#0c831f]/20 active:scale-95 transition-all shrink-0 cursor-pointer"
                 title="Send message"
               >
                 {sendMessageMutation.isPending ? (

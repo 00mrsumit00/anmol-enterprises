@@ -109,8 +109,8 @@ export default function Homepage() {
       {/* B. Category Exploration & Quick Access (Restored below Hero Banner) */}
       <CategoryStrip activeFilter={activeFilter} onFilterChange={setActiveFilter} />
 
-      {/* C. "McCain Specials" Horizontal Carousel */}
-      {featuredProducts.length > 0 && (
+      {/* C. "McCain Specials" Horizontal Carousel - Hidden when category filter is selected */}
+      {featuredProducts.length > 0 && activeFilter === 'all' && (
         <section id="mccain-specials" className="bg-gradient-to-r from-amber-500/10 via-yellow-500/5 to-emerald-500/10 p-3.5 sm:p-4 md:p-5 rounded-2xl sm:rounded-3xl border border-amber-200/60 no-print">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
@@ -130,8 +130,15 @@ export default function Homepage() {
             </button>
           </div>
 
-          {/* Horizontal scroll grid */}
-          <div className="w-full overflow-x-auto no-scrollbar flex items-stretch gap-4 pb-2 -mx-4 px-4 md:mx-0 md:px-0">
+          {/* Horizontal scroll grid with mouse wheel scroll */}
+          <div 
+            onWheel={(e) => {
+              if (e.deltaY !== 0) {
+                e.currentTarget.scrollLeft += e.deltaY
+              }
+            }}
+            className="w-full overflow-x-auto no-scrollbar flex items-stretch gap-4 pb-2 -mx-4 px-4 md:mx-0 md:px-0 scroll-smooth"
+          >
             {featuredProducts.slice(0, 8).map((product: any) => (
               <div key={product.id} className="min-w-[190px] sm:min-w-[210px] max-w-[210px] shrink-0">
                 <ProductCard product={product} />

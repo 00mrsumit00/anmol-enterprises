@@ -78,9 +78,9 @@ function MobileBottomNavContent() {
     },
     {
       label: 'Order Again',
-      href: '/account?tab=orders',
+      href: '/order-again',
       icon: ShoppingBag,
-      active: isActive('/account', 'orders'),
+      active: pathname === '/order-again' || pathname.startsWith('/order-again'),
     },
     {
       label: 'Categories',

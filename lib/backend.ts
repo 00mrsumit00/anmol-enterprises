@@ -3772,7 +3772,8 @@ apiRouter.get('/orders', authMiddleware, async (req: Request, res: Response) => 
             product: true,
             variant: true
           }
-        }
+        },
+        review: true
       },
       orderBy: { createdAt: 'desc' }
     })

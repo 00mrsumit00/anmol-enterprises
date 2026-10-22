@@ -12,6 +12,7 @@ export default function OrderNotificationListener() {
   
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [deliveredOrderForReview, setDeliveredOrderForReview] = useState<any | null>(null)
+  const [isFirstOrder, setIsFirstOrder] = useState<boolean>(false)
   const [activeNotification, setActiveNotification] = useState<{
     id: string
     title: string
@@ -28,6 +29,19 @@ export default function OrderNotificationListener() {
       .then((data) => {
         if (data.user) {
           setCurrentUser(data.user)
+          // Check if customer's 1st order was delivered but not yet reviewed
+          fetch('/api/orders')
+            .then((r) => r.json())
+            .then((orders) => {
+              if (Array.isArray(orders) && orders.length === 1) {
+                const first = orders[0]
+                if (first.status === 'DELIVERED' && !first.review) {
+                  setIsFirstOrder(true)
+                  setDeliveredOrderForReview(first)
+                }
+              }
+            })
+            .catch(() => {})
         }
       })
       .catch(() => {})
@@ -84,7 +98,16 @@ export default function OrderNotificationListener() {
           icon = '🎉'
           // Automatically trigger the Rate Your Experience review popup!
           setTimeout(() => {
-            setDeliveredOrderForReview(order)
+            fetch('/api/orders')
+              .then((r) => r.json())
+              .then((orders) => {
+                const isFirst = Array.isArray(orders) && orders.length <= 1
+                setIsFirstOrder(isFirst)
+                setDeliveredOrderForReview(order)
+              })
+              .catch(() => {
+                setDeliveredOrderForReview(order)
+              })
           }, 800)
           break
         default:
@@ -178,6 +201,7 @@ export default function OrderNotificationListener() {
       <OrderDeliveredReviewModal
         isOpen={!!deliveredOrderForReview}
         order={deliveredOrderForReview}
+        isFirstOrder={isFirstOrder}
         onClose={() => setDeliveredOrderForReview(null)}
         onSuccess={() => setDeliveredOrderForReview(null)}
       />
