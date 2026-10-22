@@ -330,12 +330,12 @@ function CustomerChatContent() {
             </div>
           </div>
 
-          {/* Right Action: Direct Call Button (Replaced 3 dots) */}
+          {/* Right Action: Direct Call Button (Admin Contact: 9112449612) */}
           <div className="flex items-center gap-2 text-white">
             <a
-              href="tel:+918237722744"
+              href="tel:+919112449612"
               className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 text-white flex items-center justify-center transition shadow-xs"
-              title="Call Helpline: +91 8237722744"
+              title="Call Helpline: +91 9112449612"
             >
               <Phone className="w-4 h-4 fill-current text-white" />
             </a>

@@ -692,7 +692,7 @@ function OrderTrackingContent() {
           <ShoppingBag className="w-4 h-4" />
         </button>
         <a
-          href="tel:+918237722744"
+          href="tel:+919112449612"
           className="flex-1 bg-brand-charcoal hover:bg-brand-charcoal/90 text-white font-bold py-3.5 rounded-pill flex items-center justify-center gap-2 tap-scale text-center text-sm"
         >
           <Phone className="w-4 h-4 fill-current text-brand-yellow" />
