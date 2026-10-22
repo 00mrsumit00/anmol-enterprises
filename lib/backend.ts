@@ -10,6 +10,7 @@ import { prisma } from './prisma'
 import { signToken, verifyToken, authMiddleware, requireRole, requirePermission } from './auth'
 import { env } from './env'
 import { sendTwilioVerifyOtp, checkTwilioVerifyOtp, isTwilioLive, toE164India } from './twilio'
+import { uploadImageToCloudinary, isCloudinaryConfigured } from './cloudinary'
 
 // ─── UTILITIES & INITIALIZERS ────────────────────────────────────────────────
 
@@ -1627,7 +1628,7 @@ apiRouter.get('/admin/products', authMiddleware, requireRole(['ADMIN', 'STAFF'])
 import fs from 'fs'
 import path from 'path'
 
-// Admin Image Upload Endpoint (Saves to /public/images/products/)
+// Admin Image Upload Endpoint (Permanent Cloudinary Cloud Storage with Local Fallback)
 apiRouter.post('/admin/upload-image', authMiddleware, requireRole(['ADMIN', 'STAFF']), async (req: Request, res: Response) => {
   try {
     const { filename, base64Data } = req.body
@@ -1635,7 +1636,32 @@ apiRouter.post('/admin/upload-image', authMiddleware, requireRole(['ADMIN', 'STA
       return res.status(400).json({ error: 'base64Data is required' })
     }
 
-    // Validate safe extension and prevent path traversal
+    // 1. Primary: Upload directly to Cloudinary permanent CDN
+    if (isCloudinaryConfigured()) {
+      try {
+        const cleanBaseName = path
+          .basename(filename || `product-${Date.now()}`, path.extname(filename || ''))
+          .replace(/[^a-zA-Z0-9_-]/g, '_')
+          .slice(0, 50)
+        const publicId = `${cleanBaseName || 'prod'}-${Date.now()}`
+
+        const cloudResult = await uploadImageToCloudinary(base64Data, {
+          folder: 'anmol-enterprises/products',
+          publicId,
+        })
+
+        console.log(`[Upload] Image successfully uploaded to Cloudinary: ${cloudResult.url}`)
+        return res.json({
+          url: cloudResult.url,
+          publicId: cloudResult.publicId,
+          filename: filename || 'image',
+        })
+      } catch (cloudErr: any) {
+        console.error('[Upload] Cloudinary upload failed, falling back to local storage:', cloudErr)
+      }
+    }
+
+    // 2. Secondary Fallback: Save to local filesystem
     const allowedExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.avif', '.gif']
     const rawExt = path.extname(filename || '').toLowerCase()
     const ext = allowedExtensions.includes(rawExt) ? rawExt : '.jpg'
@@ -1652,19 +1678,16 @@ apiRouter.post('/admin/upload-image', authMiddleware, requireRole(['ADMIN', 'STA
     }
 
     const targetPath = path.join(targetDir, cleanName)
-    // Strip header if data URL format (e.g. data:image/png;base64, or any mime type)
     const base64Clean = base64Data.replace(/^data:[^;]+;base64,/, '')
     const buffer = Buffer.from(base64Clean, 'base64')
 
-    // Limit image size to 10MB
     if (buffer.length > 10 * 1024 * 1024) {
       return res.status(400).json({ error: 'Image exceeds maximum 10MB size limit' })
     }
 
     fs.writeFileSync(targetPath, buffer)
-
     const publicUrl = `/images/products/${cleanName}`
-    console.log(`[Upload] Image saved: ${publicUrl} (${buffer.length} bytes)`)
+    console.log(`[Upload] Image saved locally: ${publicUrl} (${buffer.length} bytes)`)
 
     return res.json({ url: publicUrl, filename: cleanName, size: buffer.length })
   } catch (err: any) {
@@ -1673,7 +1696,7 @@ apiRouter.post('/admin/upload-image', authMiddleware, requireRole(['ADMIN', 'STA
   }
 })
 
-// Admin Import Remote or Google Drive Image URL (Downloads to /public/images/products/ or normalizes)
+// Admin Import Remote or Google Drive Image URL (Uploads directly to Cloudinary or downloads locally)
 apiRouter.post('/admin/import-image-url', authMiddleware, requireRole(['ADMIN', 'STAFF']), async (req: Request, res: Response) => {
   try {
     const { url } = req.body
@@ -1689,8 +1712,8 @@ apiRouter.post('/admin/import-image-url', authMiddleware, requireRole(['ADMIN', 
       isGDrive = true
     }
 
-    // If it's already a local path, return as is
-    if (url.startsWith('/images/')) {
+    // If it's already a Cloudinary URL or local path, return as is
+    if (url.includes('cloudinary.com') || url.startsWith('/images/')) {
       return res.json({ url })
     }
 
@@ -1701,7 +1724,20 @@ apiRouter.post('/admin/import-image-url', authMiddleware, requireRole(['ADMIN', 
       })
     }
 
-    // Try fetching and saving locally to avoid CORS, rate limits, or link expiration
+    // 1. Primary: Upload remote URL directly to Cloudinary
+    if (isCloudinaryConfigured()) {
+      try {
+        const cloudResult = await uploadImageToCloudinary(directUrl, {
+          folder: 'anmol-enterprises/products',
+        })
+        console.log(`[Import URL] Successfully saved remote image to Cloudinary: ${cloudResult.url}`)
+        return res.json({ url: cloudResult.url, publicId: cloudResult.publicId, originalUrl: url })
+      } catch (cloudErr) {
+        console.warn('[Import URL] Cloudinary upload of remote URL failed, falling back:', cloudErr)
+      }
+    }
+
+    // 2. Secondary Fallback: Try fetching and saving locally
     try {
       const fetchResponse = await fetch(directUrl, {
         headers: {
@@ -1710,7 +1746,6 @@ apiRouter.post('/admin/import-image-url', authMiddleware, requireRole(['ADMIN', 
       })
       if (fetchResponse.ok) {
         const contentType = fetchResponse.headers.get('content-type') || ''
-        // Only save if it's an image
         if (contentType.startsWith('image/')) {
           const arrayBuffer = await fetchResponse.arrayBuffer()
           const buffer = Buffer.from(arrayBuffer)

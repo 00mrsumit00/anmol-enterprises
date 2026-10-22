@@ -192,11 +192,11 @@ export function normalizeImageUrl(url: string): string {
 }
 
 export function getProductPacketImage(slug: string, rawImageUrl?: string): string {
+  if (rawImageUrl && rawImageUrl.trim().length > 0) {
+    return normalizeImageUrl(rawImageUrl)
+  }
   if (OFFICIAL_PACKET_IMAGES[slug]) {
     return OFFICIAL_PACKET_IMAGES[slug]
-  }
-  if (rawImageUrl) {
-    return normalizeImageUrl(rawImageUrl)
   }
   return '/images/products/mccain-french-fries-420g.jpg'
 }
