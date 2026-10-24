@@ -2266,9 +2266,54 @@ const driverSchema = z.object({
 apiRouter.get('/drivers', authMiddleware, requireRole(['ADMIN', 'STAFF']), async (req: Request, res: Response) => {
   try {
     const drivers = await prisma.driver.findMany({
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
+      include: {
+        commissions: {
+          select: {
+            id: true,
+            totalCommission: true,
+            isSettled: true,
+            settledAt: true,
+            createdAt: true,
+          },
+        },
+        assignments: {
+          select: {
+            id: true,
+            status: true,
+          },
+        },
+      },
     })
-    return res.json(drivers)
+
+    const enriched = drivers.map((d) => {
+      const deliveredCount = d.assignments.filter((a) => a.status === 'DELIVERED').length
+      const activeCount = d.assignments.filter((a) => a.status === 'ASSIGNED' || a.status === 'OUT_FOR_DELIVERY').length
+      const totalEarned = d.commissions.reduce((sum, c) => sum + (c.totalCommission || 0), 0)
+      const unsettledCommission = d.commissions
+        .filter((c) => !c.isSettled)
+        .reduce((sum, c) => sum + (c.totalCommission || 0), 0)
+      const settledCommission = d.commissions
+        .filter((c) => c.isSettled)
+        .reduce((sum, c) => sum + (c.totalCommission || 0), 0)
+
+      return {
+        id: d.id,
+        name: d.name,
+        phone: d.phone,
+        vehicleNumber: d.vehicleNumber,
+        vehicleType: d.vehicleType,
+        isActive: d.isActive,
+        createdAt: d.createdAt,
+        deliveredCount,
+        activeCount,
+        totalEarned: Math.round(totalEarned * 100) / 100,
+        unsettledCommission: Math.round(unsettledCommission * 100) / 100,
+        settledCommission: Math.round(settledCommission * 100) / 100,
+      }
+    })
+
+    return res.json(enriched)
   } catch (error) {
     console.error('Fetch drivers error:', error)
     return res.status(500).json({ error: 'Failed to fetch drivers' })
@@ -2312,6 +2357,48 @@ apiRouter.put('/drivers/:id', authMiddleware, requireRole(['ADMIN']), async (req
     }
     console.error('Update driver error:', error)
     return res.status(500).json({ error: 'Failed to update driver' })
+  }
+})
+
+apiRouter.post('/drivers/:id/settle', authMiddleware, requireRole(['ADMIN']), async (req: Request, res: Response) => {
+  try {
+    const id = req.params.id as string
+    const now = new Date()
+    const updated = await prisma.driverCommissionLog.updateMany({
+      where: {
+        driverId: id,
+        isSettled: false,
+      },
+      data: {
+        isSettled: true,
+        settledAt: now,
+      },
+    })
+    return res.json({ success: true, settledCount: updated.count, settledAt: now })
+  } catch (error) {
+    console.error('Settle driver commissions error:', error)
+    return res.status(500).json({ error: 'Failed to settle commissions' })
+  }
+})
+
+apiRouter.delete('/drivers/:id', authMiddleware, requireRole(['ADMIN']), async (req: Request, res: Response) => {
+  try {
+    const id = req.params.id as string
+    const activeOrder = await prisma.order.findFirst({
+      where: {
+        driverId: id,
+        status: { in: ['ASSIGNED', 'OUT_FOR_DELIVERY'] },
+      },
+    })
+    if (activeOrder) {
+      return res.status(400).json({ error: 'Cannot delete driver with active assigned deliveries. Please reassign or complete orders first.' })
+    }
+
+    await prisma.driver.delete({ where: { id } })
+    return res.json({ success: true, message: 'Driver deleted successfully' })
+  } catch (error) {
+    console.error('Delete driver error:', error)
+    return res.status(500).json({ error: 'Failed to delete driver' })
   }
 })
 
@@ -6103,6 +6190,31 @@ apiRouter.get('/driver/orders', async (req: Request, res: Response) => {
     const driverId = (req.query.driverId as string) || (req.headers['x-driver-id'] as string)
     if (!driverId) return res.status(400).json({ error: 'Driver ID required' })
 
+    const driver = await prisma.driver.findUnique({
+      where: { id: driverId },
+      include: {
+        commissions: {
+          orderBy: { createdAt: 'desc' },
+          take: 100,
+          include: {
+            order: {
+              select: {
+                id: true,
+                orderNumber: true,
+                deliveryAddress: true,
+                deliveryCity: true,
+                totalAmount: true,
+              },
+            },
+          },
+        },
+      },
+    })
+
+    if (!driver) {
+      return res.status(404).json({ error: 'Driver not found' })
+    }
+
     const orders = await prisma.order.findMany({
       where: {
         driverId,
@@ -6117,20 +6229,101 @@ apiRouter.get('/driver/orders', async (req: Request, res: Response) => {
     })
 
     const totalDelivered = orders.filter((o) => o.status === 'DELIVERED').length
-    const totalEarnings = orders
-      .filter((o) => o.status === 'DELIVERED' && o.driverCommission)
-      .reduce((sum, o) => sum + (o.driverCommission?.totalCommission || 0), 0)
+
+    const commissions = driver.commissions || []
+    const totalEarnings = commissions.reduce((sum, c) => sum + (c.totalCommission || 0), 0)
+    const unsettledEarnings = commissions
+      .filter((c) => !c.isSettled)
+      .reduce((sum, c) => sum + (c.totalCommission || 0), 0)
+    const settledEarnings = commissions
+      .filter((c) => c.isSettled)
+      .reduce((sum, c) => sum + (c.totalCommission || 0), 0)
+
+    const todayStart = new Date()
+    todayStart.setHours(0, 0, 0, 0)
+    const todayEarnings = commissions
+      .filter((c) => new Date(c.createdAt) >= todayStart)
+      .reduce((sum, c) => sum + (c.totalCommission || 0), 0)
 
     return res.json({
       orders,
+      driver: {
+        id: driver.id,
+        name: driver.name,
+        phone: driver.phone,
+        vehicleNumber: driver.vehicleNumber,
+        vehicleType: driver.vehicleType,
+        isActive: driver.isActive,
+        createdAt: driver.createdAt,
+      },
       stats: {
         totalDelivered,
-        totalEarnings,
+        totalEarnings: Math.round(totalEarnings * 100) / 100,
+        todayEarnings: Math.round(todayEarnings * 100) / 100,
+        unsettledEarnings: Math.round(unsettledEarnings * 100) / 100,
+        settledEarnings: Math.round(settledEarnings * 100) / 100,
         activeOrders: orders.filter((o) => o.status !== 'DELIVERED').length,
       },
+      commissions: commissions.map((c) => ({
+        id: c.id,
+        orderId: c.orderId,
+        orderNumber: c.order?.orderNumber,
+        deliveryAddress: c.order?.deliveryAddress,
+        deliveryCity: c.order?.deliveryCity,
+        orderTotal: c.order?.totalAmount,
+        distanceKm: c.distanceKm,
+        baseFee: c.baseFee,
+        perKmRate: c.perKmRate,
+        totalCommission: c.totalCommission,
+        isSettled: c.isSettled,
+        settledAt: c.settledAt,
+        createdAt: c.createdAt,
+      })),
     })
   } catch (err: any) {
     return res.status(500).json({ error: err.message || 'Failed to fetch driver orders' })
+  }
+})
+
+// 9b. DRIVER: Mark Order Out for Delivery (Start Delivery Run)
+apiRouter.post('/driver/orders/:id/start-delivery', async (req: Request, res: Response) => {
+  try {
+    const id = String(req.params.id)
+    const { driverId } = req.body
+
+    const order = await prisma.order.findUnique({
+      where: { id },
+      include: { driver: true },
+    })
+
+    if (!order) return res.status(404).json({ error: 'Order not found' })
+
+    const updatedOrder = await prisma.order.update({
+      where: { id },
+      data: {
+        status: 'OUT_FOR_DELIVERY',
+        statusHistory: {
+          create: {
+            fromStatus: order.status,
+            toStatus: 'OUT_FOR_DELIVERY',
+            changedBy: order.driver?.name || 'Driver',
+            note: 'Out for doorstep delivery in freezer dispatch vehicle.',
+          },
+        },
+      },
+    })
+
+    if (ioInstance) {
+      ioInstance.to(`order-${id}`).emit('order_status_update', updatedOrder)
+      ioInstance.to('admin').emit('order_list_update')
+      if (order.userId) {
+        ioInstance.to(`user:${order.userId}`).emit('order_status_update', updatedOrder)
+      }
+    }
+
+    return res.json({ success: true, order: updatedOrder })
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to start delivery' })
   }
 })
 
@@ -6138,7 +6331,7 @@ apiRouter.get('/driver/orders', async (req: Request, res: Response) => {
 apiRouter.post('/driver/orders/:id/deliver', async (req: Request, res: Response) => {
   try {
     const id = String(req.params.id)
-    const { driverId, distanceKm } = req.body
+    const { driverId, distanceKm, deliveryNotes } = req.body
 
     const order = await prisma.order.findUnique({
       where: { id },
@@ -6165,7 +6358,7 @@ apiRouter.post('/driver/orders/:id/deliver', async (req: Request, res: Response)
               fromStatus: order.status,
               toStatus: 'DELIVERED',
               changedBy: order.driver?.name || 'Driver',
-              note: `Delivered safely. Distance: ${dist} km.`,
+              note: `Delivered safely. Distance: ${dist} km.${deliveryNotes ? ` Note: ${deliveryNotes}` : ''}`,
             },
           },
         },
