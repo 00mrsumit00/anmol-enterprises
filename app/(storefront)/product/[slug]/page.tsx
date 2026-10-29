@@ -24,6 +24,8 @@ import {
 import { useCart } from '@/hooks/useCart'
 import { useToast } from '@/components/ui/Toast'
 import ProductGallery from '@/components/storefront/ProductGallery'
+import SimilarProductsCarousel from '@/components/storefront/SimilarProductsCarousel'
+import FloatingViewCartPill from '@/components/storefront/FloatingViewCartPill'
 import { getProductMedia, getProductGallerySlides, ProductMediaData } from '@/lib/productImages'
 
 export default function ProductDetailPage() {
@@ -104,7 +106,7 @@ export default function ProductDetailPage() {
   }
 
   // Product media information & Gallery slides
-  const mediaData: ProductMediaData = getProductMedia(product.slug)
+  const mediaData: ProductMediaData = getProductMedia(product.slug, product.imageUrl)
   const gallerySlides = getProductGallerySlides(product)
 
   // Raw variants from database
@@ -228,16 +230,16 @@ export default function ProductDetailPage() {
       variantId: activePack.id,
       productName: product.name,
       productSlug: product.slug,
-      imageUrl: mediaData.packetImage,
+      imageUrl: product.imageUrl || product.galleryImages?.[0] || mediaData.packetImage,
       packagingType: selectedVariantIndex === 0 ? 'SINGLE' : selectedVariantIndex === 1 ? 'BOX' : 'CARTON',
       weightGrams: activePack.weightGrams,
       unitsInPack: activePack.unitsInPack,
       skuCode: `SKU-${product.slug?.toUpperCase().slice(0, 8)}-${selectedVariantIndex}`,
       unitPrice: activePrice,
-      quantity: selectedQuantity,
-      lineTotal: activePrice * selectedQuantity,
+      quantity: 1,
+      lineTotal: activePrice,
     })
-    showToast(`Added ${selectedQuantity} × ${activePack.label} to cart`, 'success')
+    showToast(`Added ${activePack.label} to cart`, 'success')
   }
 
   return (
@@ -274,151 +276,223 @@ export default function ProductDetailPage() {
           />
         </div>
 
-        {/* ─── RIGHT COLUMN: PRODUCT SPECIFICATIONS & ACTIONS ─── */}
-        <div className="lg:col-span-7 flex flex-col gap-5">
-          
-          {/* Header Info: Brand, Title, Subtitle Weight, Description */}
-          <div className="flex flex-col gap-1">
-            <span className="text-sm font-bold text-[#15803D]">
-              {product.brand || 'McCain'}
-            </span>
+        {/* ─── RIGHT COLUMN: PRODUCT SPECIFICATIONS & ACTIONS (Blinkit Hierarchy) ─── */}
+        <div className="lg:col-span-7 flex flex-col gap-4">
 
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight leading-snug">
-              {product.name}
-            </h1>
-
-            <span className="text-lg font-bold text-slate-800">
-              {activePack.subtitleWeight}
-            </span>
-
-            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed mt-1">
-              {product.description || 'Crispy, golden fries made from high quality potatoes. Perfect for home & commercial use.'}
-            </p>
-
-            {/* Social Proof / Rating (Small, authentic, unpretentious) */}
-            <div className="flex items-center gap-1.5 mt-2 cursor-pointer group">
-              <Star className="w-4 h-4 text-emerald-600 fill-emerald-600" />
-              <span className="text-xs font-bold text-slate-800">4.6</span>
-              <span className="text-xs text-slate-500 font-medium group-hover:text-slate-700">
-                (128 reviews)
-              </span>
-              <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:translate-x-0.5 transition-transform" />
+          {/* ─── QUICK SPECS STRIP (Shelf Life, Storage, Category, View Details) ─── */}
+          <div className="grid grid-cols-4 gap-2">
+            <div className="bg-slate-50 border border-slate-200/60 rounded-xl p-2 sm:p-2.5 text-center flex flex-col justify-center">
+              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Shelf Life</span>
+              <span className="text-xs sm:text-sm font-black text-slate-800 truncate">12-24 Mos</span>
             </div>
-          </div>
-
-          {/* ─── PRICING BLOCK (Matching Screenshot 2) ─── */}
-          <div className="flex flex-col gap-1 border-t border-b border-slate-100 py-3.5">
-            <div className="flex items-center flex-wrap gap-x-3 gap-y-1">
-              <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-                ₹{activePrice.toFixed(2)}
-              </span>
-              {mrpPrice > activePrice && (
-                <span className="text-base text-slate-400 font-normal line-through">
-                  ₹{mrpPrice.toFixed(2)}
-                </span>
-              )}
-              {savings > 0 && (
-                <span className="bg-[#16A34A] text-white text-xs sm:text-sm font-bold px-3 py-1 rounded-lg shadow-2xs select-none">
-                  Save ₹{savings}
-                </span>
-              )}
+            <div className="bg-slate-50 border border-slate-200/60 rounded-xl p-2 sm:p-2.5 text-center flex flex-col justify-center">
+              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Storage</span>
+              <span className="text-xs sm:text-sm font-black text-slate-800 truncate">-18°C Deep</span>
             </div>
-            <span className="text-xs text-slate-400 font-normal">
-              Inclusive of all taxes
-            </span>
-          </div>
-
-          {/* ─── SELECT PACK SIZE (Equal-Height Cards, Matching Screenshot 2) ─── */}
-          <div>
-            <h3 className="text-sm font-bold text-slate-900 mb-2.5">
-              Select Pack Size
-            </h3>
-
-            <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
-              {packOptions.map((pack, idx) => {
-                const isSelected = selectedVariantIndex === idx
-                return (
-                  <button
-                    key={pack.id || idx}
-                    type="button"
-                    onClick={() => {
-                      setSelectedVariantIndex(idx)
-                      setSelectedQuantity(1)
-                    }}
-                    className={`h-[94px] rounded-xl border text-left p-2.5 sm:p-3 flex flex-col justify-between transition-all select-none ${
-                      isSelected
-                        ? 'border-2 border-[#16A34A] bg-[#F0FDF4]/70 shadow-xs'
-                        : 'border-slate-200 hover:border-slate-300 bg-white'
-                    }`}
-                  >
-                    <span className="text-xs font-bold text-slate-800 leading-tight truncate">
-                      {pack.label}
-                    </span>
-                    <span className="text-base sm:text-lg font-bold text-slate-900 leading-none">
-                      ₹{pack.price.toLocaleString('en-IN')}
-                    </span>
-                    <span className="text-[11px] sm:text-xs text-slate-500 font-medium">
-                      {pack.unitPriceText}
-                    </span>
-                  </button>
-                )
-              })}
+            <div className="bg-slate-50 border border-slate-200/60 rounded-xl p-2 sm:p-2.5 text-center flex flex-col justify-center">
+              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Category</span>
+              <span className="text-xs sm:text-sm font-black text-slate-800 truncate">{product.category?.name || 'Frozen Food'}</span>
             </div>
-          </div>
-
-          {/* ─── PURCHASE ROW (DESKTOP) ─── */}
-          <div className="hidden md:flex items-center gap-3 pt-1">
-            {/* Quantity Stepper */}
-            <div className="flex items-center border border-slate-200 rounded-xl h-12 bg-white px-1 shadow-2xs">
-              <button
-                type="button"
-                onClick={() => setSelectedQuantity((q) => Math.max(1, q - 1))}
-                className="w-9 h-full flex items-center justify-center text-slate-600 hover:text-black transition-colors"
-                aria-label="Decrease quantity"
-              >
-                <Minus className="w-4 h-4 stroke-[2.5]" />
-              </button>
-              <span className="w-9 text-center font-bold text-slate-900 text-sm select-none">
-                {selectedQuantity}
-              </span>
-              <button
-                type="button"
-                onClick={() => setSelectedQuantity((q) => q + 1)}
-                className="w-9 h-full flex items-center justify-center text-slate-600 hover:text-black transition-colors"
-                aria-label="Increase quantity"
-              >
-                <Plus className="w-4 h-4 stroke-[2.5]" />
-              </button>
-            </div>
-
-            {/* Add to Cart CTA */}
             <button
               type="button"
-              onClick={handleAddToCart}
-              className="flex-1 max-w-sm h-12 bg-[#15803D] hover:bg-[#166534] active:scale-98 text-white font-bold text-sm tracking-wide rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 select-none"
+              onClick={() => {
+                const el = document.getElementById('product-details-accordion')
+                if (el) el.scrollIntoView({ behavior: 'smooth' })
+              }}
+              className="bg-white border border-[#15803D]/60 hover:bg-emerald-50 text-[#15803D] rounded-xl p-2 sm:p-2.5 text-center flex flex-col items-center justify-center transition cursor-pointer"
             >
-              <ShoppingBag className="w-4 h-4" />
-              <span>ADD TO CART</span>
+              <span className="text-[11px] sm:text-xs font-black leading-tight">View</span>
+              <span className="text-[11px] sm:text-xs font-black leading-tight">details</span>
             </button>
           </div>
+          
+          {/* ─── CARD C: PRODUCT INFORMATION CARD (White Card on Light Surface) ─── */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-xs flex flex-col gap-4">
+            
+            {/* Delivery time + Credibility Rating */}
+            <div className="flex items-center justify-between text-xs pb-3 border-b border-slate-100 flex-wrap gap-2">
+              <div className="flex items-center gap-1.5 font-extrabold text-slate-700">
+                <span className="text-sm">⏱</span>
+                <span>Delivery in 9 mins in Latur</span>
+              </div>
+              <div className="flex items-center gap-1 text-slate-700 font-semibold cursor-pointer hover:text-slate-900 transition">
+                <div className="flex text-amber-500">
+                  {'★'.repeat(5)}
+                </div>
+                <span className="font-extrabold text-slate-900 ml-0.5">4.6</span>
+                <span className="text-slate-400 text-[11px] font-medium">(128 reviews)</span>
+                <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+              </div>
+            </div>
 
-          {/* ─── CONSOLIDATED TRUST BAR (Matching Screenshot 3) ─── */}
-          <div className="bg-white rounded-2xl border border-slate-100 p-3 shadow-2xs grid grid-cols-3 divide-x divide-slate-100 text-center my-1 select-none">
-            <div className="flex flex-col items-center justify-center px-1">
-              <Snowflake className="w-5 h-5 text-sky-500 mb-1" />
-              <span className="text-xs font-bold text-slate-800 leading-tight">-18°C</span>
-              <span className="text-[10px] text-slate-500 font-medium">Cold Chain</span>
+            {/* Product Title & Brand Spec */}
+            <div>
+              <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight leading-snug">
+                {product.name}
+              </h1>
+              <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                <span className="text-xs font-black text-[#15803D] bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/60">
+                  {product.brand || 'McCain'}
+                </span>
+                <span className="text-xs text-slate-500 font-medium">
+                  {product.description || activePack.subtitleWeight}
+                </span>
+              </div>
             </div>
-            <div className="flex flex-col items-center justify-center px-1">
-              <Truck className="w-5 h-5 text-emerald-600 mb-1" />
-              <span className="text-xs font-bold text-slate-800 leading-tight">Scheduled</span>
-              <span className="text-[10px] text-slate-500 font-medium">Delivery</span>
+
+            {/* Select Unit Heading & Variant Selection Cards */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-xs font-extrabold text-slate-500 uppercase tracking-wider">
+                  Select Unit
+                </h3>
+                <span className="text-[11px] text-slate-400 font-medium">
+                  {packOptions.length} available {packOptions.length === 1 ? 'pack' : 'packs'}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3">
+                {packOptions.map((pack, idx) => {
+                  const isSelected = selectedVariantIndex === idx
+                  const packCartItem = items.find((i) => i.variantId === pack.id)
+                  const packQty = packCartItem ? packCartItem.quantity : 0
+
+                  return (
+                    <button
+                      key={pack.id || idx}
+                      type="button"
+                      onClick={() => setSelectedVariantIndex(idx)}
+                      className={`relative h-[84px] sm:h-[92px] rounded-2xl border text-left p-2.5 sm:p-3 flex flex-col justify-between transition-all select-none cursor-pointer ${
+                        isSelected
+                          ? 'border-2 border-[#16a34a] bg-[#f0fdf4] shadow-xs'
+                          : 'border-slate-200 hover:border-slate-300 bg-white'
+                      }`}
+                    >
+                      {/* Active Variant Cart Quantity Badge (Blinkit Screenshot 2) */}
+                      {packQty > 0 && (
+                        <span className="absolute -top-2 -right-2 w-5 h-5 bg-[#15803D] text-white text-[11px] font-black rounded-full flex items-center justify-center shadow-xs border-2 border-white animate-in zoom-in-75">
+                          {packQty}
+                        </span>
+                      )}
+
+                      <span className="text-xs font-bold text-slate-800 leading-tight truncate">
+                        {pack.label}
+                      </span>
+                      <div className="flex items-baseline gap-1.5 flex-wrap">
+                        <span className="text-base font-black text-slate-900 leading-none">
+                          ₹{pack.price.toLocaleString('en-IN')}
+                        </span>
+                        {pack.mrp > pack.price && (
+                          <span className="text-[11px] text-slate-400 font-medium">
+                            MRP ₹{pack.mrp}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[10px] sm:text-[11px] text-slate-500 font-medium">
+                        {pack.unitPriceText}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
             </div>
-            <div className="flex flex-col items-center justify-center px-1">
-              <ShieldCheck className="w-5 h-5 text-emerald-600 mb-1" />
-              <span className="text-xs font-bold text-slate-800 leading-tight">Replacement</span>
-              <span className="text-[10px] text-slate-500 font-medium">if any Issue</span>
+
+            {/* Desktop Dynamic Purchase Row */}
+            <div className="hidden md:flex items-center justify-between pt-3 border-t border-slate-100">
+              <div className="flex flex-col">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-2xl font-black text-slate-900 leading-none">
+                    ₹{activePrice.toFixed(0)}
+                  </span>
+                  {mrpPrice > activePrice && (
+                    <span className="text-sm text-slate-400 line-through">
+                      ₹{mrpPrice.toFixed(0)}
+                    </span>
+                  )}
+                  {savings > 0 && (
+                    <span className="bg-[#16A34A] text-white text-xs font-black px-2 py-0.5 rounded-md">
+                      Save ₹{savings}
+                    </span>
+                  )}
+                </div>
+                <span className="text-[11px] text-slate-400 mt-0.5">Inclusive of all taxes</span>
+              </div>
+
+              {quantityInCart === 0 ? (
+                <button
+                  type="button"
+                  onClick={handleAddToCart}
+                  className="h-11 px-6 bg-[#0c831f] hover:bg-[#0a701a] active:scale-98 text-white font-extrabold text-sm rounded-xl shadow-xs transition-all flex items-center gap-2 select-none cursor-pointer"
+                >
+                  <ShoppingBag className="w-4 h-4" />
+                  <span>Add to cart</span>
+                </button>
+              ) : (
+                <div className="h-11 bg-[#0c831f] text-white rounded-xl flex items-center px-2 shadow-xs gap-3 select-none">
+                  <button
+                    type="button"
+                    onClick={() => decrement(activePack.id)}
+                    className="w-8 h-full flex items-center justify-center text-white active:scale-90"
+                    aria-label="Decrease quantity"
+                  >
+                    <Minus className="w-4 h-4 stroke-[3]" />
+                  </button>
+                  <span className="w-6 text-center text-sm font-black text-white select-none">
+                    {quantityInCart}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => increment(activePack.id)}
+                    className="w-8 h-full flex items-center justify-center text-white active:scale-90"
+                    aria-label="Increase quantity"
+                  >
+                    <Plus className="w-4 h-4 stroke-[3]" />
+                  </button>
+                </div>
+              )}
             </div>
+
+          </div>
+
+          {/* ─── CARD D: BRAND NAVIGATION CARD ─── */}
+          <Link
+            href={`/?brand=${encodeURIComponent(product.brand || 'McCain')}`}
+            className="bg-white rounded-2xl border border-slate-200/80 p-3.5 shadow-2xs flex items-center justify-between hover:border-slate-300 hover:shadow-xs transition group cursor-pointer"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center p-1 text-lg font-black text-[#15803D] shadow-2xs">
+                🍟
+              </div>
+              <div>
+                <h4 className="text-xs font-black text-slate-900 leading-tight group-hover:text-[#15803D] transition-colors">
+                  {product.brand || 'McCain'}
+                </h4>
+                <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+                  Explore all {product.brand || 'McCain'} products
+                </p>
+              </div>
+            </div>
+            <div className="w-7 h-7 rounded-full bg-slate-100 group-hover:bg-emerald-50 flex items-center justify-center transition">
+              <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-[#15803D] transition-colors" />
+            </div>
+          </Link>
+
+          {/* ─── CARD E: COLD-CHAIN & REPLACEMENT ASSURANCE CARD ─── */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 p-3.5 shadow-2xs flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-sky-50 border border-sky-100 text-sky-600 flex items-center justify-center text-lg">
+                ❄️
+              </div>
+              <div>
+                <h4 className="text-xs font-black text-slate-900 leading-tight">
+                  -18°C Sub-Zero Cold Chain Assurance
+                </h4>
+                <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+                  Guaranteed frozen on arrival or free replacement
+                </p>
+              </div>
+            </div>
+            <ChevronRight className="w-4 h-4 text-slate-400" />
           </div>
 
           {/* ─── INTERACTIVE COLLAPSIBLE ACCORDIONS (Matching Screenshot 3) ─── */}
@@ -604,40 +678,69 @@ export default function ProductDetailPage() {
 
       </div>
 
-      {/* ─── 3. MOBILE STICKY BOTTOM CHECKOUT BAR (Matching Screenshot 4) ─── */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/90 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-xl flex items-center gap-3">
-        {/* Quantity Stepper */}
-        <div className="flex items-center border border-slate-200 rounded-xl h-12 bg-white px-1 shadow-2xs shrink-0">
-          <button
-            type="button"
-            onClick={() => setSelectedQuantity((q) => Math.max(1, q - 1))}
-            className="w-8 h-full flex items-center justify-center text-slate-600 active:text-black"
-            aria-label="Decrease quantity"
-          >
-            <Minus className="w-4 h-4 stroke-[2.5]" />
-          </button>
-          <span className="w-7 text-center font-bold text-slate-900 text-sm select-none">
-            {selectedQuantity}
+      {/* ─── CARD F: SIMILAR PRODUCTS HORIZONTAL CAROUSEL ─── */}
+      <SimilarProductsCarousel
+        categoryId={product.categoryId}
+        categoryName={product.category?.name}
+        currentProductId={product.id}
+      />
+
+      {/* ─── FLOATING "VIEW CART" PILL WITH SLIDE-UP ANIMATION ─── */}
+      <FloatingViewCartPill />
+
+      {/* ─── DYNAMIC 2-STATE MOBILE STICKY BOTTOM PURCHASE BAR ─── */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/90 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-xl flex items-center justify-between gap-3">
+        {/* Left: Selected Unit & Current Price */}
+        <div className="flex flex-col justify-center min-w-0">
+          <span className="text-xs font-bold text-slate-800 leading-tight truncate">
+            {activePack.label}
           </span>
-          <button
-            type="button"
-            onClick={() => setSelectedQuantity((q) => q + 1)}
-            className="w-8 h-full flex items-center justify-center text-slate-600 active:text-black"
-            aria-label="Increase quantity"
-          >
-            <Plus className="w-4 h-4 stroke-[2.5]" />
-          </button>
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-lg font-black text-slate-900 leading-none">
+              ₹{activePrice.toFixed(0)}
+            </span>
+            {mrpPrice > activePrice && (
+              <span className="text-xs text-slate-400 line-through">
+                ₹{mrpPrice.toFixed(0)}
+              </span>
+            )}
+          </div>
+          <span className="text-[10px] text-slate-400 leading-tight">Inclusive of all taxes</span>
         </div>
 
-        {/* Add to Cart Button */}
-        <button
-          type="button"
-          onClick={handleAddToCart}
-          className="flex-1 h-12 bg-[#15803D] active:bg-[#166534] text-white font-bold text-sm tracking-wide rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 select-none"
-        >
-          <ShoppingBag className="w-4 h-4" />
-          <span>ADD TO CART</span>
-        </button>
+        {/* Right: Dynamic State Button */}
+        {quantityInCart === 0 ? (
+          <button
+            type="button"
+            onClick={handleAddToCart}
+            className="h-11 px-6 bg-[#0c831f] active:bg-[#0a701a] text-white font-extrabold text-sm tracking-wide rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 select-none shrink-0 cursor-pointer"
+          >
+            <ShoppingBag className="w-4 h-4" />
+            <span>Add to cart</span>
+          </button>
+        ) : (
+          <div className="h-11 bg-[#0c831f] text-white rounded-xl flex items-center px-2 shadow-xs gap-3 select-none shrink-0">
+            <button
+              type="button"
+              onClick={() => decrement(activePack.id)}
+              className="w-8 h-full flex items-center justify-center text-white active:scale-90"
+              aria-label="Decrease quantity"
+            >
+              <Minus className="w-4 h-4 stroke-[3]" />
+            </button>
+            <span className="w-6 text-center text-sm font-black text-white select-none">
+              {quantityInCart}
+            </span>
+            <button
+              type="button"
+              onClick={() => increment(activePack.id)}
+              className="w-8 h-full flex items-center justify-center text-white active:scale-90"
+              aria-label="Increase quantity"
+            >
+              <Plus className="w-4 h-4 stroke-[3]" />
+            </button>
+          </div>
+        )}
       </div>
 
     </div>

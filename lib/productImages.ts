@@ -63,6 +63,30 @@ export const OFFICIAL_PACKET_IMAGES: Record<string, string> = {
   'mccain-variety-pack': '/images/products/mccain-variety-pack.jpg',
   'mccain-veg-seekh-kebab': '/images/products/mccain-veggie-fingers.jpg',
   'mccain-corn-tikka': '/images/products/mexican-hot-tangy.jpg',
+  // Seafood & Fish Catalog
+  'silver-pomfret': 'https://res.cloudinary.com/mxqmbzkh/image/upload/v1793013417/anmol-enterprises/products/bf300c2f8435a7001f742e74014a3aea-1793013415709.png',
+  'mahi-mahi-fish': 'https://res.cloudinary.com/mxqmbzkh/image/upload/v1793013769/anmol-enterprises/products/frozen-mahi-mahi-fish-fillet-500x500-1793013768728.webp',
+  'basa-fish-fillet-1-kg': 'https://res.cloudinary.com/mxqmbzkh/image/upload/v1792683797/anmol-enterprises/products/BASA_FISH_FILLET_1_kg-1792683795776.webp',
+  'breaded-fish': 'https://res.cloudinary.com/mxqmbzkh/image/upload/v1793013159/anmol-enterprises/products/40270238_1-ifb-fresh-catch-breaded-fish-fillets-cr-1793013157747.webp',
+  'fish-finger': 'https://res.cloudinary.com/mxqmbzkh/image/upload/v1793096568/anmol-enterprises/products/gadrebrdfshfin1kg-jpg-1793096567856.webp',
+  'king-fish-surmai': 'https://res.cloudinary.com/mxqmbzkh/image/upload/v1793078485/anmol-enterprises/products/images__4_-1793078484370.jpg',
+  'tilapia': 'https://res.cloudinary.com/mxqmbzkh/image/upload/v1793013902/anmol-enterprises/products/48190179c0edf5695d880b14140e43e5-1793013900973.png',
+  'prawns-8-12': 'https://res.cloudinary.com/mxqmbzkh/image/upload/v1792909359/anmol-enterprises/products/61cuiDytvtL-1792909358663.jpg',
+  'prawns-21-25': 'https://res.cloudinary.com/mxqmbzkh/image/upload/v1792691481/anmol-enterprises/products/product-jpeg-500x500__1_-1792691480579.webp',
+  'prawns-21-25-990': 'https://res.cloudinary.com/mxqmbzkh/image/upload/v1792910153/anmol-enterprises/products/61fzuZWShFL__AC_UF894_1000_QL80_-1792910152387.jpg',
+  // Chicken & Poultry Catalog
+  'venkey-s-brest-boneless': 'https://res.cloudinary.com/mxqmbzkh/image/upload/v1793014055/anmol-enterprises/products/Chicken-boneless-online-delivery-in-meerut-1793014054575.webp',
+  'leg-boneless': 'https://res.cloudinary.com/mxqmbzkh/image/upload/v1793014299/anmol-enterprises/products/Chicken-Leg-Boneless-1-1793014298007.webp',
+  'venkys-chicken-wings': 'https://res.cloudinary.com/mxqmbzkh/image/upload/v1792683714/anmol-enterprises/products/Venky-s-Spicy-And-Crispy-Chicken-Wings-Combo-1792683713344.jpg',
+  'chicken-drumstick': 'https://res.cloudinary.com/mxqmbzkh/image/upload/v1793014807/anmol-enterprises/products/images__3_-1793014805999.jpg',
+  'crispy-chicken-burger-patt': 'https://res.cloudinary.com/mxqmbzkh/image/upload/v1793096756/anmol-enterprises/products/40351042_1-venkys-crispy-chicken-burger-patty-1793096756022.webp',
+  'chicken-nugget': 'https://res.cloudinary.com/mxqmbzkh/image/upload/v1793097086/anmol-enterprises/products/images__6_-1793097084866.jpg',
+  'breakfast-sausages': 'https://res.cloudinary.com/mxqmbzkh/image/upload/v1793097733/anmol-enterprises/products/51lkEUuJCkL__AC_UF894_1000_QL80_-1793097732132.jpg',
+  // Veg & Dairy Catalog
+  'green-pease': 'https://res.cloudinary.com/mxqmbzkh/image/upload/v1792692540/anmol-enterprises/products/images-1792692539914.jpg',
+  'sweetcorn': 'https://res.cloudinary.com/mxqmbzkh/image/upload/v1792908250/anmol-enterprises/products/images__2_-1792908249038.jpg',
+  'paneer-patty': 'https://res.cloudinary.com/mxqmbzkh/image/upload/v1793100438/anmol-enterprises/products/21f066870fcbced03cd032476cb2c947-1793100436646.png',
+  'spiced-paneer-patty': 'https://res.cloudinary.com/mxqmbzkh/image/upload/v1793099603/anmol-enterprises/products/1677d5e1ed334837c0d0166c12b5b4a6-1793099602309.png',
 }
 
 export const PRODUCT_MEDIA: Record<string, ProductMediaData> = {
@@ -193,9 +217,13 @@ export function normalizeImageUrl(url: string): string {
 
 export function getProductPacketImage(slug: string, rawImageUrl?: string): string {
   if (rawImageUrl && rawImageUrl.trim().length > 0) {
-    return normalizeImageUrl(rawImageUrl)
+    const isFriesFallback = rawImageUrl.includes('mccain-french-fries-420g.jpg')
+    const isActuallyFries = slug && (slug.includes('fries') || slug.includes('french-fries'))
+    if (!isFriesFallback || isActuallyFries) {
+      return normalizeImageUrl(rawImageUrl)
+    }
   }
-  if (OFFICIAL_PACKET_IMAGES[slug]) {
+  if (slug && OFFICIAL_PACKET_IMAGES[slug]) {
     return OFFICIAL_PACKET_IMAGES[slug]
   }
   return '/images/products/mccain-french-fries-420g.jpg'
@@ -234,11 +262,11 @@ export function getProductGallerySlides(product: any): GallerySlide[] {
   ]
 }
 
-export function getProductMedia(slug: string): ProductMediaData {
+export function getProductMedia(slug: string, rawImageUrl?: string): ProductMediaData {
   const media = PRODUCT_MEDIA[slug]
   if (media) return media
 
-  const packetImg = getProductPacketImage(slug)
+  const packetImg = getProductPacketImage(slug, rawImageUrl)
   return {
     slug,
     packetImage: packetImg,

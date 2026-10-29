@@ -127,14 +127,7 @@ export default function ProductGallery({
 
       </div>
 
-      {/* ─── 2. CATEGORY & BRAND SUB-TAG (Below Image, Matching Screenshot 1) ─── */}
-      <div className="text-center pt-1">
-        <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
-          {brand.toUpperCase()} • {categoryName.toUpperCase()}
-        </span>
-      </div>
-
-      {/* ─── 3. SECONDARY THUMBNAIL STRIP (ONLY if 2+ images exist) ─── */}
+      {/* ─── 2. SECONDARY THUMBNAIL STRIP (ONLY if 2+ images exist) ─── */}
       {slides.length > 1 && (
         <div className="flex items-center justify-center gap-2 pt-1 overflow-x-auto no-scrollbar">
           {slides.map((slide, idx) => {

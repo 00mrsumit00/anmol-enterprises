@@ -575,10 +575,10 @@ export default function CheckoutDeliveryPage() {
               📍
             </div>
             <h3 className="font-extrabold text-gray-900 text-base mb-1.5">
-              Save Address for Future Orders?
+              Save this address for future orders?
             </h3>
             <p className="text-xs text-gray-500 mb-5 leading-relaxed">
-              Would you like to save <strong className="text-gray-800">{flatNo}, {street}</strong> to your account for fast 1-click checkout next time?
+              Save <strong className="text-gray-800">{flatNo}, {street}</strong> to your account for quick 1-click checkout next time.
             </p>
             <div className="flex flex-col gap-2.5">
               <button
@@ -592,7 +592,7 @@ export default function CheckoutDeliveryPage() {
                 ) : (
                   <>
                     <BookmarkPlus className="w-4 h-4" />
-                    <span>Save Address & Proceed</span>
+                    <span>Save Address</span>
                   </>
                 )}
               </button>
@@ -602,7 +602,7 @@ export default function CheckoutDeliveryPage() {
                 onClick={() => executeProceed(false)}
                 className="w-full py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold text-xs rounded-xl transition cursor-pointer"
               >
-                Later (Just for this order)
+                Later
               </button>
             </div>
           </div>
