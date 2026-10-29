@@ -18,6 +18,7 @@ export default function StorefrontLayout({
   const pathname = usePathname()
   const isChat = pathname?.startsWith('/chat')
   const isOrderAgain = pathname?.startsWith('/order-again')
+  const isProductPage = pathname?.startsWith('/product/')
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -41,16 +42,18 @@ export default function StorefrontLayout({
           ? "flex-1 w-full p-0 flex flex-col"
           : isOrderAgain
           ? "flex-1 w-full mx-auto p-0 pb-20 md:pb-12"
+          : isProductPage
+          ? "flex-1 max-w-7xl w-full mx-auto px-4 py-4 md:py-6 pb-20 md:pb-12"
           : "flex-1 max-w-7xl w-full mx-auto px-4 py-6 pb-24 md:pb-12"
       }>
         {children}
       </main>
 
-      {/* Floating Bottom Cart Bar (Blinkit/Zepto Style) - hidden on chat */}
-      {!isChat && <FloatingCartBar />}
+      {/* Floating Bottom Cart Bar (Blinkit/Zepto Style) - hidden on chat and product detail pages */}
+      {!isChat && !isProductPage && <FloatingCartBar />}
 
-      {/* PWA Mobile Bottom Tab Navigation - hidden on chat */}
-      {!isChat && <BottomNav />}
+      {/* PWA Mobile Bottom Tab Navigation - hidden on chat and product detail pages */}
+      {!isChat && !isProductPage && <BottomNav />}
 
       {/* Side Slide Cart Drawer */}
       <CartDrawer />

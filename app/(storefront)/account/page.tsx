@@ -1671,13 +1671,6 @@ export default function AccountPage() {
             </div>
           )}
 
-          {/* Admin Prompt */}
-          <div className="bg-gray-50 border border-gray-100 p-3.5 rounded-2xl flex items-start gap-2.5">
-            <ShieldCheck className="w-4 h-4 text-brand-orange shrink-0 mt-0.5" />
-            <p className="text-[10px] text-gray-500 leading-normal font-semibold">
-              <strong>Distributor Note:</strong> The first user registered on this system is granted <strong>ADMIN</strong> privileges to manage the Dispatcher Board.
-            </p>
-          </div>
 
         </div>
       )}

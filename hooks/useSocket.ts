@@ -1,14 +1,28 @@
 import { useEffect, useRef } from 'react'
 import { io, Socket } from 'socket.io-client'
 
-const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3000'
+function getSocketUrl(): string {
+  if (typeof window === 'undefined') return ''
+  const isLocalhost =
+    window.location.hostname === 'localhost' ||
+    window.location.hostname === '127.0.0.1'
+
+  const envUrl = process.env.NEXT_PUBLIC_SOCKET_URL
+  // If envUrl is set and is valid (not pointing to localhost while running in production)
+  if (envUrl && (!envUrl.includes('localhost') || isLocalhost)) {
+    return envUrl
+  }
+
+  // Connect to the current domain origin (unified server)
+  return window.location.origin
+}
 
 export function useSocket(eventName?: string, callback?: (data: any) => void) {
   const socketRef = useRef<Socket | null>(null)
 
   useEffect(() => {
     // Connect to the unified backend/frontend server
-    const socket = io(SOCKET_URL, {
+    const socket = io(getSocketUrl(), {
       withCredentials: true,
       transports: ['websocket', 'polling'],
     })

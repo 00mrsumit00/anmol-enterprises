@@ -5,24 +5,21 @@ import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { 
   ChevronRight, 
-  Clock, 
+  ChevronDown,
+  ChevronUp,
+  Star,
+  Package, 
+  Snowflake, 
+  Truck, 
   ShieldCheck, 
-  Plus, 
+  FileText, 
+  Leaf, 
+  BarChart3, 
+  Utensils, 
   Minus, 
+  Plus, 
   ShoppingBag,
-  Truck,
-  Tag,
-  Boxes,
-  Sparkles,
-  Package,
-  Barcode,
-  Snowflake,
-  CheckCircle2,
-  BadgePercent,
-  Flame,
-  Utensils,
-  Leaf,
-  Layers
+  Check
 } from 'lucide-react'
 import { useCart } from '@/hooks/useCart'
 import { useToast } from '@/components/ui/Toast'
@@ -40,6 +37,23 @@ export default function ProductDetailPage() {
   const [product, setProduct] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [selectedVariantIndex, setSelectedVariantIndex] = useState(0)
+  const [selectedQuantity, setSelectedQuantity] = useState(1)
+
+  // Accordion open/collapse states (Matching Screenshot 3: Description and Ingredients open by default)
+  const [openAccordions, setOpenAccordions] = useState<Record<string, boolean>>({
+    description: true,
+    ingredients: true,
+    nutrition: false,
+    cooking: false,
+    storage: false,
+  })
+
+  const toggleAccordion = (key: string) => {
+    setOpenAccordions((prev) => ({
+      ...prev,
+      [key]: !prev[key],
+    }))
+  }
 
   useEffect(() => {
     if (!slug) return
@@ -60,10 +74,10 @@ export default function ProductDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="max-w-7xl mx-auto px-4 py-16 flex justify-center items-center min-h-[50vh]">
+      <div className="max-w-6xl mx-auto px-4 py-20 flex justify-center items-center min-h-[60vh] font-sans">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 border-4 border-[#0c831f] border-t-transparent rounded-full animate-spin" />
-          <p className="text-xs font-bold text-gray-500">Loading McCain product details...</p>
+          <div className="w-10 h-10 border-4 border-[#15803D] border-t-transparent rounded-full animate-spin" />
+          <p className="text-xs font-semibold text-slate-500">Loading product details...</p>
         </div>
       </div>
     )
@@ -71,15 +85,19 @@ export default function ProductDetailPage() {
 
   if (!product) {
     return (
-      <div className="max-w-7xl mx-auto px-4 py-16 text-center min-h-[50vh] flex flex-col items-center justify-center font-sans">
-        <span className="text-6xl">🍟</span>
-        <h2 className="text-xl font-black text-gray-900 mt-4">Product Not Found</h2>
-        <p className="text-gray-500 text-xs mt-1">Returning you to McCain storefront...</p>
+      <div className="max-w-6xl mx-auto px-4 py-20 text-center min-h-[60vh] flex flex-col items-center justify-center font-sans">
+        <div className="w-16 h-16 rounded-3xl bg-slate-100 flex items-center justify-center text-3xl mb-4">
+          🍟
+        </div>
+        <h2 className="text-xl font-bold text-slate-900">Product Not Found</h2>
+        <p className="text-slate-500 text-xs mt-1 max-w-sm">
+          The requested product could not be located in our catalog.
+        </p>
         <Link 
           href="/" 
-          className="mt-5 bg-[#0c831f] text-white text-xs font-extrabold px-6 py-3 rounded-xl shadow-md hover:bg-[#096918] transition-all"
+          className="mt-6 bg-[#15803D] hover:bg-[#166534] text-white text-xs font-bold px-6 py-3 rounded-xl shadow-xs transition-all"
         >
-          Explore All McCain Products
+          Explore Catalog
         </Link>
       </div>
     )
@@ -89,353 +107,537 @@ export default function ProductDetailPage() {
   const mediaData: ProductMediaData = getProductMedia(product.slug)
   const gallerySlides = getProductGallerySlides(product)
 
-  // Active Variant & Pricing Calculation
-  const variants = product.variants || []
-  const activeVariant = variants[selectedVariantIndex] || {
-    id: product.id,
-    packagingType: 'SINGLE',
-    unitsInPack: 1,
-    weightGrams: 420,
-    skuCode: `SKU-${product.slug?.toUpperCase().slice(0, 8)}`,
-    retailPrice: 199,
-    b2bPrice: 169,
-    stockCount: 80,
+  // Raw variants from database
+  const rawVariants = product.variants && product.variants.length > 0 ? product.variants : []
+  
+  // Base single pack reference price
+  const basePrice = isB2BMode
+    ? (rawVariants[0]?.b2bPrice || product.price || 169)
+    : (rawVariants[0]?.retailPrice || product.price || 213)
+
+  const baseWeight = rawVariants[0]?.weightGrams || 2500
+
+  // ─── 3 EQUAL-HEIGHT PACK OPTIONS (Single, Box of 10, Carton of 50) ───
+  // Matches Screenshot 2: 2.5 kg | Box (10 kg) | Carton (50 kg)
+  interface PackOption {
+    id: string
+    variantIndex: number
+    label: string
+    subtitleWeight: string
+    unitsInPack: number
+    weightGrams: number
+    price: number
+    mrp: number
+    unitPriceText: string
+    isCustomSynth?: boolean
   }
 
-  const cartItem = items.find((i) => i.variantId === activeVariant.id)
-  const quantityInCart = cartItem ? cartItem.quantity : 0
-  const isOutOfStock = activeVariant.stockCount <= 0
-  const isLowStock = activeVariant.stockCount > 0 && activeVariant.stockCount <= (activeVariant.reorderLevel || 10)
+  let packOptions: PackOption[] = []
 
-  const activePrice = isB2BMode ? activeVariant.b2bPrice : activeVariant.retailPrice
-  const mrpPrice = Math.round(activePrice * 1.15)
-  const discountPercent = Math.max(7, Math.round(((mrpPrice - activePrice) / mrpPrice) * 100))
+  if (rawVariants.length >= 3) {
+    // If database already contains 3 variants (e.g. SINGLE, BOX, CARTON)
+    packOptions = rawVariants.slice(0, 3).map((v: any, idx: number) => {
+      const vPrice = isB2BMode ? v.b2bPrice : v.retailPrice
+      const vMrp = Math.round(vPrice * 1.15)
+      const weightKg = v.weightGrams ? v.weightGrams / 1000 : 1
+      const perKgPrice = weightKg > 0 ? Math.round(vPrice / weightKg) : vPrice
+      
+      let label = v.packagingType === 'SINGLE' 
+        ? (v.weightGrams >= 1000 ? `${(v.weightGrams / 1000).toFixed(1).replace('.0', '')} kg` : `${v.weightGrams} g`)
+        : v.packagingType === 'BOX'
+        ? `Box (${v.weightGrams >= 1000 ? (v.weightGrams / 1000).toFixed(0) + ' kg' : (v.unitsInPack || 10) + ' units'})`
+        : `Carton (${v.weightGrams >= 1000 ? (v.weightGrams / 1000).toFixed(0) + ' kg' : (v.unitsInPack || 50) + ' units'})`
+
+      return {
+        id: v.id,
+        variantIndex: idx,
+        label,
+        subtitleWeight: v.weightGrams >= 1000 ? `${(v.weightGrams / 1000).toFixed(1).replace('.0', '')} kg` : `${v.weightGrams} g`,
+        unitsInPack: v.unitsInPack || 1,
+        weightGrams: v.weightGrams || 2500,
+        price: vPrice,
+        mrp: vMrp,
+        unitPriceText: `(₹${perKgPrice}/kg)`,
+      }
+    })
+  } else {
+    // Synthesize the standard retail/B2B 3 tiers as shown in Screenshot 2
+    const singleKg = baseWeight >= 1000 ? baseWeight / 1000 : 1
+    const singlePerKg = Math.round(basePrice / singleKg)
+
+    const boxKg = singleKg * 4 // e.g. 10 kg
+    const boxPrice = Math.round(basePrice * 4) // e.g. 850
+    const boxPerKg = Math.round(boxPrice / boxKg)
+
+    const cartonKg = singleKg * 20 // e.g. 50 kg
+    const cartonPrice = Math.round(basePrice * 18.3) // e.g. 3900 with bulk savings
+    const cartonPerKg = Math.round(cartonPrice / cartonKg)
+
+    packOptions = [
+      {
+        id: rawVariants[0]?.id || `${product.id}_single`,
+        variantIndex: 0,
+        label: baseWeight >= 1000 ? `${(baseWeight / 1000).toFixed(1).replace('.0', '')} kg` : `${baseWeight} g`,
+        subtitleWeight: baseWeight >= 1000 ? `${(baseWeight / 1000).toFixed(1).replace('.0', '')} kg` : `${baseWeight} g`,
+        unitsInPack: 1,
+        weightGrams: baseWeight,
+        price: basePrice,
+        mrp: Math.round(basePrice * 1.15),
+        unitPriceText: `(₹${singlePerKg}/kg)`,
+      },
+      {
+        id: rawVariants[1]?.id || `${product.id}_box`,
+        variantIndex: rawVariants[1] ? 1 : 0,
+        label: `Box (${boxKg} kg)`,
+        subtitleWeight: `${boxKg} kg`,
+        unitsInPack: 4,
+        weightGrams: boxKg * 1000,
+        price: rawVariants[1] ? (isB2BMode ? rawVariants[1].b2bPrice : rawVariants[1].retailPrice) : boxPrice,
+        mrp: Math.round((rawVariants[1] ? (isB2BMode ? rawVariants[1].b2bPrice : rawVariants[1].retailPrice) : boxPrice) * 1.15),
+        unitPriceText: `(₹${boxPerKg}/kg)`,
+        isCustomSynth: !rawVariants[1],
+      },
+      {
+        id: rawVariants[2]?.id || `${product.id}_carton`,
+        variantIndex: rawVariants[2] ? 2 : 0,
+        label: `Carton (${cartonKg} kg)`,
+        subtitleWeight: `${cartonKg} kg`,
+        unitsInPack: 20,
+        weightGrams: cartonKg * 1000,
+        price: rawVariants[2] ? (isB2BMode ? rawVariants[2].b2bPrice : rawVariants[2].retailPrice) : cartonPrice,
+        mrp: Math.round((rawVariants[2] ? (isB2BMode ? rawVariants[2].b2bPrice : rawVariants[2].retailPrice) : cartonPrice) * 1.15),
+        unitPriceText: `(₹${cartonPerKg}/kg)`,
+        isCustomSynth: !rawVariants[2],
+      },
+    ]
+  }
+
+  const activePack = packOptions[selectedVariantIndex] || packOptions[0]
+  const activePrice = activePack.price
+  const mrpPrice = activePack.mrp
+  const savings = Math.max(0, mrpPrice - activePrice)
+  const discountPercent = mrpPrice > activePrice ? Math.round(((mrpPrice - activePrice) / mrpPrice) * 100) : 15
+
+  // Cart sync
+  const cartItem = items.find((i) => i.variantId === activePack.id)
+  const quantityInCart = cartItem ? cartItem.quantity : 0
 
   const handleAddToCart = () => {
-    if (isOutOfStock) return
     add({
       productId: product.id,
-      variantId: activeVariant.id,
+      variantId: activePack.id,
       productName: product.name,
       productSlug: product.slug,
       imageUrl: mediaData.packetImage,
-      packagingType: activeVariant.packagingType,
-      weightGrams: activeVariant.weightGrams,
-      unitsInPack: activeVariant.unitsInPack,
-      skuCode: activeVariant.skuCode,
+      packagingType: selectedVariantIndex === 0 ? 'SINGLE' : selectedVariantIndex === 1 ? 'BOX' : 'CARTON',
+      weightGrams: activePack.weightGrams,
+      unitsInPack: activePack.unitsInPack,
+      skuCode: `SKU-${product.slug?.toUpperCase().slice(0, 8)}-${selectedVariantIndex}`,
       unitPrice: activePrice,
-      quantity: 1,
-      lineTotal: activePrice,
+      quantity: selectedQuantity,
+      lineTotal: activePrice * selectedQuantity,
     })
-    showToast(`Added ${product.name} to cart`, 'success')
+    showToast(`Added ${selectedQuantity} × ${activePack.label} to cart`, 'success')
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-4 md:py-8 font-sans">
+    <div className="max-w-6xl mx-auto px-4 py-4 md:py-8 font-sans pb-28 md:pb-12">
       
-      {/* 1. BREADCRUMBS (Blinkit Style) */}
-      <nav className="flex items-center gap-1.5 text-xs text-gray-500 font-medium mb-6 flex-wrap">
-        <Link href="/" className="hover:text-[#0c831f] transition-colors">
+      {/* ─── 1. BREADCRUMBS (Subtle, Clean 4px/8px Spacer System) ─── */}
+      <nav className="flex items-center gap-1.5 text-xs text-slate-500 font-medium mb-4 sm:mb-6 flex-wrap">
+        <Link href="/" className="hover:text-[#15803D] transition-colors">
           Home
         </Link>
-        <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
-        <Link href="/" className="hover:text-[#0c831f] transition-colors">
-          {product.category?.name || 'Frozen Veg Snacks'}
+        <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+        <Link href="/" className="hover:text-[#15803D] transition-colors">
+          {product.category?.name || 'Frozen Food'}
         </Link>
-        <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
-        <span className="text-gray-900 font-bold truncate max-w-[280px]">
+        <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+        <span className="text-slate-800 font-semibold truncate max-w-[260px] sm:max-w-none">
           {product.name}
         </span>
       </nav>
 
-      {/* 2. MAIN PRODUCT DETAILS GRID (Blinkit Screenshot Layout) */}
+      {/* ─── 2. MAIN TWO-COLUMN BALANCED GRID ─── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
         
-        {/* LEFT COLUMN: AUTO-SCROLLING PRODUCT GALLERY WITH THUMBNAIL ARROW BAR */}
-        <div className="lg:col-span-6 flex flex-col gap-6">
-          
+        {/* ─── LEFT COLUMN: PRODUCT GALLERY (Clean soft aspect-square card) ─── */}
+        <div className="lg:col-span-5 w-full">
           <ProductGallery
             productName={product.name}
             productSlug={product.slug}
             slides={gallerySlides}
             discountPercent={discountPercent}
-            isVeg={product.isVeg}
+            isVeg={product.isVeg !== false}
+            brand={product.brand || 'McCain'}
+            categoryName={product.category?.name || 'Frozen Food'}
           />
         </div>
 
-        {/* RIGHT COLUMN: PRODUCT SPECIFICATIONS, VARIANT SELECTION & CART (Blinkit Screenshot Style) */}
-        <div className="lg:col-span-6 flex flex-col gap-6">
+        {/* ─── RIGHT COLUMN: PRODUCT SPECIFICATIONS & ACTIONS ─── */}
+        <div className="lg:col-span-7 flex flex-col gap-5">
           
-          {/* Header & Title */}
-          <div>
-            <span className="text-xs font-black text-gray-400 uppercase tracking-wider block mb-1">
-              {product.brand || 'McCain'} • Frozen Food
+          {/* Header Info: Brand, Title, Subtitle Weight, Description */}
+          <div className="flex flex-col gap-1">
+            <span className="text-sm font-bold text-[#15803D]">
+              {product.brand || 'McCain'}
             </span>
 
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 leading-tight">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight leading-snug">
               {product.name}
             </h1>
 
-            <div className="flex items-center gap-3 mt-2">
-              <span className="text-xs font-bold text-gray-600 bg-gray-100 px-2.5 py-1 rounded-lg">
-                {activeVariant.unitsInPack > 1 
-                  ? `${activeVariant.unitsInPack} Pieces` 
-                  : (activeVariant.weightGrams >= 1000 ? `${(activeVariant.weightGrams / 1000).toFixed(1)} kg` : `${activeVariant.weightGrams} g`)}
-              </span>
-              <span className={`text-xs font-extrabold px-2.5 py-1 rounded-lg ${
-                isOutOfStock 
-                  ? 'text-rose-700 bg-rose-50 border border-rose-200' 
-                  : isLowStock
-                  ? 'text-amber-700 bg-amber-50 border border-amber-200'
-                  : 'text-emerald-700 bg-emerald-50 border border-emerald-200'
-              }`}>
-                {isOutOfStock ? '✕ Not Available' : isLowStock ? '⚡ Only few available' : '✓ Available'}
-              </span>
-            </div>
+            <span className="text-lg font-bold text-slate-800">
+              {activePack.subtitleWeight}
+            </span>
 
-            <p className="text-xs sm:text-sm text-gray-500 mt-3 leading-relaxed">
-              {product.description}
+            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed mt-1">
+              {product.description || 'Crispy, golden fries made from high quality potatoes. Perfect for home & commercial use.'}
             </p>
+
+            {/* Social Proof / Rating (Small, authentic, unpretentious) */}
+            <div className="flex items-center gap-1.5 mt-2 cursor-pointer group">
+              <Star className="w-4 h-4 text-emerald-600 fill-emerald-600" />
+              <span className="text-xs font-bold text-slate-800">4.6</span>
+              <span className="text-xs text-slate-500 font-medium group-hover:text-slate-700">
+                (128 reviews)
+              </span>
+              <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:translate-x-0.5 transition-transform" />
+            </div>
           </div>
 
-          {/* Select Unit / Packaging Size (Matching Screenshot media_1787492890360.png) */}
+          {/* ─── PRICING BLOCK (Matching Screenshot 2) ─── */}
+          <div className="flex flex-col gap-1 border-t border-b border-slate-100 py-3.5">
+            <div className="flex items-center flex-wrap gap-x-3 gap-y-1">
+              <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+                ₹{activePrice.toFixed(2)}
+              </span>
+              {mrpPrice > activePrice && (
+                <span className="text-base text-slate-400 font-normal line-through">
+                  ₹{mrpPrice.toFixed(2)}
+                </span>
+              )}
+              {savings > 0 && (
+                <span className="bg-[#16A34A] text-white text-xs sm:text-sm font-bold px-3 py-1 rounded-lg shadow-2xs select-none">
+                  Save ₹{savings}
+                </span>
+              )}
+            </div>
+            <span className="text-xs text-slate-400 font-normal">
+              Inclusive of all taxes
+            </span>
+          </div>
+
+          {/* ─── SELECT PACK SIZE (Equal-Height Cards, Matching Screenshot 2) ─── */}
           <div>
-            <label className="text-xs font-extrabold text-gray-700 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
-              <Package className="w-4 h-4 text-[#0c831f]" />
-              <span>Select Unit</span>
-            </label>
+            <h3 className="text-sm font-bold text-slate-900 mb-2.5">
+              Select Pack Size
+            </h3>
 
-            <div className="flex flex-wrap gap-3">
-              {variants.map((v: any, idx: number) => {
+            <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
+              {packOptions.map((pack, idx) => {
                 const isSelected = selectedVariantIndex === idx
-                const vPrice = isB2BMode ? v.b2bPrice : v.retailPrice
-                const vMrp = Math.round(vPrice * 1.15)
-                const vDiscount = Math.max(5, Math.round(((vMrp - vPrice) / vMrp) * 100))
-
                 return (
                   <button
-                    key={v.id || idx}
+                    key={pack.id || idx}
                     type="button"
-                    onClick={() => setSelectedVariantIndex(idx)}
-                    className={`relative px-4 py-3 rounded-2xl border-2 text-xs font-black transition-all flex flex-col items-start min-w-[100px] ${
+                    onClick={() => {
+                      setSelectedVariantIndex(idx)
+                      setSelectedQuantity(1)
+                    }}
+                    className={`h-[94px] rounded-xl border text-left p-2.5 sm:p-3 flex flex-col justify-between transition-all select-none ${
                       isSelected
-                        ? 'border-[#0c831f] bg-emerald-50/60 text-[#0c831f] shadow-sm'
-                        : 'border-gray-200 text-gray-700 hover:border-gray-300 bg-white'
+                        ? 'border-2 border-[#16A34A] bg-[#F0FDF4]/70 shadow-xs'
+                        : 'border-slate-200 hover:border-slate-300 bg-white'
                     }`}
                   >
-                    {/* Discount Tag on Unit Card (like 20% OFF in Screenshot) */}
-                    {idx > 0 && (
-                      <span className="absolute -top-2 left-2 bg-[#256fef] text-white text-[8px] font-black px-1.5 py-0.2 rounded-md shadow-2xs">
-                        {vDiscount}% OFF
-                      </span>
-                    )}
-
-                    <span className="text-xs font-black text-gray-900 leading-tight">
-                      {v.packagingType === 'SINGLE' 
-                        ? (v.unitsInPack > 1 ? `${v.unitsInPack} Pieces` : (v.weightGrams >= 1000 ? `${(v.weightGrams / 1000).toFixed(1)} kg` : `${v.weightGrams} g`))
-                        : v.packagingType === 'BOX' 
-                        ? `Box (${v.unitsInPack || 10} units)` 
-                        : `Carton (${v.unitsInPack || 50} units)`}
+                    <span className="text-xs font-bold text-slate-800 leading-tight truncate">
+                      {pack.label}
                     </span>
-
-                    <div className="flex items-center gap-1.5 mt-1">
-                      <span className="text-xs font-black text-gray-900">
-                        ₹{vPrice}
-                      </span>
-                      <span className="text-[10px] text-gray-400 line-through">
-                        ₹{vMrp}
-                      </span>
-                    </div>
+                    <span className="text-base sm:text-lg font-bold text-slate-900 leading-none">
+                      ₹{pack.price.toLocaleString('en-IN')}
+                    </span>
+                    <span className="text-[11px] sm:text-xs text-slate-500 font-medium">
+                      {pack.unitPriceText}
+                    </span>
                   </button>
                 )
               })}
             </div>
           </div>
 
-          {/* Pricing Row */}
-          <div className="flex flex-col gap-1 border-t border-b border-gray-100 py-4">
-            <div className="flex items-baseline gap-3">
-              <span className="text-3xl font-black text-gray-900">
-                ₹{activePrice}
-              </span>
-              <span className="text-base text-gray-400 line-through font-bold">
-                MRP ₹{mrpPrice}
-              </span>
-              <span className="text-xs font-black text-[#256fef] bg-blue-50 px-2.5 py-0.5 rounded-md">
-                {discountPercent}% OFF
-              </span>
-            </div>
-            <span className="text-[11px] text-gray-400 font-medium">
-              (Inclusive of all taxes)
-            </span>
-          </div>
-
-          {/* Add to Cart CTA / Stepper (Blinkit Green Button) */}
-          <div className="flex items-center gap-4">
-            {isOutOfStock ? (
+          {/* ─── PURCHASE ROW (DESKTOP) ─── */}
+          <div className="hidden md:flex items-center gap-3 pt-1">
+            {/* Quantity Stepper */}
+            <div className="flex items-center border border-slate-200 rounded-xl h-12 bg-white px-1 shadow-2xs">
               <button
-                disabled
-                className="w-full bg-gray-200 text-gray-500 font-extrabold py-3.5 rounded-2xl cursor-not-allowed text-sm"
+                type="button"
+                onClick={() => setSelectedQuantity((q) => Math.max(1, q - 1))}
+                className="w-9 h-full flex items-center justify-center text-slate-600 hover:text-black transition-colors"
+                aria-label="Decrease quantity"
               >
-                Currently not available
+                <Minus className="w-4 h-4 stroke-[2.5]" />
               </button>
-            ) : quantityInCart > 0 ? (
-              <div className="bg-[#0c831f] text-white rounded-2xl flex items-center justify-between w-full h-14 px-5 shadow-lg select-none">
-                <button
-                  onClick={() => decrement(activeVariant.id)}
-                  className="w-9 h-9 flex items-center justify-center hover:bg-black/10 rounded-xl transition-colors"
-                >
-                  <Minus className="w-5 h-5 stroke-[3]" />
-                </button>
-                <span className="text-base font-black px-4">
-                  {quantityInCart} in cart (₹{quantityInCart * activePrice})
-                </span>
-                <button
-                  onClick={() => increment(activeVariant.id)}
-                  className="w-9 h-9 flex items-center justify-center hover:bg-black/10 rounded-xl transition-colors"
-                >
-                  <Plus className="w-5 h-5 stroke-[3]" />
-                </button>
-              </div>
-            ) : (
+              <span className="w-9 text-center font-bold text-slate-900 text-sm select-none">
+                {selectedQuantity}
+              </span>
               <button
-                onClick={handleAddToCart}
-                className="w-full bg-[#0c831f] hover:bg-[#096918] text-white font-black text-base py-4 rounded-2xl shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 active:scale-98"
+                type="button"
+                onClick={() => setSelectedQuantity((q) => q + 1)}
+                className="w-9 h-full flex items-center justify-center text-slate-600 hover:text-black transition-colors"
+                aria-label="Increase quantity"
               >
-                <ShoppingBag className="w-5 h-5" />
-                <span>Add to cart</span>
+                <Plus className="w-4 h-4 stroke-[2.5]" />
               </button>
-            )}
+            </div>
+
+            {/* Add to Cart CTA */}
+            <button
+              type="button"
+              onClick={handleAddToCart}
+              className="flex-1 max-w-sm h-12 bg-[#15803D] hover:bg-[#166534] active:scale-98 text-white font-bold text-sm tracking-wide rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 select-none"
+            >
+              <ShoppingBag className="w-4 h-4" />
+              <span>ADD TO CART</span>
+            </button>
           </div>
 
-          {/* Clean Nutritional Facts & Ingredients Card */}
-          <div className="p-5 bg-gradient-to-br from-emerald-50/70 via-white to-amber-50/50 rounded-3xl border border-emerald-200/80 shadow-xs text-gray-900 mt-2">
-            <div className="flex items-center gap-2 mb-2.5 pb-2 border-b border-emerald-200/60">
-              <Leaf className="w-4 h-4 text-emerald-700" />
-              <h4 className="font-extrabold text-xs uppercase tracking-wider text-gray-900">100% Vegetarian Ingredients</h4>
+          {/* ─── CONSOLIDATED TRUST BAR (Matching Screenshot 3) ─── */}
+          <div className="bg-white rounded-2xl border border-slate-100 p-3 shadow-2xs grid grid-cols-3 divide-x divide-slate-100 text-center my-1 select-none">
+            <div className="flex flex-col items-center justify-center px-1">
+              <Snowflake className="w-5 h-5 text-sky-500 mb-1" />
+              <span className="text-xs font-bold text-slate-800 leading-tight">-18°C</span>
+              <span className="text-[10px] text-slate-500 font-medium">Cold Chain</span>
             </div>
-            <p className="text-xs text-gray-600 font-medium leading-relaxed mb-4">
-              {mediaData.ingredients}
-            </p>
-
-            <h5 className="text-[11px] font-black text-gray-700 uppercase tracking-wider mb-2">
-              Nutritional Facts (Per 100g)
-            </h5>
-            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 text-center text-xs">
-              <div className="bg-white p-2 rounded-xl border border-gray-200/80 shadow-2xs">
-                <span className="text-[9px] text-gray-400 font-bold block">Energy</span>
-                <span className="font-black text-gray-900 text-xs">{mediaData.nutrition.calories} kcal</span>
-              </div>
-              <div className="bg-white p-2 rounded-xl border border-gray-200/80 shadow-2xs">
-                <span className="text-[9px] text-gray-400 font-bold block">Protein</span>
-                <span className="font-black text-gray-900 text-xs">{mediaData.nutrition.protein}g</span>
-              </div>
-              <div className="bg-white p-2 rounded-xl border border-gray-200/80 shadow-2xs">
-                <span className="text-[9px] text-gray-400 font-bold block">Carbs</span>
-                <span className="font-black text-gray-900 text-xs">{mediaData.nutrition.carbs}g</span>
-              </div>
-              <div className="bg-white p-2 rounded-xl border border-gray-200/80 shadow-2xs">
-                <span className="text-[9px] text-gray-400 font-bold block">Total Fat</span>
-                <span className="font-black text-gray-900 text-xs">{mediaData.nutrition.fat}g</span>
-              </div>
-              <div className="bg-emerald-100/90 p-2 rounded-xl border border-emerald-300 shadow-2xs">
-                <span className="text-[9px] text-emerald-800 font-bold block">Trans Fat</span>
-                <span className="font-black text-emerald-900 text-xs">0.0g ✓</span>
-              </div>
-              <div className="bg-white p-2 rounded-xl border border-gray-200/80 shadow-2xs">
-                <span className="text-[9px] text-gray-400 font-bold block">Sodium</span>
-                <span className="font-black text-gray-900 text-xs">{mediaData.nutrition.sodium}mg</span>
-              </div>
+            <div className="flex flex-col items-center justify-center px-1">
+              <Truck className="w-5 h-5 text-emerald-600 mb-1" />
+              <span className="text-xs font-bold text-slate-800 leading-tight">Scheduled</span>
+              <span className="text-[10px] text-slate-500 font-medium">Delivery</span>
+            </div>
+            <div className="flex flex-col items-center justify-center px-1">
+              <ShieldCheck className="w-5 h-5 text-emerald-600 mb-1" />
+              <span className="text-xs font-bold text-slate-800 leading-tight">Replacement</span>
+              <span className="text-[10px] text-slate-500 font-medium">if any Issue</span>
             </div>
           </div>
 
-          {/* 3-Minute Cooking Guide Card */}
-          <div className="p-5 bg-gradient-to-br from-amber-50/70 via-white to-yellow-50/50 rounded-3xl border border-amber-200/80 shadow-xs text-gray-900">
-            <div className="flex items-center gap-2 mb-3 pb-2 border-b border-amber-200/60">
-              <Flame className="w-4 h-4 text-amber-600" />
-              <h4 className="font-extrabold text-xs uppercase tracking-wider text-gray-900">3-Minute Easy Cooking Guide</h4>
+          {/* ─── INTERACTIVE COLLAPSIBLE ACCORDIONS (Matching Screenshot 3) ─── */}
+          <div className="flex flex-col divide-y divide-slate-100 border-t border-b border-slate-100">
+            
+            {/* 1. Description Accordion */}
+            <div className="py-3">
+              <button
+                type="button"
+                onClick={() => toggleAccordion('description')}
+                className="w-full flex items-center justify-between text-left py-1 group select-none"
+              >
+                <div className="flex items-center gap-2.5">
+                  <FileText className="w-5 h-5 text-emerald-700 shrink-0" />
+                  <span className="text-sm font-bold text-slate-900 group-hover:text-emerald-700 transition-colors">
+                    Description
+                  </span>
+                </div>
+                {openAccordions.description ? (
+                  <ChevronUp className="w-4 h-4 text-slate-400 group-hover:text-slate-600" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-slate-400 group-hover:text-slate-600" />
+                )}
+              </button>
+              {openAccordions.description && (
+                <div className="pt-2 pl-7.5 pr-2 text-xs text-slate-600 leading-relaxed font-normal animate-fade-in">
+                  {product.description || (
+                    <>
+                      {product.brand || 'McCain'} {product.name} are made from carefully selected potatoes, cut to perfection and quick frozen to lock in taste and quality. Ideal for home, cafes, hotels and food businesses.
+                    </>
+                  )}
+                </div>
+              )}
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-              <div className="p-2.5 bg-white rounded-2xl border border-amber-100 shadow-2xs flex flex-col gap-1">
-                <span className="text-lg">🍟</span>
-                <h5 className="font-black text-xs text-gray-900">Deep Fry (Classic)</h5>
-                <p className="text-[10px] text-gray-500 leading-snug">{mediaData.cooking.deepFry}</p>
-              </div>
-
-              <div className="p-2.5 bg-white rounded-2xl border border-amber-100 shadow-2xs flex flex-col gap-1">
-                <span className="text-lg">⏱️</span>
-                <h5 className="font-black text-xs text-gray-900">Air Fry (Zero Oil)</h5>
-                <p className="text-[10px] text-gray-500 leading-snug">{mediaData.cooking.airFry}</p>
-              </div>
-
-              <div className="p-2.5 bg-white rounded-2xl border border-amber-100 shadow-2xs flex flex-col gap-1">
-                <span className="text-lg">🔥</span>
-                <h5 className="font-black text-xs text-gray-900">Oven Bake</h5>
-                <p className="text-[10px] text-gray-500 leading-snug">{mediaData.cooking.bake}</p>
-              </div>
+            {/* 2. Ingredients Accordion */}
+            <div className="py-3">
+              <button
+                type="button"
+                onClick={() => toggleAccordion('ingredients')}
+                className="w-full flex items-center justify-between text-left py-1 group select-none"
+              >
+                <div className="flex items-center gap-2.5">
+                  <Leaf className="w-5 h-5 text-emerald-700 shrink-0" />
+                  <span className="text-sm font-bold text-slate-900 group-hover:text-emerald-700 transition-colors">
+                    Ingredients
+                  </span>
+                </div>
+                {openAccordions.ingredients ? (
+                  <ChevronUp className="w-4 h-4 text-slate-400 group-hover:text-slate-600" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-slate-400 group-hover:text-slate-600" />
+                )}
+              </button>
+              {openAccordions.ingredients && (
+                <div className="pt-2 pl-7.5 pr-2 text-xs text-slate-600 leading-relaxed font-normal animate-fade-in">
+                  {mediaData.ingredients || 'Potatoes, Edible Vegetable Oil (Palm), Dextrose, Salt, Stabilizer (E450, E451).'}
+                </div>
+              )}
             </div>
-          </div>
 
-          {/* "Why shop from Anmol Enterprises?" (Matching Screenshot media_1787492890360.png) */}
-          <div className="mt-2 pt-5 border-t border-gray-100 flex flex-col gap-4">
-            <h3 className="font-extrabold text-sm text-gray-900 uppercase tracking-wider">
-              Why shop from Anmol Enterprises?
-            </h3>
+            {/* 3. Nutrition Facts Accordion */}
+            <div className="py-3">
+              <button
+                type="button"
+                onClick={() => toggleAccordion('nutrition')}
+                className="w-full flex items-center justify-between text-left py-1 group select-none"
+              >
+                <div className="flex items-center gap-2.5">
+                  <BarChart3 className="w-5 h-5 text-emerald-700 shrink-0" />
+                  <span className="text-sm font-bold text-slate-900 group-hover:text-emerald-700 transition-colors">
+                    Nutrition Facts (Per 100 g)
+                  </span>
+                </div>
+                {openAccordions.nutrition ? (
+                  <ChevronUp className="w-4 h-4 text-slate-400 group-hover:text-slate-600" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-slate-400 group-hover:text-slate-600" />
+                )}
+              </button>
+              {openAccordions.nutrition && (
+                <div className="pt-2 pl-7.5 pr-2 animate-fade-in">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+                    <div className="p-2 rounded-lg bg-slate-50 border border-slate-100">
+                      <span className="text-slate-400 block text-[10px]">Energy</span>
+                      <span className="font-bold text-slate-800">{mediaData.nutrition.calories} kcal</span>
+                    </div>
+                    <div className="p-2 rounded-lg bg-slate-50 border border-slate-100">
+                      <span className="text-slate-400 block text-[10px]">Protein</span>
+                      <span className="font-bold text-slate-800">{mediaData.nutrition.protein}g</span>
+                    </div>
+                    <div className="p-2 rounded-lg bg-slate-50 border border-slate-100">
+                      <span className="text-slate-400 block text-[10px]">Carbohydrates</span>
+                      <span className="font-bold text-slate-800">{mediaData.nutrition.carbs}g</span>
+                    </div>
+                    <div className="p-2 rounded-lg bg-slate-50 border border-slate-100">
+                      <span className="text-slate-400 block text-[10px]">Total Fat</span>
+                      <span className="font-bold text-slate-800">{mediaData.nutrition.fat}g</span>
+                    </div>
+                    <div className="p-2 rounded-lg bg-emerald-50/70 border border-emerald-100">
+                      <span className="text-emerald-700 block text-[10px] font-semibold">Trans Fat</span>
+                      <span className="font-bold text-emerald-800">0.0g ✓</span>
+                    </div>
+                    <div className="p-2 rounded-lg bg-slate-50 border border-slate-100">
+                      <span className="text-slate-400 block text-[10px]">Sodium</span>
+                      <span className="font-bold text-slate-800">{mediaData.nutrition.sodium}mg</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
 
-            <div className="flex flex-col gap-3.5">
-              
-              {/* Highlight 1 */}
-              <div className="flex items-start gap-3.5">
-                <div className="w-11 h-11 rounded-2xl bg-amber-100/80 flex items-center justify-center shrink-0">
-                  <Truck className="w-5 h-5 text-amber-800" />
+            {/* 4. Cooking Guide Accordion */}
+            <div className="py-3">
+              <button
+                type="button"
+                onClick={() => toggleAccordion('cooking')}
+                className="w-full flex items-center justify-between text-left py-1 group select-none"
+              >
+                <div className="flex items-center gap-2.5">
+                  <Utensils className="w-5 h-5 text-emerald-700 shrink-0" />
+                  <span className="text-sm font-bold text-slate-900 group-hover:text-emerald-700 transition-colors">
+                    Cooking Guide
+                  </span>
                 </div>
-                <div>
-                  <h4 className="text-xs font-bold text-gray-900 leading-tight">
-                    Fast & Fresh Latur Delivery
-                  </h4>
-                  <p className="text-[11px] text-gray-500 leading-relaxed mt-0.5">
-                    Sub-zero cold chain delivery straight to your doorstep across Latur city.
-                  </p>
+                {openAccordions.cooking ? (
+                  <ChevronUp className="w-4 h-4 text-slate-400 group-hover:text-slate-600" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-slate-400 group-hover:text-slate-600" />
+                )}
+              </button>
+              {openAccordions.cooking && (
+                <div className="pt-2 pl-7.5 pr-2 flex flex-col gap-2 animate-fade-in text-xs text-slate-600">
+                  <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-100 flex flex-col gap-0.5">
+                    <span className="font-bold text-slate-800 text-xs">Deep Fry (Classic)</span>
+                    <p className="text-slate-500 text-[11px] leading-relaxed">{mediaData.cooking.deepFry}</p>
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-100 flex flex-col gap-0.5">
+                    <span className="font-bold text-slate-800 text-xs">Air Fry (Zero Oil)</span>
+                    <p className="text-slate-500 text-[11px] leading-relaxed">{mediaData.cooking.airFry}</p>
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-100 flex flex-col gap-0.5">
+                    <span className="font-bold text-slate-800 text-xs">Oven Bake</span>
+                    <p className="text-slate-500 text-[11px] leading-relaxed">{mediaData.cooking.bake}</p>
+                  </div>
                 </div>
-              </div>
+              )}
+            </div>
 
-              {/* Highlight 2 */}
-              <div className="flex items-start gap-3.5">
-                <div className="w-11 h-11 rounded-2xl bg-amber-100/80 flex items-center justify-center shrink-0">
-                  <Tag className="w-5 h-5 text-amber-800" />
+            {/* 5. Storage Instructions Accordion */}
+            <div className="py-3">
+              <button
+                type="button"
+                onClick={() => toggleAccordion('storage')}
+                className="w-full flex items-center justify-between text-left py-1 group select-none"
+              >
+                <div className="flex items-center gap-2.5">
+                  <Snowflake className="w-5 h-5 text-emerald-700 shrink-0" />
+                  <span className="text-sm font-bold text-slate-900 group-hover:text-emerald-700 transition-colors">
+                    Storage Instructions
+                  </span>
                 </div>
-                <div>
-                  <h4 className="text-xs font-bold text-gray-900 leading-tight">
-                    Best Prices & Offers
-                  </h4>
-                  <p className="text-[11px] text-gray-500 leading-relaxed mt-0.5">
-                    Best price destination with offers directly from McCain authorized regional distributor.
-                  </p>
+                {openAccordions.storage ? (
+                  <ChevronUp className="w-4 h-4 text-slate-400 group-hover:text-slate-600" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-slate-400 group-hover:text-slate-600" />
+                )}
+              </button>
+              {openAccordions.storage && (
+                <div className="pt-2 pl-7.5 pr-2 text-xs text-slate-600 leading-relaxed font-normal animate-fade-in">
+                  <ul className="list-disc pl-4 space-y-1">
+                    <li>Keep frozen at -18°C or below in deep freeze conditions.</li>
+                    <li>Do not thaw before cooking — cook directly from the frozen state.</li>
+                    <li>Do not refreeze once thawed. Seal tightly after opening.</li>
+                  </ul>
                 </div>
-              </div>
-
-              {/* Highlight 3 */}
-              <div className="flex items-start gap-3.5">
-                <div className="w-11 h-11 rounded-2xl bg-amber-100/80 flex items-center justify-center shrink-0">
-                  <Snowflake className="w-5 h-5 text-amber-800" />
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold text-gray-900 leading-tight">
-                    Wide Assortment & -18°C Guarantee
-                  </h4>
-                  <p className="text-[11px] text-gray-500 leading-relaxed mt-0.5">
-                    Choose from complete McCain frozen range preserved under strict thermal cold chain.
-                  </p>
-                </div>
-              </div>
-
+              )}
             </div>
 
           </div>
 
         </div>
 
+      </div>
+
+      {/* ─── 3. MOBILE STICKY BOTTOM CHECKOUT BAR (Matching Screenshot 4) ─── */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/90 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-xl flex items-center gap-3">
+        {/* Quantity Stepper */}
+        <div className="flex items-center border border-slate-200 rounded-xl h-12 bg-white px-1 shadow-2xs shrink-0">
+          <button
+            type="button"
+            onClick={() => setSelectedQuantity((q) => Math.max(1, q - 1))}
+            className="w-8 h-full flex items-center justify-center text-slate-600 active:text-black"
+            aria-label="Decrease quantity"
+          >
+            <Minus className="w-4 h-4 stroke-[2.5]" />
+          </button>
+          <span className="w-7 text-center font-bold text-slate-900 text-sm select-none">
+            {selectedQuantity}
+          </span>
+          <button
+            type="button"
+            onClick={() => setSelectedQuantity((q) => q + 1)}
+            className="w-8 h-full flex items-center justify-center text-slate-600 active:text-black"
+            aria-label="Increase quantity"
+          >
+            <Plus className="w-4 h-4 stroke-[2.5]" />
+          </button>
+        </div>
+
+        {/* Add to Cart Button */}
+        <button
+          type="button"
+          onClick={handleAddToCart}
+          className="flex-1 h-12 bg-[#15803D] active:bg-[#166534] text-white font-bold text-sm tracking-wide rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 select-none"
+        >
+          <ShoppingBag className="w-4 h-4" />
+          <span>ADD TO CART</span>
+        </button>
       </div>
 
     </div>

@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, Suspense } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 import {
   MessageSquare,
   Radio,
@@ -80,6 +80,7 @@ const QUICK_ACTIONS = [
 ]
 
 function CustomerChatContent() {
+  const router = useRouter()
   const searchParams = useSearchParams()
   const orderIdParam = searchParams.get('orderId')
   const orderNumberParam = searchParams.get('orderNumber')
@@ -87,6 +88,38 @@ function CustomerChatContent() {
   const { showToast } = useToast()
   const queryClient = useQueryClient()
   const socket = useSocket()
+
+  const [checkingAuth, setCheckingAuth] = useState(true)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+
+  // Verify authentication on mount and redirect if not logged in
+  useEffect(() => {
+    let isMounted = true
+    async function verifyAuth() {
+      try {
+        const res = await fetch('/api/auth/me')
+        if (!res.ok) {
+          router.replace('/account?redirect=/chat')
+          return
+        }
+        const data = await res.json()
+        if (!data || !data.user) {
+          router.replace('/account?redirect=/chat')
+          return
+        }
+        if (isMounted) {
+          setIsAuthenticated(true)
+          setCheckingAuth(false)
+        }
+      } catch {
+        router.replace('/account?redirect=/chat')
+      }
+    }
+    verifyAuth()
+    return () => {
+      isMounted = false
+    }
+  }, [router])
 
   const [activeTab, setActiveTab] = useState<'CHAT' | 'UPDATES'>('CHAT')
   const [inputText, setInputText] = useState('')
@@ -101,8 +134,13 @@ function CustomerChatContent() {
     refetch: refetchChat,
   } = useQuery({
     queryKey: ['customer-chat-conversation'],
+    enabled: isAuthenticated,
     queryFn: async () => {
       const res = await fetch('/api/chat/conversation')
+      if (res.status === 401) {
+        router.replace('/account?redirect=/chat')
+        throw new Error('Unauthorized')
+      }
       if (!res.ok) throw new Error('Failed to load conversation')
       return res.json() as Promise<{
         conversation: {
@@ -123,9 +161,14 @@ function CustomerChatContent() {
   // 2. Fetch user's recent orders for smart tracking
   const { data: userOrders = [] } = useQuery<any[]>({
     queryKey: ['customer-recent-orders-chat'],
+    enabled: isAuthenticated,
     queryFn: async () => {
       try {
         const res = await fetch('/api/orders')
+        if (res.status === 401) {
+          router.replace('/account?redirect=/chat')
+          return []
+        }
         if (!res.ok) return []
         const data = await res.json()
         return Array.isArray(data) ? data : []
@@ -142,8 +185,13 @@ function CustomerChatContent() {
     refetch: refetchUpdates,
   } = useQuery({
     queryKey: ['customer-updates'],
+    enabled: isAuthenticated,
     queryFn: async () => {
       const res = await fetch('/api/updates')
+      if (res.status === 401) {
+        router.replace('/account?redirect=/chat')
+        throw new Error('Unauthorized')
+      }
       if (!res.ok) throw new Error('Failed to load updates')
       return res.json() as Promise<{
         updates: BroadcastUpdate[]
@@ -287,6 +335,24 @@ function CustomerChatContent() {
     } catch {
       return isoString
     }
+  }
+
+  if (checkingAuth) {
+    return (
+      <div className="flex-1 w-full bg-[#F4F6F8] flex items-center justify-center min-h-[70vh] p-4">
+        <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-200/80 flex flex-col items-center text-center max-w-sm w-full">
+          <div className="w-14 h-14 rounded-2xl bg-orange-50 border border-orange-100 flex items-center justify-center text-[#FF6B00] mb-4 shadow-sm animate-pulse">
+            <MessageSquare className="w-7 h-7 text-[#FF6B00]" />
+          </div>
+          <h2 className="text-base font-bold text-slate-800 tracking-tight">Anmol Support</h2>
+          <p className="text-xs text-slate-400 mt-1 font-medium">Connecting to customer chat...</p>
+          <div className="mt-6 flex items-center gap-2 text-xs font-semibold text-slate-500">
+            <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#FF6B00]" />
+            <span>Verifying session</span>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
