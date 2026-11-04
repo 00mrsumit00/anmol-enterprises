@@ -136,19 +136,30 @@ export default function ProductDetailPage() {
 
   let packOptions: PackOption[] = []
 
-  if (rawVariants.length >= 3) {
-    // If database already contains 3 variants (e.g. SINGLE, BOX, CARTON)
-    packOptions = rawVariants.slice(0, 3).map((v: any, idx: number) => {
-      const vPrice = isB2BMode ? v.b2bPrice : v.retailPrice
+  if (rawVariants && rawVariants.length > 0) {
+    // Dynamically map all variants (Single retail, multi-pack sizes e.g. 1kg, 2kg, Box, Carton)
+    packOptions = rawVariants.map((v: any, idx: number) => {
+      const vPrice = isB2BMode ? (v.b2bPrice || v.retailPrice) : (v.retailPrice || v.b2bPrice || 0)
       const vMrp = Math.round(vPrice * 1.15)
       const weightKg = v.weightGrams ? v.weightGrams / 1000 : 1
       const perKgPrice = weightKg > 0 ? Math.round(vPrice / weightKg) : vPrice
-      
-      let label = v.packagingType === 'SINGLE' 
-        ? (v.weightGrams >= 1000 ? `${(v.weightGrams / 1000).toFixed(1).replace('.0', '')} kg` : `${v.weightGrams} g`)
-        : v.packagingType === 'BOX'
-        ? `Box (${v.weightGrams >= 1000 ? (v.weightGrams / 1000).toFixed(0) + ' kg' : (v.unitsInPack || 10) + ' units'})`
-        : `Carton (${v.weightGrams >= 1000 ? (v.weightGrams / 1000).toFixed(0) + ' kg' : (v.unitsInPack || 50) + ' units'})`
+
+      const pkgType = (v.packagingType || '').toUpperCase()
+      let label = ''
+
+      if (pkgType === 'SINGLE' || pkgType.startsWith('PACK') || pkgType.startsWith('RETAIL')) {
+        label = v.weightGrams >= 1000
+          ? `${(v.weightGrams / 1000).toFixed(1).replace('.0', '')} kg`
+          : `${v.weightGrams} g`
+      } else if (pkgType === 'BOX') {
+        label = `Box (${v.weightGrams >= 1000 ? (v.weightGrams / 1000).toFixed(0) + ' kg' : (v.unitsInPack || 10) + ' units'})`
+      } else if (pkgType === 'CARTON') {
+        label = `Carton (${v.weightGrams >= 1000 ? (v.weightGrams / 1000).toFixed(0) + ' kg' : (v.unitsInPack || 50) + ' units'})`
+      } else {
+        label = v.weightGrams >= 1000
+          ? `${(v.weightGrams / 1000).toFixed(1).replace('.0', '')} kg`
+          : `${v.weightGrams} g`
+      }
 
       return {
         id: v.id,
@@ -156,28 +167,20 @@ export default function ProductDetailPage() {
         label,
         subtitleWeight: v.weightGrams >= 1000 ? `${(v.weightGrams / 1000).toFixed(1).replace('.0', '')} kg` : `${v.weightGrams} g`,
         unitsInPack: v.unitsInPack || 1,
-        weightGrams: v.weightGrams || 2500,
+        weightGrams: v.weightGrams || 1000,
         price: vPrice,
         mrp: vMrp,
         unitPriceText: `(₹${perKgPrice}/kg)`,
       }
     })
   } else {
-    // Synthesize the standard retail/B2B 3 tiers as shown in Screenshot 2
+    // Fallback if no variants configured
     const singleKg = baseWeight >= 1000 ? baseWeight / 1000 : 1
     const singlePerKg = Math.round(basePrice / singleKg)
 
-    const boxKg = singleKg * 4 // e.g. 10 kg
-    const boxPrice = Math.round(basePrice * 4) // e.g. 850
-    const boxPerKg = Math.round(boxPrice / boxKg)
-
-    const cartonKg = singleKg * 20 // e.g. 50 kg
-    const cartonPrice = Math.round(basePrice * 18.3) // e.g. 3900 with bulk savings
-    const cartonPerKg = Math.round(cartonPrice / cartonKg)
-
     packOptions = [
       {
-        id: rawVariants[0]?.id || `${product.id}_single`,
+        id: `${product.id}_single`,
         variantIndex: 0,
         label: baseWeight >= 1000 ? `${(baseWeight / 1000).toFixed(1).replace('.0', '')} kg` : `${baseWeight} g`,
         subtitleWeight: baseWeight >= 1000 ? `${(baseWeight / 1000).toFixed(1).replace('.0', '')} kg` : `${baseWeight} g`,
@@ -186,31 +189,7 @@ export default function ProductDetailPage() {
         price: basePrice,
         mrp: Math.round(basePrice * 1.15),
         unitPriceText: `(₹${singlePerKg}/kg)`,
-      },
-      {
-        id: rawVariants[1]?.id || `${product.id}_box`,
-        variantIndex: rawVariants[1] ? 1 : 0,
-        label: `Box (${boxKg} kg)`,
-        subtitleWeight: `${boxKg} kg`,
-        unitsInPack: 4,
-        weightGrams: boxKg * 1000,
-        price: rawVariants[1] ? (isB2BMode ? rawVariants[1].b2bPrice : rawVariants[1].retailPrice) : boxPrice,
-        mrp: Math.round((rawVariants[1] ? (isB2BMode ? rawVariants[1].b2bPrice : rawVariants[1].retailPrice) : boxPrice) * 1.15),
-        unitPriceText: `(₹${boxPerKg}/kg)`,
-        isCustomSynth: !rawVariants[1],
-      },
-      {
-        id: rawVariants[2]?.id || `${product.id}_carton`,
-        variantIndex: rawVariants[2] ? 2 : 0,
-        label: `Carton (${cartonKg} kg)`,
-        subtitleWeight: `${cartonKg} kg`,
-        unitsInPack: 20,
-        weightGrams: cartonKg * 1000,
-        price: rawVariants[2] ? (isB2BMode ? rawVariants[2].b2bPrice : rawVariants[2].retailPrice) : cartonPrice,
-        mrp: Math.round((rawVariants[2] ? (isB2BMode ? rawVariants[2].b2bPrice : rawVariants[2].retailPrice) : cartonPrice) * 1.15),
-        unitPriceText: `(₹${cartonPerKg}/kg)`,
-        isCustomSynth: !rawVariants[2],
-      },
+      }
     ]
   }
 
@@ -279,33 +258,6 @@ export default function ProductDetailPage() {
         {/* ─── RIGHT COLUMN: PRODUCT SPECIFICATIONS & ACTIONS (Blinkit Hierarchy) ─── */}
         <div className="lg:col-span-7 flex flex-col gap-4">
 
-          {/* ─── QUICK SPECS STRIP (Shelf Life, Storage, Category, View Details) ─── */}
-          <div className="grid grid-cols-4 gap-2">
-            <div className="bg-slate-50 border border-slate-200/60 rounded-xl p-2 sm:p-2.5 text-center flex flex-col justify-center">
-              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Shelf Life</span>
-              <span className="text-xs sm:text-sm font-black text-slate-800 truncate">12-24 Mos</span>
-            </div>
-            <div className="bg-slate-50 border border-slate-200/60 rounded-xl p-2 sm:p-2.5 text-center flex flex-col justify-center">
-              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Storage</span>
-              <span className="text-xs sm:text-sm font-black text-slate-800 truncate">-18°C Deep</span>
-            </div>
-            <div className="bg-slate-50 border border-slate-200/60 rounded-xl p-2 sm:p-2.5 text-center flex flex-col justify-center">
-              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Category</span>
-              <span className="text-xs sm:text-sm font-black text-slate-800 truncate">{product.category?.name || 'Frozen Food'}</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                const el = document.getElementById('product-details-accordion')
-                if (el) el.scrollIntoView({ behavior: 'smooth' })
-              }}
-              className="bg-white border border-[#15803D]/60 hover:bg-emerald-50 text-[#15803D] rounded-xl p-2 sm:p-2.5 text-center flex flex-col items-center justify-center transition cursor-pointer"
-            >
-              <span className="text-[11px] sm:text-xs font-black leading-tight">View</span>
-              <span className="text-[11px] sm:text-xs font-black leading-tight">details</span>
-            </button>
-          </div>
-          
           {/* ─── CARD C: PRODUCT INFORMATION CARD (White Card on Light Surface) ─── */}
           <div className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-xs flex flex-col gap-4">
             

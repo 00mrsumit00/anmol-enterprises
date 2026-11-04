@@ -103,6 +103,12 @@ export default function AdminProductsPage() {
     reorderLevel: 10,
     singlePrice: 199,
     singleB2bPrice: 169,
+    hasSecondaryPack: false,
+    secondaryPackUnit: '2 kg',
+    secondaryWeight: 2000,
+    secondaryStock: 50,
+    secondaryPrice: 190,
+    secondaryB2bPrice: 165,
     boxUnits: 10,
     boxStock: 50,
     boxPrice: 1790,
@@ -241,6 +247,12 @@ export default function AdminProductsPage() {
       reorderLevel: 10,
       singlePrice: 199,
       singleB2bPrice: 169,
+      hasSecondaryPack: false,
+      secondaryPackUnit: '2 kg',
+      secondaryWeight: 2000,
+      secondaryStock: 50,
+      secondaryPrice: 190,
+      secondaryB2bPrice: 165,
       boxUnits: 10,
       boxStock: 50,
       boxPrice: 1790,
@@ -259,6 +271,7 @@ export default function AdminProductsPage() {
   const openEditModal = (product: any) => {
     setEditingProduct(product)
     const singleVar = product.variants?.find((v: any) => v.packagingType === 'SINGLE') || {}
+    const secVar = product.variants?.find((v: any) => (v.packagingType === 'PACK_2' || v.packagingType?.startsWith('PACK')) && v.isActive !== false)
     const boxVar = product.variants?.find((v: any) => v.packagingType === 'BOX') || {}
     const cartonVar = product.variants?.find((v: any) => v.packagingType === 'CARTON') || {}
 
@@ -270,6 +283,10 @@ export default function AdminProductsPage() {
     const packUnit = pieces > 1
       ? `${pieces} Pieces`
       : (singleVar.weightGrams >= 1000 ? `${(singleVar.weightGrams / 1000).toFixed(1)} kg` : `${singleVar.weightGrams || 400}g`)
+
+    const hasSec = Boolean(secVar)
+    const secWeight = secVar?.weightGrams || (singleVar.weightGrams ? singleVar.weightGrams * 2 : 2000)
+    const secUnit = secWeight >= 1000 ? `${(secWeight / 1000).toFixed(1).replace('.0', '')} kg` : `${secWeight}g`
 
     setFormData({
       name: product.name,
@@ -288,6 +305,12 @@ export default function AdminProductsPage() {
       reorderLevel: singleVar.reorderLevel !== undefined ? singleVar.reorderLevel : 10,
       singlePrice: singleVar.retailPrice || 199,
       singleB2bPrice: singleVar.b2bPrice || 169,
+      hasSecondaryPack: hasSec,
+      secondaryPackUnit: secUnit,
+      secondaryWeight: secWeight,
+      secondaryStock: secVar?.stockCount !== undefined ? secVar.stockCount : 50,
+      secondaryPrice: secVar?.retailPrice || Math.round((singleVar.retailPrice || 100) * 1.9),
+      secondaryB2bPrice: secVar?.b2bPrice || Math.round((singleVar.b2bPrice || 85) * 1.9),
       boxUnits: boxVar.unitsInPack || 10,
       boxStock: boxVar.stockCount !== undefined ? boxVar.stockCount : 50,
       boxPrice: boxVar.retailPrice || 1790,
@@ -494,11 +517,21 @@ export default function AdminProductsPage() {
       if (match) singleWeight = parseInt(match[1]) || 400
     }
 
-    const payload = {
+    const payload: any = {
       ...formData,
       singlePieces,
       singleWeight,
       imageUrl: formData.galleryImages[0] || formData.imageUrl
+    }
+
+    if (formData.hasSecondaryPack) {
+      const secUnitLower = (formData.secondaryPackUnit || '').toLowerCase().trim()
+      if (secUnitLower.includes('kg')) {
+        const match = secUnitLower.match(/([\d.]+)/)
+        if (match && (!formData.secondaryWeight || formData.secondaryWeight === 2000)) {
+          payload.secondaryWeight = Math.round(parseFloat(match[1]) * 1000)
+        }
+      }
     }
 
     if (editingProduct) {
@@ -1312,6 +1345,82 @@ export default function AdminProductsPage() {
                             <span className="text-slate-500 font-bold">units</span>
                           </div>
                         </div>
+                      </div>
+
+                      {/* Secondary Retail Pack (Optional - e.g. 2kg Green Peas / Multi-Pack) */}
+                      <div className="bg-[#111625] p-3.5 rounded-2xl border border-slate-800/90 flex flex-col gap-3">
+                        <div className="flex items-center justify-between">
+                          <label className="flex items-center gap-2 cursor-pointer select-none">
+                            <input
+                              type="checkbox"
+                              checked={formData.hasSecondaryPack}
+                              onChange={(e) => setFormData({ ...formData, hasSecondaryPack: e.target.checked })}
+                              className="w-4 h-4 rounded border-slate-700 text-amber-500 focus:ring-0 bg-[#0B0F19] cursor-pointer"
+                            />
+                            <span className="text-xs font-black text-emerald-300 flex items-center gap-1.5">
+                              <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                              Secondary Retail Pack Size (e.g. 2 kg Pack, 500g Pack)
+                            </span>
+                          </label>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${formData.hasSecondaryPack ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20' : 'bg-slate-800 text-slate-400'}`}>
+                            {formData.hasSecondaryPack ? 'Active on Storefront' : 'Optional / Disabled'}
+                          </span>
+                        </div>
+
+                        {formData.hasSecondaryPack && (
+                          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 pt-1 animate-in fade-in duration-200">
+                            <div>
+                              <label className="text-[9px] font-bold text-amber-400 block mb-1">Pack Label</label>
+                              <input
+                                type="text"
+                                value={formData.secondaryPackUnit}
+                                onChange={(e) => setFormData({ ...formData, secondaryPackUnit: e.target.value })}
+                                placeholder="e.g. 2 kg, 500g"
+                                className="w-full bg-[#0B0F19] border border-slate-800 rounded-xl p-2 text-xs font-black text-amber-300 focus:outline-none focus:border-amber-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[9px] font-bold text-slate-400 block mb-1">Weight (g)</label>
+                              <input
+                                type="number"
+                                placeholder="2000"
+                                value={formData.secondaryWeight === 0 ? '' : formData.secondaryWeight}
+                                onChange={(e) => handleNumericChange('secondaryWeight', e.target.value)}
+                                className="w-full bg-[#0B0F19] border border-slate-800 rounded-xl p-2 text-xs font-black text-white focus:outline-none focus:border-amber-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[9px] font-bold text-emerald-400 block mb-1">Stock (Qty)</label>
+                              <input
+                                type="number"
+                                placeholder="50"
+                                value={formData.secondaryStock === 0 ? '' : formData.secondaryStock}
+                                onChange={(e) => handleNumericChange('secondaryStock', e.target.value, true)}
+                                className="w-full bg-[#0B0F19] border border-slate-800 rounded-xl p-2 text-xs font-black text-emerald-300 focus:outline-none focus:border-emerald-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[9px] font-bold text-slate-400 block mb-1">Retail Price (₹)</label>
+                              <input
+                                type="number"
+                                placeholder="190"
+                                value={formData.secondaryPrice === 0 ? '' : formData.secondaryPrice}
+                                onChange={(e) => handleNumericChange('secondaryPrice', e.target.value)}
+                                className="w-full bg-[#0B0F19] border border-slate-800 rounded-xl p-2 text-xs font-black text-white focus:outline-none focus:border-amber-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[9px] font-bold text-purple-400 block mb-1">B2B Wholesale (₹)</label>
+                              <input
+                                type="number"
+                                placeholder="165"
+                                value={formData.secondaryB2bPrice === 0 ? '' : formData.secondaryB2bPrice}
+                                onChange={(e) => handleNumericChange('secondaryB2bPrice', e.target.value)}
+                                className="w-full bg-[#0B0F19] border border-slate-800 rounded-xl p-2 text-xs font-black text-purple-300 focus:outline-none focus:border-purple-500"
+                              />
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       {/* Box Pack Row */}

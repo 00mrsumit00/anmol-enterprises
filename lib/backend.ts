@@ -11,6 +11,7 @@ import { signToken, verifyToken, authMiddleware, requireRole, requirePermission 
 import { env } from './env'
 import { sendTwilioVerifyOtp, checkTwilioVerifyOtp, isTwilioLive, toE164India } from './twilio'
 import { uploadImageToCloudinary, isCloudinaryConfigured } from './cloudinary'
+import { calculatePricing } from './pricingEngine'
 
 // ─── UTILITIES & INITIALIZERS ────────────────────────────────────────────────
 
@@ -3148,51 +3149,61 @@ apiRouter.post('/orders', async (req: Request, res: Response) => {
 
     // Database transaction to validate stock and create order atomically
     const order = await prisma.$transaction(async (tx) => {
-      let subtotal = 0
+      const customerPhone = loggedInUser?.phone || (cleanContactPhone || null)
+      const customerEmail = loggedInUser?.email || (req.body as any).guestEmail || null
 
-      // 1. Process items and validate stock
+      // 1. Calculate pricing securely on the server (Base prices, active campaigns, coupons, delivery)
+      const pricing = await calculatePricing({
+        items: data.items.map((i: any) => ({ variantId: i.variantId, quantity: i.quantity })),
+        userId: loggedInUser?.id,
+        isB2B: Boolean(loggedInUser?.isB2B),
+        paymentMethod: data.paymentMethod,
+        couponCode: data.couponCode || (req.body as any).couponCode,
+        userPhone: customerPhone,
+        userEmail: customerEmail,
+        tx,
+      })
+
+      // 2. Process items and validate stock atomically
       const processedItems = []
-      for (const item of data.items) {
+      for (const pItem of pricing.items) {
         const variant = await tx.productVariant.findUnique({
-          where: { id: item.variantId },
+          where: { id: pItem.variantId },
           include: { product: true }
         })
 
         if (!variant) {
-          throw new Error(`Variant ${item.variantId} not found`)
+          throw new Error(`Variant ${pItem.variantId} not found`)
         }
 
-        if (variant.stockCount < item.quantity) {
-          throw new Error(`Insufficient stock for ${variant.product.name} (${variant.packagingType}). Available: ${variant.stockCount}, Requested: ${item.quantity}`)
+        if (variant.stockCount < pItem.quantity) {
+          throw new Error(`Insufficient stock for ${variant.product.name} (${variant.packagingType}). Available: ${variant.stockCount}, Requested: ${pItem.quantity}`)
         }
-
-        // Determine price (B2B vs Retail)
-        const unitPrice = loggedInUser?.isB2B ? variant.b2bPrice : variant.retailPrice
-        const lineTotal = unitPrice * item.quantity
-        subtotal += lineTotal
 
         processedItems.push({
-          productId: variant.productId,
-          variantId: variant.id,
-          productName: variant.product.name,
-          variantSku: variant.skuCode,
-          packagingType: variant.packagingType,
-          weightGrams: variant.weightGrams,
-          quantity: item.quantity,
-          unitPrice,
-          lineTotal,
+          productId: pItem.productId,
+          variantId: pItem.variantId,
+          productName: pItem.productName,
+          variantSku: pItem.variantSku,
+          packagingType: pItem.packagingType,
+          weightGrams: pItem.weightGrams,
+          quantity: pItem.quantity,
+          originalUnitPrice: pItem.regularUnitPrice,
+          campaignDiscount: pItem.campaignDiscountPerUnit,
+          campaignId: pItem.campaignId,
+          unitPrice: pItem.effectiveUnitPrice,
+          lineTotal: pItem.lineTotal,
         })
 
         // Atomic stock decrement with DB-level concurrency guard
-        // Prevents race conditions where two simultaneous checkouts oversell stock below 0
         const decrementResult = await tx.productVariant.updateMany({
           where: {
             id: variant.id,
-            stockCount: { gte: item.quantity }
+            stockCount: { gte: pItem.quantity }
           },
           data: {
             stockCount: {
-              decrement: item.quantity
+              decrement: pItem.quantity
             }
           }
         })
@@ -3202,106 +3213,22 @@ apiRouter.post('/orders', async (req: Request, res: Response) => {
         }
       }
 
-      // 2. Calculate fees
-      // First order for a customer: FREE delivery (₹0).
-      // Anti-abuse check: Verified via Phone OR Email, and no previous orders tied to User ID, phone, or email.
-      const customerPhone = loggedInUser?.phone || (cleanContactPhone || null)
-      const customerEmail = loggedInUser?.email || (req.body as any).guestEmail || null
-      
-      let deliveryFee = 49
-      let previousOrderCount = 0
+      // 3. Totals and fees from pricing engine
+      const subtotal = pricing.subtotal
+      const deliveryFee = pricing.delivery.fee
+      const convenienceFee = pricing.convenienceFee
+      const finalTotalAmount = pricing.grandTotal
+      const validCampaignId = pricing.activeCampaign?.id || null
+      const validCampaignDiscount = pricing.campaignSavings || 0
+      const validCouponCode = pricing.appliedCoupon?.code || null
+      const validCouponDiscount = pricing.appliedCoupon?.discount || 0
+      const totalSavings = pricing.totalSavings || 0
 
-      if (loggedInUser) {
-        previousOrderCount = await tx.order.count({
-          where: {
-            OR: [
-              { userId: loggedInUser.id },
-              customerPhone ? { guestPhone: customerPhone } : undefined,
-              loggedInUser.phone ? { guestPhone: loggedInUser.phone } : undefined,
-              customerEmail ? { user: { email: customerEmail } } : undefined,
-            ].filter(Boolean) as any
-          }
-        })
-      } else if (customerPhone || customerEmail) {
-        previousOrderCount = await tx.order.count({
-          where: {
-            OR: [
-              customerPhone ? { guestPhone: customerPhone } : undefined,
-              customerPhone ? { user: { phone: customerPhone } } : undefined,
-              customerEmail ? { user: { email: customerEmail } } : undefined,
-            ].filter(Boolean) as any
-          }
-        })
-      }
-
-      // Verify phone or email verification proof token for first order free eligibility
-      const phoneProofHeader = (req.headers['x-phone-otp-token'] || (req.body as any).phoneOtpToken) as string | undefined
-      const emailProofHeader = (req.headers['x-email-otp-token'] || (req.body as any).emailOtpToken) as string | undefined
-
-      let isPhoneVerifiedProofValid = false
-      let isEmailVerifiedProofValid = false
-
-      const jwtSecret = env.JWT_SECRET
-
-      if (phoneProofHeader) {
-        try {
-          const decoded = jwt.verify(phoneProofHeader, jwtSecret) as any
-          const expectedPurpose = loggedInUser ? 'SIGNUP' : 'GUEST_CHECKOUT'
-          if (
-            decoded &&
-            decoded.type === 'PHONE_VERIFICATION_PROOF' &&
-            decoded.verified === true &&
-            decoded.phone === customerPhone &&
-            (decoded.purpose === expectedPurpose || decoded.purpose === 'GUEST_CHECKOUT' || decoded.purpose === 'SIGNUP')
-          ) {
-            isPhoneVerifiedProofValid = true
-          }
-        } catch (tokenErr) {
-          isPhoneVerifiedProofValid = false
-        }
-      }
-
-      if (emailProofHeader) {
-        try {
-          const decoded = jwt.verify(emailProofHeader, jwtSecret) as any
-          const expectedPurpose = loggedInUser ? 'SIGNUP' : 'GUEST_CHECKOUT'
-          if (
-            decoded &&
-            decoded.type === 'EMAIL_VERIFICATION_PROOF' &&
-            decoded.verified === true &&
-            (decoded.purpose === expectedPurpose || decoded.purpose === 'GUEST_CHECKOUT' || decoded.purpose === 'SIGNUP')
-          ) {
-            isEmailVerifiedProofValid = true
-          }
-        } catch (tokenErr) {
-          isEmailVerifiedProofValid = false
-        }
-      }
-
-      const isUserPhoneVerifiedInDb = Boolean(loggedInUser?.phoneVerified)
-      const isUserEmailVerifiedInDb = Boolean(loggedInUser?.emailVerified)
-
-      const isPhoneVerifiedForOrder = isPhoneVerifiedProofValid || isUserPhoneVerifiedInDb
-      const isEmailVerifiedForOrder = isEmailVerifiedProofValid || isUserEmailVerifiedInDb
-
-      const isVerifiedForOrder = isPhoneVerifiedForOrder || isEmailVerifiedForOrder
-
-      if (previousOrderCount === 0 && isVerifiedForOrder) {
-        deliveryFee = 0 // First order FREE (Granted via verified Phone OR verified Email)
-      } else if (subtotal > 500) {
-        deliveryFee = 0 // Free above ₹500 threshold
-      } else {
-        deliveryFee = 49
-      }
-      const convenienceFee = 2
-      const rawTotalAmount = subtotal + deliveryFee + convenienceFee
-
-      // 3. Handle credit limit checks for B2B
+      // 4. Handle credit limit checks for B2B
       if (data.paymentMethod === 'CREDIT_ACCOUNT') {
         if (!loggedInUser || !loggedInUser.isB2B) {
           throw new Error('Only B2B accounts can order using credit')
         }
-        // Fetch fresh user record inside transaction with live balance
         const liveUser = await tx.user.findUnique({
           where: { id: loggedInUser.id },
           select: { id: true, isB2B: true, isCreditEnabled: true, creditLimit: true, creditUsed: true }
@@ -3310,8 +3237,8 @@ apiRouter.post('/orders', async (req: Request, res: Response) => {
           throw new Error('B2B Store Credit facility is not enabled for your account. Please contact Anmol Enterprises administration.')
         }
         const remainingCredit = liveUser.creditLimit - liveUser.creditUsed
-        if (remainingCredit < rawTotalAmount) {
-          throw new Error(`Insufficient credit limit. Available: ₹${remainingCredit.toFixed(2)}, Order Total: ₹${rawTotalAmount.toFixed(2)}`)
+        if (remainingCredit < finalTotalAmount) {
+          throw new Error(`Insufficient credit limit. Available: ₹${remainingCredit.toFixed(2)}, Order Total: ₹${finalTotalAmount.toFixed(2)}`)
         }
 
         // Update credit used
@@ -3319,7 +3246,7 @@ apiRouter.post('/orders', async (req: Request, res: Response) => {
           where: { id: loggedInUser.id },
           data: {
             creditUsed: {
-              increment: rawTotalAmount
+              increment: finalTotalAmount
             }
           }
         })
@@ -3332,22 +3259,15 @@ apiRouter.post('/orders', async (req: Request, res: Response) => {
         if (addr) validAddressId = data.addressId
       }
 
-      // Validate couponCode foreign key if provided
-      let validCouponCode: string | null = null
-      let validCouponDiscount = 0
-      const rawCouponCode = data.couponCode || (req.body as any).couponCode
-      if (rawCouponCode && typeof rawCouponCode === 'string' && rawCouponCode.trim()) {
-        const cleanCode = rawCouponCode.trim().toUpperCase()
-        const existingCoupon = await tx.coupon.findUnique({ where: { code: cleanCode } })
-        if (existingCoupon && existingCoupon.isActive) {
-          validCouponCode = existingCoupon.code
-          validCouponDiscount = Number(data.couponDiscount || (req.body as any).couponDiscount) || 0
-        }
+      // If coupon was successfully applied, increment its timesUsed count
+      if (validCouponCode) {
+        await tx.coupon.update({
+          where: { code: validCouponCode },
+          data: { timesUsed: { increment: 1 } },
+        })
       }
 
-      const finalTotalAmount = Math.max(0, rawTotalAmount - validCouponDiscount)
-
-      // 4. Create Order (Starts in PENDING - Awaiting Admin Confirmation)
+      // 5. Create Order (Starts in PENDING - Awaiting Admin Confirmation)
       const newOrder = await tx.order.create({
         data: {
           orderNumber,
@@ -3367,8 +3287,11 @@ apiRouter.post('/orders', async (req: Request, res: Response) => {
           subtotal,
           deliveryFee,
           coldHandlingFee: convenienceFee,
+          campaignId: validCampaignId,
+          campaignDiscount: validCampaignDiscount,
           couponCode: validCouponCode,
           couponDiscount: validCouponDiscount,
+          totalSavings,
           totalAmount: finalTotalAmount,
           notes: data.notes,
           items: {
@@ -6005,10 +5928,211 @@ apiRouter.put('/orders/:id/edit', authMiddleware, async (req: Request, res: Resp
 })
 
 // ══════════════════════════════════════════════════════════════════════════════
-// ─── COUPON MANAGEMENT & COD VALIDATION ───────────────────────────────────────
+// ─── PROMOTIONS, CAMPAIGNS & OFFERS ENGINE ────────────────────────────────────
 // ══════════════════════════════════════════════════════════════════════════════
 
-// 4. ADMIN: List coupons
+// 1. STOREFRONT: Get Active Festive Campaign (e.g. Diwali Dhamaka)
+apiRouter.get('/campaigns/active', async (req: Request, res: Response) => {
+  try {
+    const isB2B = req.query.isB2B === 'true'
+    const audienceFilter = isB2B
+      ? { in: ['ALL', 'B2B_ONLY'] as any[] }
+      : { in: ['ALL', 'B2C_ONLY'] as any[] }
+
+    const now = new Date()
+    const campaign = await prisma.campaign.findFirst({
+      where: {
+        isActive: true,
+        startDate: { lte: now },
+        endDate: { gte: now },
+        audience: audienceFilter,
+      },
+      orderBy: { createdAt: 'desc' },
+    })
+
+    return res.json({ campaign })
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to fetch active campaign' })
+  }
+})
+
+// 2. STOREFRONT: Real-Time Cart Pricing & Offer Evaluation (Powers Domino's-style Cart)
+apiRouter.post('/cart/pricing', async (req: Request, res: Response) => {
+  try {
+    const { items, paymentMethod, couponCode } = req.body
+
+    // Optional user token
+    let userId: string | null = null
+    let isB2B = false
+    let userPhone: string | null = null
+    let userEmail: string | null = null
+
+    const token = req.cookies?.token
+    if (token) {
+      const decoded = verifyToken(token)
+      if (decoded?.userId) {
+        const user = await prisma.user.findUnique({ where: { id: decoded.userId } })
+        if (user) {
+          userId = user.id
+          isB2B = Boolean(user.isB2B)
+          userPhone = user.phone
+          userEmail = user.email
+        }
+      }
+    }
+
+    if (req.body.isB2B !== undefined) {
+      isB2B = Boolean(req.body.isB2B)
+    }
+
+    const pricing = await calculatePricing({
+      items: Array.isArray(items) ? items : [],
+      userId,
+      isB2B,
+      paymentMethod,
+      couponCode,
+      userPhone,
+      userEmail,
+    })
+
+    return res.json(pricing)
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to calculate cart pricing' })
+  }
+})
+
+// 3. ADMIN: List Campaigns
+apiRouter.get('/admin/campaigns', authMiddleware, requireRole(['SUPER_ADMIN', 'ADMIN', 'STAFF']), async (_req: Request, res: Response) => {
+  try {
+    const campaigns = await prisma.campaign.findMany({
+      orderBy: { createdAt: 'desc' },
+      include: { _count: { select: { orders: true } } },
+    })
+    return res.json({ campaigns })
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to fetch campaigns' })
+  }
+})
+
+// 4. ADMIN: Create Campaign
+apiRouter.post('/admin/campaigns', authMiddleware, requireRole(['SUPER_ADMIN', 'ADMIN']), async (req: Request, res: Response) => {
+  try {
+    const schema = z.object({
+      name: z.string().trim().min(2).max(100),
+      bannerText: z.string().trim().min(2).max(255),
+      badgeText: z.string().trim().max(30).optional().default('DIWALI SALE'),
+      discountType: z.enum(['PERCENTAGE', 'FIXED']).default('PERCENTAGE'),
+      discountValue: z.number().positive(),
+      scope: z.enum(['ALL', 'CATEGORY', 'PRODUCT']).default('ALL'),
+      categoryIds: z.array(z.string()).optional().default([]),
+      productIds: z.array(z.string()).optional().default([]),
+      excludedProductIds: z.array(z.string()).optional().default([]),
+      audience: z.enum(['ALL', 'B2C_ONLY', 'B2B_ONLY']).default('ALL'),
+      minOrderAmount: z.number().nonnegative().optional().default(0),
+      maxDiscountPerItem: z.number().positive().optional().nullable(),
+      maxTotalDiscount: z.number().positive().optional().nullable(),
+      allowCouponStacking: z.boolean().optional().default(true),
+      isActive: z.boolean().optional().default(true),
+      startDate: z.string(),
+      endDate: z.string(),
+    })
+
+    const parsed = schema.safeParse(req.body)
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid campaign data' })
+    }
+
+    const campaign = await prisma.campaign.create({
+      data: {
+        ...parsed.data,
+        startDate: new Date(parsed.data.startDate),
+        endDate: new Date(parsed.data.endDate),
+      },
+    })
+
+    return res.status(201).json({ campaign })
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to create campaign' })
+  }
+})
+
+// 5. ADMIN: Update Campaign
+apiRouter.put('/admin/campaigns/:id', authMiddleware, requireRole(['SUPER_ADMIN', 'ADMIN']), async (req: Request, res: Response) => {
+  try {
+    const id = String(req.params.id)
+    const existing = await prisma.campaign.findUnique({ where: { id } })
+    if (!existing) return res.status(404).json({ error: 'Campaign not found' })
+
+    const schema = z.object({
+      name: z.string().trim().min(2).max(100),
+      bannerText: z.string().trim().min(2).max(255),
+      badgeText: z.string().trim().max(30).optional(),
+      discountType: z.enum(['PERCENTAGE', 'FIXED']),
+      discountValue: z.number().positive(),
+      scope: z.enum(['ALL', 'CATEGORY', 'PRODUCT']),
+      categoryIds: z.array(z.string()).optional(),
+      productIds: z.array(z.string()).optional(),
+      excludedProductIds: z.array(z.string()).optional(),
+      audience: z.enum(['ALL', 'B2C_ONLY', 'B2B_ONLY']),
+      minOrderAmount: z.number().nonnegative().optional(),
+      maxDiscountPerItem: z.number().positive().optional().nullable(),
+      maxTotalDiscount: z.number().positive().optional().nullable(),
+      allowCouponStacking: z.boolean().optional(),
+      isActive: z.boolean().optional(),
+      startDate: z.string(),
+      endDate: z.string(),
+    })
+
+    const parsed = schema.safeParse(req.body)
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid campaign data' })
+    }
+
+    const updated = await prisma.campaign.update({
+      where: { id },
+      data: {
+        ...parsed.data,
+        startDate: new Date(parsed.data.startDate),
+        endDate: new Date(parsed.data.endDate),
+      },
+    })
+
+    return res.json({ campaign: updated })
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to update campaign' })
+  }
+})
+
+// 6. ADMIN: Toggle Campaign Active (Kill-Switch)
+apiRouter.patch('/admin/campaigns/:id/toggle', authMiddleware, requireRole(['SUPER_ADMIN', 'ADMIN']), async (req: Request, res: Response) => {
+  try {
+    const id = String(req.params.id)
+    const campaign = await prisma.campaign.findUnique({ where: { id } })
+    if (!campaign) return res.status(404).json({ error: 'Campaign not found' })
+
+    const updated = await prisma.campaign.update({
+      where: { id },
+      data: { isActive: !campaign.isActive },
+    })
+
+    return res.json({ campaign: updated })
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to toggle campaign status' })
+  }
+})
+
+// 7. ADMIN: Delete Campaign
+apiRouter.delete('/admin/campaigns/:id', authMiddleware, requireRole(['SUPER_ADMIN', 'ADMIN']), async (req: Request, res: Response) => {
+  try {
+    const id = String(req.params.id)
+    await prisma.campaign.delete({ where: { id } })
+    return res.json({ success: true, message: 'Campaign deleted successfully' })
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to delete campaign' })
+  }
+})
+
+// 8. ADMIN: List coupons
 apiRouter.get('/admin/coupons', authMiddleware, requireRole(['SUPER_ADMIN', 'ADMIN', 'STAFF']), async (_req: Request, res: Response) => {
   try {
     const coupons = await prisma.coupon.findMany({
@@ -6021,7 +6145,7 @@ apiRouter.get('/admin/coupons', authMiddleware, requireRole(['SUPER_ADMIN', 'ADM
   }
 })
 
-// 5. ADMIN: Create coupon
+// 9. ADMIN: Create coupon
 apiRouter.post('/admin/coupons', authMiddleware, requireRole(['SUPER_ADMIN', 'ADMIN']), async (req: Request, res: Response) => {
   try {
     const schema = z.object({
@@ -6032,7 +6156,12 @@ apiRouter.post('/admin/coupons', authMiddleware, requireRole(['SUPER_ADMIN', 'AD
       minOrderAmount: z.number().nonnegative().default(0),
       maxDiscountAmount: z.number().positive().optional().nullable(),
       paymentConstraint: z.enum(['ALL', 'COD_ONLY', 'ONLINE_ONLY']).default('COD_ONLY'),
+      audience: z.enum(['ALL', 'B2C_ONLY', 'B2B_ONLY']).optional().default('ALL'),
+      isFirstOrderOnly: z.boolean().optional().default(false),
+      perCustomerLimit: z.number().int().positive().optional().nullable().default(1),
       usageLimit: z.number().int().positive().optional().nullable(),
+      allowStacking: z.boolean().optional().default(false),
+      startsAt: z.string().optional().nullable(),
       expiresAt: z.string().optional().nullable(),
     })
 
@@ -6041,7 +6170,22 @@ apiRouter.post('/admin/coupons', authMiddleware, requireRole(['SUPER_ADMIN', 'AD
       return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid coupon data' })
     }
 
-    const { code, description, discountType, discountValue, minOrderAmount, maxDiscountAmount, paymentConstraint, usageLimit, expiresAt } = parsed.data
+    const {
+      code,
+      description,
+      discountType,
+      discountValue,
+      minOrderAmount,
+      maxDiscountAmount,
+      paymentConstraint,
+      audience,
+      isFirstOrderOnly,
+      perCustomerLimit,
+      usageLimit,
+      allowStacking,
+      startsAt,
+      expiresAt,
+    } = parsed.data
 
     const existing = await prisma.coupon.findUnique({ where: { code } })
     if (existing) return res.status(400).json({ error: `Coupon code "${code}" already exists.` })
@@ -6055,7 +6199,12 @@ apiRouter.post('/admin/coupons', authMiddleware, requireRole(['SUPER_ADMIN', 'AD
         minOrderAmount,
         maxDiscountAmount,
         paymentConstraint,
+        audience,
+        isFirstOrderOnly,
+        perCustomerLimit,
         usageLimit,
+        allowStacking,
+        startsAt: startsAt ? new Date(startsAt) : new Date(),
         expiresAt: expiresAt ? new Date(expiresAt) : null,
       },
     })
@@ -6066,7 +6215,50 @@ apiRouter.post('/admin/coupons', authMiddleware, requireRole(['SUPER_ADMIN', 'AD
   }
 })
 
-// 6. ADMIN: Toggle coupon status
+// 10. ADMIN: Update Coupon
+apiRouter.put('/admin/coupons/:id', authMiddleware, requireRole(['SUPER_ADMIN', 'ADMIN']), async (req: Request, res: Response) => {
+  try {
+    const id = String(req.params.id)
+    const existing = await prisma.coupon.findUnique({ where: { id } })
+    if (!existing) return res.status(404).json({ error: 'Coupon not found' })
+
+    const schema = z.object({
+      description: z.string().optional(),
+      discountType: z.enum(['PERCENTAGE', 'FIXED']),
+      discountValue: z.number().positive(),
+      minOrderAmount: z.number().nonnegative(),
+      maxDiscountAmount: z.number().positive().optional().nullable(),
+      paymentConstraint: z.enum(['ALL', 'COD_ONLY', 'ONLINE_ONLY']),
+      audience: z.enum(['ALL', 'B2C_ONLY', 'B2B_ONLY']).optional(),
+      isFirstOrderOnly: z.boolean().optional(),
+      perCustomerLimit: z.number().int().positive().optional().nullable(),
+      usageLimit: z.number().int().positive().optional().nullable(),
+      allowStacking: z.boolean().optional(),
+      startsAt: z.string().optional().nullable(),
+      expiresAt: z.string().optional().nullable(),
+    })
+
+    const parsed = schema.safeParse(req.body)
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid coupon data' })
+    }
+
+    const updated = await prisma.coupon.update({
+      where: { id },
+      data: {
+        ...parsed.data,
+        startsAt: parsed.data.startsAt ? new Date(parsed.data.startsAt) : undefined,
+        expiresAt: parsed.data.expiresAt ? new Date(parsed.data.expiresAt) : null,
+      },
+    })
+
+    return res.json({ coupon: updated })
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to update coupon' })
+  }
+})
+
+// 11. ADMIN: Toggle coupon status
 apiRouter.patch('/admin/coupons/:id/toggle', authMiddleware, requireRole(['SUPER_ADMIN', 'ADMIN']), async (req: Request, res: Response) => {
   try {
     const id = String(req.params.id)
@@ -6084,7 +6276,18 @@ apiRouter.patch('/admin/coupons/:id/toggle', authMiddleware, requireRole(['SUPER
   }
 })
 
-// 7. STOREFRONT: Validate & Calculate Coupon
+// 12. ADMIN: Delete coupon
+apiRouter.delete('/admin/coupons/:id', authMiddleware, requireRole(['SUPER_ADMIN', 'ADMIN']), async (req: Request, res: Response) => {
+  try {
+    const id = String(req.params.id)
+    await prisma.coupon.delete({ where: { id } })
+    return res.json({ success: true, message: 'Coupon deleted successfully' })
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to delete coupon' })
+  }
+})
+
+// 13. STOREFRONT: Validate & Calculate Coupon
 apiRouter.post('/coupons/validate', async (req: Request, res: Response) => {
   try {
     const { code, orderAmount, paymentMethod } = req.body
@@ -6099,7 +6302,12 @@ apiRouter.post('/coupons/validate', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Invalid or inactive coupon code' })
     }
 
-    if (coupon.expiresAt && new Date(coupon.expiresAt) < new Date()) {
+    const now = new Date()
+    if (coupon.startsAt && new Date(coupon.startsAt) > now) {
+      return res.status(400).json({ error: 'This coupon is not active yet' })
+    }
+
+    if (coupon.expiresAt && new Date(coupon.expiresAt) < now) {
       return res.status(400).json({ error: 'This coupon has expired' })
     }
 

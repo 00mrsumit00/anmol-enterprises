@@ -102,41 +102,90 @@ export async function PUT(
       }
     })
 
-    // Update variant prices if provided
-    if (body.singlePrice !== undefined || body.singleB2bPrice !== undefined) {
+    // Update single variant prices, weight and stock if provided
+    if (body.singlePrice !== undefined || body.singleB2bPrice !== undefined || body.singleWeight !== undefined || body.singleStock !== undefined) {
       const singleVar = updated.variants.find(v => v.packagingType === 'SINGLE')
       if (singleVar) {
         await prisma.productVariant.update({
           where: { id: singleVar.id },
           data: {
-            retailPrice: Number(body.singlePrice) || singleVar.retailPrice,
-            b2bPrice: Number(body.singleB2bPrice) || singleVar.b2bPrice
+            retailPrice: body.singlePrice !== undefined ? Number(body.singlePrice) : singleVar.retailPrice,
+            b2bPrice: body.singleB2bPrice !== undefined ? Number(body.singleB2bPrice) : singleVar.b2bPrice,
+            weightGrams: body.singleWeight !== undefined ? Number(body.singleWeight) : singleVar.weightGrams,
+            stockCount: body.singleStock !== undefined ? Number(body.singleStock) : singleVar.stockCount,
           }
         })
       }
     }
 
-    if (body.boxPrice !== undefined || body.boxB2bPrice !== undefined) {
+    // Support secondary retail pack (e.g. 2 kg pack for Green Peas)
+    if (body.hasSecondaryPack && Number(body.secondaryWeight) > 0) {
+      const secVar = updated.variants.find(v => v.packagingType === 'PACK_2')
+      const secWeight = Number(body.secondaryWeight)
+      const secPrice = Number(body.secondaryPrice) || (secVar ? secVar.retailPrice : 190)
+      const secB2bPrice = Number(body.secondaryB2bPrice) || (secVar ? secVar.b2bPrice : 165)
+      const secStock = body.secondaryStock !== undefined ? Number(body.secondaryStock) : (secVar ? secVar.stockCount : 50)
+
+      if (secVar) {
+        await prisma.productVariant.update({
+          where: { id: secVar.id },
+          data: {
+            weightGrams: secWeight,
+            retailPrice: secPrice,
+            b2bPrice: secB2bPrice,
+            stockCount: secStock,
+            isActive: true,
+          }
+        })
+      } else {
+        await prisma.productVariant.create({
+          data: {
+            productId,
+            packagingType: 'PACK_2',
+            unitsInPack: 1,
+            weightGrams: secWeight,
+            skuCode: `MCN-${(updated.slug || 'PRD').substring(0, 4).toUpperCase()}-${secWeight}-${Date.now().toString().slice(-4)}`,
+            retailPrice: secPrice,
+            b2bPrice: secB2bPrice,
+            stockCount: secStock,
+            reorderLevel: 5,
+            isActive: true,
+          }
+        })
+      }
+    } else if (body.hasSecondaryPack === false) {
+      const secVar = updated.variants.find(v => v.packagingType === 'PACK_2')
+      if (secVar) {
+        await prisma.productVariant.update({
+          where: { id: secVar.id },
+          data: { isActive: false }
+        })
+      }
+    }
+
+    if (body.boxPrice !== undefined || body.boxB2bPrice !== undefined || body.boxStock !== undefined) {
       const boxVar = updated.variants.find(v => v.packagingType === 'BOX')
       if (boxVar) {
         await prisma.productVariant.update({
           where: { id: boxVar.id },
           data: {
-            retailPrice: Number(body.boxPrice) || boxVar.retailPrice,
-            b2bPrice: Number(body.boxB2bPrice) || boxVar.b2bPrice
+            retailPrice: body.boxPrice !== undefined ? Number(body.boxPrice) : boxVar.retailPrice,
+            b2bPrice: body.boxB2bPrice !== undefined ? Number(body.boxB2bPrice) : boxVar.b2bPrice,
+            stockCount: body.boxStock !== undefined ? Number(body.boxStock) : boxVar.stockCount,
           }
         })
       }
     }
 
-    if (body.cartonPrice !== undefined || body.cartonB2bPrice !== undefined) {
+    if (body.cartonPrice !== undefined || body.cartonB2bPrice !== undefined || body.cartonStock !== undefined) {
       const cartonVar = updated.variants.find(v => v.packagingType === 'CARTON')
       if (cartonVar) {
         await prisma.productVariant.update({
           where: { id: cartonVar.id },
           data: {
-            retailPrice: Number(body.cartonPrice) || cartonVar.retailPrice,
-            b2bPrice: Number(body.cartonB2bPrice) || cartonVar.b2bPrice
+            retailPrice: body.cartonPrice !== undefined ? Number(body.cartonPrice) : cartonVar.retailPrice,
+            b2bPrice: body.cartonB2bPrice !== undefined ? Number(body.cartonB2bPrice) : cartonVar.b2bPrice,
+            stockCount: body.cartonStock !== undefined ? Number(body.cartonStock) : cartonVar.stockCount,
           }
         })
       }

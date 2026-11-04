@@ -49,6 +49,61 @@ export async function POST(request: Request) {
       baseSlug = `${baseSlug}-${Math.floor(100 + Math.random() * 900)}`
     }
 
+    const variantsToCreate: any[] = [
+      {
+        packagingType: 'SINGLE',
+        unitsInPack: Number(body.singlePieces) || 1,
+        weightGrams: singleWeight,
+        skuCode: `MCN-${baseSlug.substring(0, 4).toUpperCase()}-${singleWeight}-${Date.now().toString().slice(-4)}`,
+        retailPrice: singlePrice,
+        b2bPrice: singleB2bPrice,
+        stockCount: singleStock,
+        reorderLevel: reorderLevel,
+      }
+    ]
+
+    // Support secondary retail pack size (e.g. 2 kg pack for Green Peas)
+    if (body.hasSecondaryPack && Number(body.secondaryWeight) > 0) {
+      const secWeight = Number(body.secondaryWeight)
+      const secPrice = Number(body.secondaryPrice) || Math.round(singlePrice * (secWeight / singleWeight) * 0.95)
+      const secB2bPrice = Number(body.secondaryB2bPrice) || Math.round(singleB2bPrice * (secWeight / singleWeight) * 0.95)
+      const secStock = body.secondaryStock !== undefined ? Number(body.secondaryStock) : 50
+
+      variantsToCreate.push({
+        packagingType: 'PACK_2',
+        unitsInPack: 1,
+        weightGrams: secWeight,
+        skuCode: `MCN-${baseSlug.substring(0, 4).toUpperCase()}-${secWeight}-${Date.now().toString().slice(-4)}`,
+        retailPrice: secPrice,
+        b2bPrice: secB2bPrice,
+        stockCount: secStock,
+        reorderLevel: reorderLevel,
+      })
+    }
+
+    variantsToCreate.push(
+      {
+        packagingType: 'BOX',
+        unitsInPack: boxUnits,
+        weightGrams: singleWeight * boxUnits,
+        skuCode: `MCN-${baseSlug.substring(0, 4).toUpperCase()}-BOX-${Date.now().toString().slice(-4)}`,
+        retailPrice: boxPrice,
+        b2bPrice: boxB2bPrice,
+        stockCount: boxStock,
+        reorderLevel: 5,
+      },
+      {
+        packagingType: 'CARTON',
+        unitsInPack: cartonUnits,
+        weightGrams: singleWeight * cartonUnits,
+        skuCode: `MCN-${baseSlug.substring(0, 4).toUpperCase()}-CAR-${Date.now().toString().slice(-4)}`,
+        retailPrice: cartonPrice,
+        b2bPrice: cartonB2bPrice,
+        stockCount: cartonStock,
+        reorderLevel: 5,
+      }
+    )
+
     const product = await prisma.product.create({
       data: {
         name: body.name,
@@ -62,38 +117,7 @@ export async function POST(request: Request) {
         isFeatured: Boolean(body.isFeatured),
         isActive: body.isActive !== undefined ? Boolean(body.isActive) : true,
         variants: {
-          create: [
-            {
-              packagingType: 'SINGLE',
-              unitsInPack: Number(body.singlePieces) || 1,
-              weightGrams: singleWeight,
-              skuCode: `MCN-${baseSlug.substring(0, 4).toUpperCase()}-${singleWeight}-${Date.now().toString().slice(-4)}`,
-              retailPrice: singlePrice,
-              b2bPrice: singleB2bPrice,
-              stockCount: singleStock,
-              reorderLevel: reorderLevel,
-            },
-            {
-              packagingType: 'BOX',
-              unitsInPack: boxUnits,
-              weightGrams: singleWeight * boxUnits,
-              skuCode: `MCN-${baseSlug.substring(0, 4).toUpperCase()}-BOX-${Date.now().toString().slice(-4)}`,
-              retailPrice: boxPrice,
-              b2bPrice: boxB2bPrice,
-              stockCount: boxStock,
-              reorderLevel: 5,
-            },
-            {
-              packagingType: 'CARTON',
-              unitsInPack: cartonUnits,
-              weightGrams: singleWeight * cartonUnits,
-              skuCode: `MCN-${baseSlug.substring(0, 4).toUpperCase()}-CAR-${Date.now().toString().slice(-4)}`,
-              retailPrice: cartonPrice,
-              b2bPrice: cartonB2bPrice,
-              stockCount: cartonStock,
-              reorderLevel: 5,
-            }
-          ]
+          create: variantsToCreate
         }
       },
       include: {

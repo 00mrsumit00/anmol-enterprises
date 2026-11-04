@@ -29,18 +29,50 @@ export default function CheckoutPaymentPage() {
   // Coupon states
   const [couponInput, setCouponInput] = useState('')
   const [isValidatingCoupon, setIsValidatingCoupon] = useState(false)
-  const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discount: number; description?: string } | null>(null)
+  const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discount: number; description?: string } | null>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('checkout_applied_coupon')
+        if (saved) return JSON.parse(saved)
+      } catch (e) {}
+    }
+    return null
+  })
+  const [pricingBreakdown, setPricingBreakdown] = useState<any>(null)
+
+  // Fetch real-time pricing from engine (includes active Diwali campaign discount)
+  useEffect(() => {
+    if (items.length > 0) {
+      fetch('/api/cart/pricing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: items.map((i) => ({ variantId: i.variantId, quantity: i.quantity })),
+          isB2B: user?.isB2B,
+          couponCode: appliedCoupon?.code,
+          paymentMethod,
+        }),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data && !data.error) {
+            setPricingBreakdown(data)
+          }
+        })
+        .catch(() => {})
+    }
+  }, [items, user, appliedCoupon, paymentMethod])
 
   // Calculations:
   // - First order for customer = FREE Delivery (₹0)
   // - Order subtotal > ₹500 = FREE Delivery (₹0)
   // - Otherwise = ₹49 standard delivery fee
   // - Convenience Fee = ₹2 per order
-  const deliveryFee = (isFirstOrder || total > 500) ? 0 : 49
+  const deliveryFee = pricingBreakdown?.delivery?.fee ?? ((isFirstOrder || total > 500) ? 0 : 49)
   const convenienceFee = 2
+  const campaignDiscount = pricingBreakdown?.campaignSavings ?? 0
   const couponDiscount = appliedCoupon?.discount || 0
-  const subtotalAfterDiscount = Math.max(0, total - couponDiscount)
-  const grandTotal = total > 0 ? Math.max(0, subtotalAfterDiscount + deliveryFee + convenienceFee) : 0
+  const grandTotal = pricingBreakdown?.grandTotal ?? (total > 0 ? Math.max(0, total - campaignDiscount - couponDiscount + deliveryFee + convenienceFee) : 0)
 
   const handleApplyCoupon = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -53,7 +85,7 @@ export default function CheckoutPaymentPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           code: couponInput.trim(),
-          orderAmount: total,
+          orderAmount: pricingBreakdown?.subtotal || total,
           paymentMethod,
         }),
       })
@@ -239,6 +271,8 @@ export default function CheckoutPaymentPage() {
         localStorage.removeItem('checkout_slot_info')
         localStorage.removeItem('phoneOtpToken')
         localStorage.removeItem('emailOtpToken')
+        localStorage.removeItem('checkout_applied_coupon')
+        localStorage.removeItem('anmol_applied_coupon_code')
 
         // Eagerly update React Query cache so the order shows instantly without reloading
         try {
@@ -502,8 +536,17 @@ export default function CheckoutPaymentPage() {
         <div className="bg-gray-50 border border-gray-100 p-4 rounded-card mb-6 flex flex-col gap-2.5 text-xs text-gray-600 font-semibold">
           <div className="flex justify-between">
             <span>Items Subtotal</span>
-            <span className="text-brand-charcoal font-display font-bold">₹{total}</span>
+            <span className="text-brand-charcoal font-display font-bold">₹{pricingBreakdown?.originalSubtotal || total}</span>
           </div>
+          {campaignDiscount > 0 && pricingBreakdown?.activeCampaign && (
+            <div className="flex justify-between items-center text-orange-600 font-bold">
+              <span className="flex items-center gap-1">
+                <span>🪔</span>
+                {pricingBreakdown.activeCampaign.name} ({pricingBreakdown.activeCampaign.discountValue}% OFF)
+              </span>
+              <span>-₹{campaignDiscount}</span>
+            </div>
+          )}
           {appliedCoupon && (
             <div className="flex justify-between items-center text-emerald-600 font-bold">
               <span className="flex items-center gap-1">

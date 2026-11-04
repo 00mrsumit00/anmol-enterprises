@@ -3,7 +3,7 @@
 import React, { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import HeroBanner from '@/components/storefront/HeroBanner'
-import CategoryStrip from '@/components/storefront/CategoryStrip'
+import BlinkitCategoryNavbar from '@/components/storefront/BlinkitCategoryNavbar'
 import ProductGrid from '@/components/storefront/ProductGrid'
 import ProductCard from '@/components/storefront/ProductCard'
 import TrustStrip from '@/components/storefront/TrustStrip'
@@ -46,7 +46,7 @@ export default function Homepage() {
       case 'new':
         return products.slice(0, 4)
       default:
-        return products.filter((p: any) => p.category?.slug === activeFilter)
+        return products.filter((p: any) => p.category?.slug === activeFilter || p.categoryId === activeFilter)
     }
   }
 
@@ -54,7 +54,7 @@ export default function Homepage() {
   const featuredProducts = products.filter((p: any) => p.isFeatured)
 
   // Selected category / filter products
-  const selectedCategory = categories.find((c: any) => c.slug === activeFilter)
+  const selectedCategory = categories.find((c: any) => c.slug === activeFilter || c.id === activeFilter)
 
   // When a user selects a specific category or filter, display their selection first,
   // and gather all other category products to display below it.
@@ -106,53 +106,65 @@ export default function Homepage() {
       {/* A. Hero Banner */}
       <HeroBanner />
 
-      {/* B. Category Exploration & Quick Access (Restored below Hero Banner) */}
-      <CategoryStrip activeFilter={activeFilter} onFilterChange={setActiveFilter} />
+      {/* B. Blinkit Selection-Aware Category Navbar (Blinkit Screenshot 1, 2, 3) */}
+      <BlinkitCategoryNavbar activeCategory={activeFilter} onSelectCategory={setActiveFilter} />
 
-      {/* C. "McCain Specials" Horizontal Carousel - Hidden when category filter is selected */}
-      {featuredProducts.length > 0 && activeFilter === 'all' && (
-        <section id="mccain-specials" className="bg-gradient-to-r from-amber-500/10 via-yellow-500/5 to-emerald-500/10 p-3.5 sm:p-4 md:p-5 rounded-2xl sm:rounded-3xl border border-amber-200/60 no-print">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-full bg-amber-400 text-black flex items-center justify-center font-bold text-xs shadow-xs">
-                🏆
-              </div>
-              <h3 className="font-extrabold text-sm sm:text-base md:text-lg text-gray-900">
-                McCain Specials & Bestsellers
-              </h3>
+      {/* C. Connected Category Product Carousel (Directly Connected to Navbar) */}
+      <section className="bg-gradient-to-r from-amber-500/10 via-yellow-500/5 to-emerald-500/10 p-3.5 sm:p-4 md:p-5 rounded-2xl sm:rounded-3xl border border-amber-200/60 no-print transition-all duration-300">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-full bg-[#EAB308] text-slate-900 flex items-center justify-center font-bold text-xs shadow-xs">
+              {activeFilter === 'all' ? '✨' : (selectedCategory?.emoji || '❄️')}
             </div>
-            <button 
-              onClick={() => setActiveFilter('featured')} 
-              className="text-xs font-bold text-[#0c831f] hover:text-[#096918] flex items-center gap-0.5"
-            >
-              <span>View All</span>
-              <ChevronRight className="w-4 h-4" />
-            </button>
+            <div>
+              <h3 className="font-extrabold text-sm sm:text-base md:text-lg text-gray-900 leading-tight">
+                {activeFilter === 'all' ? 'Top Picks & Bestsellers' : (selectedCategory?.name || 'Category Collection')}
+              </h3>
+              <span className="text-[11px] text-slate-500 font-medium">
+                {filteredProducts.length} items available in 9 mins
+              </span>
+            </div>
           </div>
-
-          {/* Horizontal scroll grid with mouse wheel scroll */}
-          <div 
-            onWheel={(e) => {
-              if (e.deltaY !== 0) {
-                e.currentTarget.scrollLeft += e.deltaY
-              }
-            }}
-            className="w-full overflow-x-auto no-scrollbar flex items-stretch gap-4 pb-2 -mx-4 px-4 md:mx-0 md:px-0 scroll-smooth"
+          <button 
+            type="button"
+            onClick={() => {
+              const el = document.getElementById('all-products-section')
+              if (el) el.scrollIntoView({ behavior: 'smooth' })
+            }} 
+            className="text-xs font-bold text-[#0c831f] hover:text-[#096918] flex items-center gap-0.5 cursor-pointer"
           >
-            {featuredProducts.slice(0, 8).map((product: any) => (
-              <div key={product.id} className="min-w-[190px] sm:min-w-[210px] max-w-[210px] shrink-0">
-                <ProductCard product={product} />
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
+            <span>See Grid</span>
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Horizontal scroll grid with mouse wheel scroll */}
+        <div 
+          onWheel={(e) => {
+            if (e.deltaY !== 0) {
+              e.currentTarget.scrollLeft += e.deltaY
+            }
+          }}
+          className="w-full overflow-x-auto no-scrollbar flex items-stretch gap-3.5 sm:gap-4 pb-2 -mx-4 px-4 md:mx-0 md:px-0 scroll-smooth"
+        >
+          {filteredProducts.map((product: any) => (
+            <div key={product.id} className="min-w-[190px] sm:min-w-[210px] max-w-[210px] shrink-0">
+              <ProductCard product={product} />
+            </div>
+          ))}
+          {filteredProducts.length === 0 && !productsLoading && (
+            <div className="py-8 text-center w-full text-slate-400 text-sm">
+              No products found in this category.
+            </div>
+          )}
+        </div>
+      </section>
 
       {/* D. Trust Strip */}
       <TrustStrip />
 
       {/* E. Main Products Grid Section (User's Selected Category First) */}
-      <section className="no-print">
+      <section id="all-products-section" className="no-print scroll-mt-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             {activeFilter === 'deals' ? (

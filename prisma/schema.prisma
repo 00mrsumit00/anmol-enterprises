@@ -295,6 +295,9 @@ model Order {
   discountAmount    Float          @default(0)
   couponCode        String?
   couponDiscount    Float          @default(0)
+  campaignId        String?
+  campaignDiscount  Float          @default(0)
+  totalSavings      Float          @default(0)
   totalAmount       Float
   cancellationReason String?
   notes             String?
@@ -308,6 +311,7 @@ model Order {
   address           Address?       @relation(fields: [addressId], references: [id])
   driver            Driver?        @relation(fields: [driverId], references: [id])
   coupon            Coupon?        @relation(fields: [couponCode], references: [code])
+  campaign          Campaign?      @relation(fields: [campaignId], references: [id])
   items             OrderItem[]
   statusHistory     OrderStatusLog[]
   chatConversations ChatConversation[]
@@ -322,19 +326,22 @@ model Order {
 // ─── ORDER ITEMS ──────────────────────────────────────────────────────────────
 
 model OrderItem {
-  id              String         @id @default(cuid())
-  orderId         String
-  productId       String
-  variantId       String
-  productName     String         // snapshot
-  variantSku      String         // snapshot
-  packagingType   String         // snapshot
-  weightGrams     Int            // snapshot
-  quantity        Int
-  unitPrice       Float          // price at time of order
-  lineTotal       Float
+  id                String         @id @default(cuid())
+  orderId           String
+  productId         String
+  variantId         String
+  productName       String         // snapshot
+  variantSku        String         // snapshot
+  packagingType     String         // snapshot
+  weightGrams       Int            // snapshot
+  quantity          Int
+  originalUnitPrice Float?         // base selling price before campaign discount
+  campaignDiscount  Float          @default(0) // discount applied per unit from campaign
+  campaignId        String?
+  unitPrice         Float          // price at time of order (effective price)
+  lineTotal         Float
 
-  order           Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  order             Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product         Product        @relation(fields: [productId], references: [id])
   variant         ProductVariant @relation(fields: [variantId], references: [id])
 
@@ -490,6 +497,45 @@ enum CouponPaymentConstraint {
   ONLINE_ONLY
 }
 
+enum CampaignScope {
+  ALL
+  CATEGORY
+  PRODUCT
+}
+
+enum CampaignAudience {
+  ALL
+  B2C_ONLY
+  B2B_ONLY
+}
+
+model Campaign {
+  id                  String           @id @default(cuid())
+  name                String           // e.g. "Diwali Dhamaka 2026"
+  bannerText          String           // e.g. "Diwali Dhamaka: Flat 10% OFF on all McCain Snacks! 🪔✨"
+  badgeText           String?          @default("DIWALI SALE") // e.g. "10% OFF" badge on cards
+  discountType        DiscountType     @default(PERCENTAGE)
+  discountValue       Float            // e.g. 10 (for 10% off) or 50 (for Rs 50 off)
+  scope               CampaignScope    @default(ALL)
+  categoryIds         String[]         @default([])
+  productIds          String[]         @default([])
+  excludedProductIds  String[]         @default([])
+  audience            CampaignAudience @default(ALL)
+  minOrderAmount      Float            @default(0)
+  maxDiscountPerItem  Float?
+  maxTotalDiscount    Float?
+  allowCouponStacking Boolean          @default(true)
+  isActive            Boolean          @default(true)
+  startDate           DateTime
+  endDate             DateTime
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  orders              Order[]
+
+  @@map("campaigns")
+}
+
 model Coupon {
   id                String                  @id @default(cuid())
   code              String                  @unique // e.g. "COD50", "COLD10"
@@ -499,9 +545,14 @@ model Coupon {
   minOrderAmount    Float                   @default(0)
   maxDiscountAmount Float?                  // cap for percentage discount
   paymentConstraint CouponPaymentConstraint @default(COD_ONLY)
+  audience          CampaignAudience        @default(ALL)
+  isFirstOrderOnly  Boolean                 @default(false)
+  perCustomerLimit  Int?                    @default(1)
   usageLimit        Int?                    // max times can be claimed in total
   timesUsed         Int                     @default(0)
+  allowStacking     Boolean                 @default(false)
   isActive          Boolean                 @default(true)
+  startsAt          DateTime?               @default(now())
   expiresAt         DateTime?
   createdAt         DateTime                @default(now())
   updatedAt         DateTime                @updatedAt
