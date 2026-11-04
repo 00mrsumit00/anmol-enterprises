@@ -87,7 +87,7 @@ export default function AdminLayout({
     { name: 'Registered Users', path: '/admin/business-accounts', icon: Users, perm: 'users' },
     { name: 'Product List', path: '/admin/products', icon: Package, perm: 'products' },
     { name: 'Categories', path: '/admin/categories', icon: Layers, perm: 'products' },
-    { name: 'Promotions & Offers', path: '/admin/coupons', icon: Tag, perm: 'orders' },
+    { name: 'Coupons & Offers', path: '/admin/coupons', icon: Tag, perm: 'orders' },
     { name: 'Inventory Manager', path: '/admin/inventory', icon: BarChart3, perm: 'inventory' },
     { name: 'Reports & Analytics', path: '/admin/reports', icon: TrendingUp, perm: 'orders' },
     { name: 'Staff Management', path: '/admin/sub-admins', icon: Shield, minRole: 'ADMIN' },

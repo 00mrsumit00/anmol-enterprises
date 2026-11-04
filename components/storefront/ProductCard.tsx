@@ -6,6 +6,7 @@ import { Plus, Minus, Heart, ChevronDown, Check, Clock, Star } from 'lucide-reac
 import { useCart } from '@/hooks/useCart'
 import { useToast } from '@/components/ui/Toast'
 import { getProductPacketImage } from '@/lib/productImages'
+import { useActiveCampaign } from '@/hooks/useActiveCampaign'
 
 export interface Variant {
   id: string
@@ -44,6 +45,7 @@ export default function ProductCard({ product }: ProductCardProps) {
   const router = useRouter()
   const { items, isB2BMode, add, increment, decrement } = useCart()
   const { showToast } = useToast()
+  const { calculateProductOffer } = useActiveCampaign()
 
   // Selected packaging tier (SINGLE by default)
   const [selectedTier, setSelectedTier] = useState<'SINGLE' | 'BOX' | 'CARTON'>('SINGLE')
@@ -99,11 +101,14 @@ export default function ProductCard({ product }: ProductCardProps) {
   const quantityInCart = cartItem ? cartItem.quantity : 0
   const isOutOfStock = variant.stockCount <= 0
 
-  // Price & Discount Calculations
-  const activePrice = isB2BMode ? variant.b2bPrice : variant.retailPrice
-  const mrpPrice = Math.round(activePrice * 1.15)
-  const hasDiscount = mrpPrice > activePrice
-  const discountPercent = hasDiscount ? Math.max(7, Math.round(((mrpPrice - activePrice) / mrpPrice) * 100)) : 0
+  // Price & Dynamic Offer Calculations (Zero fake discounts; ONLY applies if admin set active campaign)
+  const basePrice = isB2BMode ? variant.b2bPrice : variant.retailPrice
+  const offer = calculateProductOffer({
+    productId: product.id,
+    categoryId: (product.category as any)?.id || (product as any).categoryId,
+    basePrice,
+  })
+  const activePrice = offer.hasOffer ? offer.finalPrice : basePrice
 
   // Official downloaded packet image path
   const packetImageUrl = getProductPacketImage(product.slug, product.imageUrl)
@@ -170,10 +175,10 @@ export default function ProductCard({ product }: ProductCardProps) {
          ───────────────────────────────────────────────────────────── */}
       <div className="relative w-full aspect-square bg-[#fbfbfb] rounded-2xl border border-gray-100/80 overflow-hidden flex items-center justify-center p-2 mb-2 group-hover:bg-[#f5f5f5] transition-colors">
         
-        {/* Top-Left: Promo Ribbon Badge IF product has active discount */}
-        {hasDiscount && (
-          <div className="absolute top-0 left-0 z-20 bg-gradient-to-r from-[#256fef] to-blue-600 text-white font-black text-[9px] sm:text-[10px] px-2 py-0.5 rounded-br-xl shadow-xs">
-            {discountPercent}% OFF
+        {/* Top-Left: Dynamic Offer Ribbon Badge (ONLY if offer set by admin) */}
+        {offer.hasOffer && (
+          <div className="absolute top-0 left-0 z-20 bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-black text-[9px] sm:text-[10px] px-2 py-0.5 rounded-br-xl shadow-xs uppercase tracking-wider">
+            {offer.badgeText}
           </div>
         )}
 
@@ -323,14 +328,14 @@ export default function ProductCard({ product }: ProductCardProps) {
          ───────────────────────────────────────────────────────────── */}
       <div className="flex-1 flex flex-col justify-between pt-1">
         
-        {/* Price Row + MRP Strikethrough */}
+        {/* Price Row + Dynamic Strikethrough if offer active */}
         <div className="flex items-baseline gap-1.5 leading-none mb-1">
           <span className="font-black text-sm sm:text-base text-gray-900">
             ₹{activePrice}
           </span>
-          {hasDiscount && (
+          {offer.hasOffer && (
             <span className="text-[11px] text-gray-400 line-through">
-              ₹{mrpPrice}
+              ₹{offer.originalPrice}
             </span>
           )}
           {isB2BMode && (
@@ -338,10 +343,11 @@ export default function ProductCard({ product }: ProductCardProps) {
           )}
         </div>
 
-        {/* MRP Discount Subtext (e.g. 15% OFF on MRP) */}
-        {hasDiscount && (
-          <div className="text-[#256fef] font-bold text-[10px] leading-tight mb-1">
-            {discountPercent}% OFF on MRP
+        {/* Dynamic Offer Subtext (ONLY if offer set by admin) */}
+        {offer.hasOffer && (
+          <div className="text-amber-700 font-bold text-[10px] leading-tight mb-1 flex items-center gap-1">
+            <span>🎉</span>
+            <span>{offer.savingsLabel}</span>
           </div>
         )}
 

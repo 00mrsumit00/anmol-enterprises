@@ -28,7 +28,7 @@ export default function ProductGallery({
   productName,
   productSlug,
   slides,
-  discountPercent = 15,
+  discountPercent = 0,
   isVeg = true,
   brand = 'McCain',
   categoryName = 'Frozen Food',

@@ -51,7 +51,7 @@ export default function FloatingCartBar() {
             View cart
           </span>
           <span className="text-[11px] font-bold text-emerald-100/90 leading-tight">
-            {count} {count === 1 ? 'item' : 'items'} • ₹{total}
+            {count} {count === 1 ? 'item' : 'items'} • ₹{Number(total).toFixed(2).replace(/\.00$/, '')}
           </span>
         </div>
 

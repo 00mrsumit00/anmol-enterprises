@@ -27,9 +27,9 @@ export default function CartDeliveryThreshold({
           </div>
           <div className="flex-1 min-w-0">
             <h4 className="text-xs font-black text-gray-900 flex items-center gap-1.5">
-              <span>You unlocked FREE Express Delivery!</span>
+              <span>🎉 You unlocked FREE Express Delivery!</span>
               <span className="text-[10px] font-black text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded">
-                Saved ₹49
+                (Saved ₹49)
               </span>
             </h4>
             <p className="text-[10px] text-gray-500 font-medium">
@@ -47,7 +47,7 @@ export default function CartDeliveryThreshold({
                 <Truck className="w-3.5 h-3.5 stroke-[2.5]" />
               </div>
               <p className="text-xs font-black text-gray-900 truncate">
-                Add items worth <span className="text-orange-600 font-extrabold">₹{shortfall}</span> for <span className="text-emerald-700">FREE delivery!</span>
+                Add items worth <span className="text-orange-600 font-extrabold">₹{shortfall}</span> to unlock <span className="text-emerald-700">FREE Express Delivery! 🚚💨</span>
               </p>
             </div>
             <span className="text-[10px] font-black text-gray-400 shrink-0">

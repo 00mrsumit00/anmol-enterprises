@@ -8,6 +8,9 @@ import confetti from 'canvas-confetti'
 import { useCart } from '@/hooks/useCart'
 import { useToast } from '@/components/ui/Toast'
 import { OrderCelebrationModal } from '@/components/storefront/OrderCelebrationModal'
+import CartDeliveryThreshold from '@/components/storefront/cart/CartDeliveryThreshold'
+import CartOfferTicket from '@/components/storefront/cart/CartOfferTicket'
+import CartOffersModal from '@/components/storefront/cart/CartOffersModal'
 
 export default function CheckoutPaymentPage() {
   const router = useRouter()
@@ -26,9 +29,10 @@ export default function CheckoutPaymentPage() {
   const [user, setUser] = useState<any>(null)
   const [isFirstOrder, setIsFirstOrder] = useState<boolean>(true)
 
-  // Coupon states
+  // Coupon & Domino's Offers states
   const [couponInput, setCouponInput] = useState('')
   const [isValidatingCoupon, setIsValidatingCoupon] = useState(false)
+  const [isOffersModalOpen, setIsOffersModalOpen] = useState(false)
   const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discount: number; description?: string } | null>(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -68,15 +72,20 @@ export default function CheckoutPaymentPage() {
   // - Order subtotal > ₹500 = FREE Delivery (₹0)
   // - Otherwise = ₹49 standard delivery fee
   // - Convenience Fee = ₹2 per order
+  const fmtPrice = (val: number | string | undefined | null): string => {
+    const num = Number(val) || 0
+    const rounded = Math.round(num * 100) / 100
+    return rounded.toFixed(2).replace(/\.00$/, '')
+  }
+
   const deliveryFee = pricingBreakdown?.delivery?.fee ?? ((isFirstOrder || total > 500) ? 0 : 49)
   const convenienceFee = 2
-  const campaignDiscount = pricingBreakdown?.campaignSavings ?? 0
-  const couponDiscount = appliedCoupon?.discount || 0
-  const grandTotal = pricingBreakdown?.grandTotal ?? (total > 0 ? Math.max(0, total - campaignDiscount - couponDiscount + deliveryFee + convenienceFee) : 0)
+  const campaignDiscount = Math.round((pricingBreakdown?.campaignSavings ?? 0) * 100) / 100
+  const couponDiscount = Math.round((appliedCoupon?.discount || 0) * 100) / 100
+  const grandTotal = Math.round((pricingBreakdown?.grandTotal ?? (total > 0 ? Math.max(0, total - campaignDiscount - couponDiscount + deliveryFee + convenienceFee) : 0)) * 100) / 100
 
-  const handleApplyCoupon = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!couponInput.trim()) return
+  const applyCouponByCode = async (codeToApply: string) => {
+    if (!codeToApply.trim()) return
 
     setIsValidatingCoupon(true)
     try {
@@ -84,7 +93,7 @@ export default function CheckoutPaymentPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          code: couponInput.trim(),
+          code: codeToApply.trim().toUpperCase(),
           orderAmount: pricingBreakdown?.subtotal || total,
           paymentMethod,
         }),
@@ -95,18 +104,25 @@ export default function CheckoutPaymentPage() {
         throw new Error(data.error || 'Invalid coupon')
       }
 
-      setAppliedCoupon({
+      const appliedObj = {
         code: data.code,
         discount: data.discount,
         description: data.description,
-      })
+      }
+      setAppliedCoupon(appliedObj)
+      setCouponInput(data.code)
+
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('checkout_applied_coupon', JSON.stringify(appliedObj))
+        localStorage.setItem('anmol_applied_coupon_code', data.code)
+      }
 
       // Celebration confetti animation
       confetti({
         particleCount: 120,
         spread: 70,
         origin: { y: 0.6 },
-        colors: ['#FF6B00', '#FFC700', '#00A67E', '#2563EB'],
+        colors: ['#0c831f', '#f59e0b', '#3b82f6', '#ec4899'],
       })
 
       showToast(`🎉 Coupon "${data.code}" applied! ₹${data.discount} discount saved.`, 'success')
@@ -117,9 +133,18 @@ export default function CheckoutPaymentPage() {
     }
   }
 
+  const handleApplyCoupon = async (e: React.FormEvent) => {
+    e.preventDefault()
+    await applyCouponByCode(couponInput)
+  }
+
   const handleRemoveCoupon = () => {
     setAppliedCoupon(null)
     setCouponInput('')
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('checkout_applied_coupon')
+      localStorage.removeItem('anmol_applied_coupon_code')
+    }
     showToast('Coupon removed', 'info')
   }
 
@@ -481,62 +506,34 @@ export default function CheckoutPaymentPage() {
           </div>
         </div>
 
-        {/* Coupon Box */}
-        <div className="bg-white border border-gray-200 rounded-card p-4 mb-4 shadow-2xs">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
-              <Tag className="w-3.5 h-3.5 text-orange-500" />
-              Apply Coupon / COD Discount
-            </span>
-            {paymentMethod === 'CASH_ON_DELIVERY' && (
-              <span className="text-[10px] font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                💵 COD Coupon Ready
-              </span>
-            )}
-          </div>
-
-          {appliedCoupon ? (
-            <div className="flex items-center justify-between p-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-xs text-emerald-800">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-emerald-600" />
-                <div>
-                  <span className="font-extrabold uppercase tracking-wide">{appliedCoupon.code}</span>
-                  <p className="text-[11px] text-emerald-600 font-medium">₹{appliedCoupon.discount} discount applied</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={handleRemoveCoupon}
-                className="p-1 hover:bg-emerald-100 rounded text-emerald-700"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          ) : (
-            <form onSubmit={handleApplyCoupon} className="flex gap-2">
-              <input
-                type="text"
-                value={couponInput}
-                onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
-                placeholder="Enter coupon code (e.g. COD50)"
-                className="flex-1 px-3 py-2 text-xs rounded-lg border border-gray-300 font-semibold uppercase tracking-wider focus:outline-none focus:ring-1 focus:ring-orange-500"
-              />
-              <button
-                type="submit"
-                disabled={!couponInput.trim() || isValidatingCoupon}
-                className="px-4 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white text-xs font-bold transition shadow-xs"
-              >
-                {isValidatingCoupon ? 'Checking...' : 'Apply'}
-              </button>
-            </form>
-          )}
+        {/* 1. Domino's Delivery Threshold Progress Banner */}
+        <div className="mb-4">
+          <CartDeliveryThreshold
+            subtotal={pricingBreakdown?.subtotal || total}
+            freeDeliveryThreshold={500}
+            isFirstOrder={isFirstOrder}
+          />
         </div>
+
+        {/* 2. Domino's Best Offers Ticket Cards ("0/2 Unlocked") */}
+        {pricingBreakdown?.availableOffers && pricingBreakdown.availableOffers.length > 0 && (
+          <div className="mb-4">
+            <CartOfferTicket
+              coupons={pricingBreakdown.availableOffers}
+              appliedCouponCode={appliedCoupon?.code || null}
+              onApplyCoupon={(code) => applyCouponByCode(code)}
+              onRemoveCoupon={handleRemoveCoupon}
+              onViewAllOffers={() => setIsOffersModalOpen(true)}
+              onAddItemsClick={() => router.push('/')}
+            />
+          </div>
+        )}
 
         {/* Bill Summary */}
         <div className="bg-gray-50 border border-gray-100 p-4 rounded-card mb-6 flex flex-col gap-2.5 text-xs text-gray-600 font-semibold">
           <div className="flex justify-between">
             <span>Items Subtotal</span>
-            <span className="text-brand-charcoal font-display font-bold">₹{pricingBreakdown?.originalSubtotal || total}</span>
+            <span className="text-brand-charcoal font-display font-bold">₹{fmtPrice(pricingBreakdown?.originalSubtotal ?? total)}</span>
           </div>
           {campaignDiscount > 0 && pricingBreakdown?.activeCampaign && (
             <div className="flex justify-between items-center text-orange-600 font-bold">
@@ -544,7 +541,7 @@ export default function CheckoutPaymentPage() {
                 <span>🪔</span>
                 {pricingBreakdown.activeCampaign.name} ({pricingBreakdown.activeCampaign.discountValue}% OFF)
               </span>
-              <span>-₹{campaignDiscount}</span>
+              <span>-₹{fmtPrice(campaignDiscount)}</span>
             </div>
           )}
           {appliedCoupon && (
@@ -553,7 +550,7 @@ export default function CheckoutPaymentPage() {
                 <Tag className="w-3 h-3" />
                 Coupon Discount ({appliedCoupon.code})
               </span>
-              <span>-₹{appliedCoupon.discount}</span>
+              <span>-₹{fmtPrice(appliedCoupon.discount)}</span>
             </div>
           )}
           <div className="flex justify-between items-center">
@@ -562,17 +559,17 @@ export default function CheckoutPaymentPage() {
               {isFirstOrder && <span className="text-[9px] font-black text-[#0c831f] bg-emerald-50 px-1.5 py-0.5 rounded uppercase">First Order Free</span>}
             </span>
             <span className={deliveryFee === 0 ? 'text-[#0c831f] font-bold' : 'text-brand-charcoal font-display font-bold'}>
-              {deliveryFee === 0 ? 'FREE' : `₹${deliveryFee}`}
+              {deliveryFee === 0 ? 'FREE' : `₹${fmtPrice(deliveryFee)}`}
             </span>
           </div>
           <div className="flex justify-between items-center">
             <span>Convenience Fee</span>
-            <span className="text-brand-charcoal font-display font-bold">₹{convenienceFee}</span>
+            <span className="text-brand-charcoal font-display font-bold">₹{fmtPrice(convenienceFee)}</span>
           </div>
           <div className="h-px bg-gray-200 my-1.5" />
           <div className="flex justify-between text-base font-black">
             <span className="text-brand-charcoal">Amount Payable</span>
-            <span className="text-brand-orange font-display">₹{grandTotal}</span>
+            <span className="text-brand-orange font-display">₹{fmtPrice(grandTotal)}</span>
           </div>
         </div>
 
@@ -761,6 +758,53 @@ export default function CheckoutPaymentPage() {
             </label>
           )}
 
+          {/* Apply Coupon Box (Placed at bottom after payment methods, COD discount note removed) */}
+          <div className="bg-white border border-gray-200 rounded-card p-4 mt-2 shadow-2xs">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
+                <Tag className="w-3.5 h-3.5 text-orange-500" />
+                Have a Coupon Code?
+              </span>
+            </div>
+
+            {appliedCoupon ? (
+              <div className="flex items-center justify-between p-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-xs text-emerald-800">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-emerald-600" />
+                  <div>
+                    <span className="font-extrabold uppercase tracking-wide">{appliedCoupon.code}</span>
+                    <p className="text-[11px] text-emerald-600 font-medium">₹{fmtPrice(appliedCoupon.discount)} discount applied</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleRemoveCoupon}
+                  className="p-1 hover:bg-emerald-100 rounded text-emerald-700 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={couponInput}
+                  onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+                  placeholder="Enter coupon code"
+                  className="flex-1 px-3 py-2 text-xs rounded-lg border border-gray-300 font-semibold uppercase tracking-wider focus:outline-none focus:ring-1 focus:ring-orange-500"
+                />
+                <button
+                  type="button"
+                  disabled={!couponInput.trim() || isValidatingCoupon}
+                  onClick={() => applyCouponByCode(couponInput)}
+                  className="px-4 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white text-xs font-bold transition shadow-xs cursor-pointer"
+                >
+                  {isValidatingCoupon ? 'Checking...' : 'Apply'}
+                </button>
+              </div>
+            )}
+          </div>
+
           {/* Submit Action Block */}
           <div className="flex items-center gap-3 mt-6">
             <button
@@ -781,7 +825,7 @@ export default function CheckoutPaymentPage() {
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
               ) : (
                 <>
-                  <span>Place Order (₹{grandTotal})</span>
+                  <span>Place Order (₹{fmtPrice(grandTotal)})</span>
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}
@@ -808,6 +852,16 @@ export default function CheckoutPaymentPage() {
         deliverySlot={celebratedOrder?.deliverySlot || slotInfo?.slot}
         onExploreMore={() => router.push('/')}
         onTrackOrder={() => router.push(`/order/${celebratedOrder?.id}`)}
+      />
+
+      {/* Domino's Interactive Offers Modal */}
+      <CartOffersModal
+        isOpen={isOffersModalOpen}
+        onClose={() => setIsOffersModalOpen(false)}
+        coupons={pricingBreakdown?.availableOffers || []}
+        appliedCouponCode={appliedCoupon?.code || null}
+        onApplyCoupon={(code) => applyCouponByCode(code)}
+        onRemoveCoupon={handleRemoveCoupon}
       />
 
     </div>

@@ -49,7 +49,6 @@ export default function CartAddonsCarousel({
       // Pick the first in-stock variant
       const variant = product.variants.find((v: any) => (v.stockCount || 0) > 0) || product.variants[0]
       const basePrice = variant?.retailPrice || 100
-      const mrp = Math.round(basePrice * 1.15)
       const discountedPrice = isCampaignActive
         ? Math.round(basePrice * (1 - campaignDiscountValue / 100))
         : basePrice
@@ -58,7 +57,6 @@ export default function CartAddonsCarousel({
         product,
         variant,
         basePrice,
-        mrp,
         discountedPrice,
       }
     })
@@ -81,7 +79,7 @@ export default function CartAddonsCarousel({
 
       {/* Horizontal Scrollable Carousel */}
       <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-none snap-x">
-        {eligibleAddons.map(({ product, variant, mrp, discountedPrice }: any) => {
+        {eligibleAddons.map(({ product, variant, basePrice, discountedPrice }: any) => {
           if (!variant) return null
           const inCartItem = cartItems.find((i) => i.variantId === variant.id)
           const inCart = Boolean(inCartItem)
@@ -145,9 +143,11 @@ export default function CartAddonsCarousel({
                   <span className="text-xs font-black text-gray-900 leading-none">
                     ₹{discountedPrice}
                   </span>
-                  <span className="text-[9px] text-gray-400 line-through">
-                    ₹{mrp}
-                  </span>
+                  {isCampaignActive && discountedPrice < basePrice && (
+                    <span className="text-[9px] text-gray-400 line-through">
+                      ₹{basePrice}
+                    </span>
+                  )}
                 </div>
 
                 <button

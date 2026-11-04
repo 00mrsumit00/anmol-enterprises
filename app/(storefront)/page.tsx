@@ -106,7 +106,7 @@ export default function Homepage() {
       {/* A. Hero Banner */}
       <HeroBanner />
 
-      {/* B. Blinkit Selection-Aware Category Navbar (Blinkit Screenshot 1, 2, 3) */}
+      {/* B. Category Navbar (Desktop: Divided Strip with Photos | Mobile: PWA Scroll Track) */}
       <BlinkitCategoryNavbar activeCategory={activeFilter} onSelectCategory={setActiveFilter} />
 
       {/* C. Connected Category Product Carousel (Directly Connected to Navbar) */}

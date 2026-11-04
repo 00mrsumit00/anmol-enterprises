@@ -1316,6 +1316,15 @@ apiRouter.get('/categories', async (req: Request, res: Response) => {
 
     const categories = await prisma.category.findMany({
       where: { isActive: true },
+      include: {
+        _count: {
+          select: {
+            products: {
+              where: { isActive: true }
+            }
+          }
+        }
+      },
       orderBy: { sortOrder: 'asc' }
     })
     cachedCategories = categories

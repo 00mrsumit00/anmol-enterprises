@@ -152,7 +152,7 @@ export async function calculatePricing(options: CalculatePricingOptions): Promis
 
       const qty = Math.max(1, input.quantity)
       const baseUnitPrice = isB2B ? variant.b2bPrice : variant.retailPrice
-      const mrp = Math.round(baseUnitPrice * 1.15) // Standard 15% estimated MRP if not explicitly provided
+      const mrp = baseUnitPrice
 
       // Check if item qualifies for active campaign
       let qualifiesForCampaign = false
@@ -375,10 +375,9 @@ export async function calculatePricing(options: CalculatePricingOptions): Promis
   const isBelowMinOrder = subtotal < minOrderRequired
   const minOrderShortfall = Math.max(0, minOrderRequired - subtotal)
 
-  // Overall Total Savings
+  // Overall Total Savings (Real savings from active campaign, coupon, and free delivery)
   const savedDeliveryFee = isFreeDelivery ? 49 : 0
-  const rawMrpSavings = Math.max(0, mrpTotal - originalSubtotal)
-  const totalSavings = Math.round((totalCampaignSavings + appliedCouponDiscount + savedDeliveryFee + rawMrpSavings) * 100) / 100
+  const totalSavings = Math.round((totalCampaignSavings + appliedCouponDiscount + savedDeliveryFee) * 100) / 100
 
   return {
     items: calculatedItems,
@@ -397,7 +396,7 @@ export async function calculatePricing(options: CalculatePricingOptions): Promis
     originalSubtotal,
     mrpTotal,
     campaignSavings: totalCampaignSavings,
-    mrpSavings: rawMrpSavings,
+    mrpSavings: 0,
     availableCoupons,
     appliedCoupon,
     couponError,

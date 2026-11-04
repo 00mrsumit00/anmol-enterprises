@@ -23,6 +23,7 @@ import {
 } from 'lucide-react'
 import { useCart } from '@/hooks/useCart'
 import { useToast } from '@/components/ui/Toast'
+import { useActiveCampaign } from '@/hooks/useActiveCampaign'
 import ProductGallery from '@/components/storefront/ProductGallery'
 import SimilarProductsCarousel from '@/components/storefront/SimilarProductsCarousel'
 import FloatingViewCartPill from '@/components/storefront/FloatingViewCartPill'
@@ -35,6 +36,7 @@ export default function ProductDetailPage() {
 
   const { items, add, increment, decrement, isB2BMode } = useCart()
   const { showToast } = useToast()
+  const { calculateProductOffer } = useActiveCampaign()
 
   const [product, setProduct] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -112,82 +114,145 @@ export default function ProductDetailPage() {
   // Raw variants from database
   const rawVariants = product.variants && product.variants.length > 0 ? product.variants : []
   
+  // Sequence rule requested: SINGLE RETAIL PACK (Rank 1) -> Medium Box Pack (10 Units/Box) (Rank 2) -> Bulk Master Carton (20 Units/Carton) (Rank 3)
+  const getPackagingRank = (v: any) => {
+    const pkg = (v.packagingType || '').toUpperCase()
+    if (pkg === 'SINGLE' || pkg.startsWith('PACK') || pkg.startsWith('RETAIL') || (v.unitsInPack && v.unitsInPack === 1) || (v.weightGrams && v.weightGrams < 2500 && pkg !== 'BOX' && pkg !== 'CARTON')) {
+      return 1
+    }
+    if (pkg === 'BOX' || pkg.includes('BOX') || (v.unitsInPack && v.unitsInPack > 1 && v.unitsInPack < 20)) {
+      return 2
+    }
+    if (pkg === 'CARTON' || pkg.includes('CARTON') || (v.unitsInPack && v.unitsInPack >= 20)) {
+      return 3
+    }
+    return 4
+  }
+
+  const sortedVariants = [...rawVariants].sort((a: any, b: any) => {
+    const rankA = getPackagingRank(a)
+    const rankB = getPackagingRank(b)
+    if (rankA !== rankB) return rankA - rankB
+    return (a.weightGrams || 0) - (b.weightGrams || 0)
+  })
+
   // Base single pack reference price
   const basePrice = isB2BMode
-    ? (rawVariants[0]?.b2bPrice || product.price || 169)
-    : (rawVariants[0]?.retailPrice || product.price || 213)
+    ? (sortedVariants[0]?.b2bPrice || product.price || 169)
+    : (sortedVariants[0]?.retailPrice || product.price || 213)
 
-  const baseWeight = rawVariants[0]?.weightGrams || 2500
+  const baseWeight = sortedVariants[0]?.weightGrams || 2500
 
-  // ─── 3 EQUAL-HEIGHT PACK OPTIONS (Single, Box of 10, Carton of 50) ───
-  // Matches Screenshot 2: 2.5 kg | Box (10 kg) | Carton (50 kg)
+  // ─── 3 EQUAL-HEIGHT PACK OPTIONS (Single Retail, Medium Box, Bulk Master Carton) ───
   interface PackOption {
     id: string
     variantIndex: number
     label: string
     subtitleWeight: string
+    packagingType: string
+    skuCode?: string
     unitsInPack: number
     weightGrams: number
     price: number
     mrp: number
     unitPriceText: string
     isCustomSynth?: boolean
+    hasOffer?: boolean
+    discountPercent?: number
+    savingsAmount?: number
+    badgeText?: string | null
+    savingsLabel?: string | null
   }
 
   let packOptions: PackOption[] = []
 
-  if (rawVariants && rawVariants.length > 0) {
-    // Dynamically map all variants (Single retail, multi-pack sizes e.g. 1kg, 2kg, Box, Carton)
-    packOptions = rawVariants.map((v: any, idx: number) => {
+  if (sortedVariants && sortedVariants.length > 0) {
+    // Dynamically map all variants with exact sequence:
+    // 1. SINGLE RETAIL PACK
+    // 2. Medium Box Pack (10 Units/Box)
+    // 3. Bulk Master Carton (20 Units/Carton)
+    packOptions = sortedVariants.map((v: any, idx: number) => {
       const vPrice = isB2BMode ? (v.b2bPrice || v.retailPrice) : (v.retailPrice || v.b2bPrice || 0)
-      const vMrp = Math.round(vPrice * 1.15)
+      const offer = calculateProductOffer({
+        productId: product.id,
+        categoryId: (product.category as any)?.id || (product as any).categoryId,
+        basePrice: vPrice,
+      })
+      const effectivePrice = offer.hasOffer ? offer.finalPrice : vPrice
+      const mrp = offer.hasOffer ? offer.originalPrice : vPrice
       const weightKg = v.weightGrams ? v.weightGrams / 1000 : 1
-      const perKgPrice = weightKg > 0 ? Math.round(vPrice / weightKg) : vPrice
+      const perKgPrice = weightKg > 0 ? Math.round(effectivePrice / weightKg) : effectivePrice
 
       const pkgType = (v.packagingType || '').toUpperCase()
-      let label = ''
+      const weightFormatted = v.weightGrams >= 1000
+        ? `${(v.weightGrams / 1000).toFixed(1).replace('.0', '')} kg`
+        : `${v.weightGrams} g`
 
-      if (pkgType === 'SINGLE' || pkgType.startsWith('PACK') || pkgType.startsWith('RETAIL')) {
-        label = v.weightGrams >= 1000
-          ? `${(v.weightGrams / 1000).toFixed(1).replace('.0', '')} kg`
-          : `${v.weightGrams} g`
-      } else if (pkgType === 'BOX') {
-        label = `Box (${v.weightGrams >= 1000 ? (v.weightGrams / 1000).toFixed(0) + ' kg' : (v.unitsInPack || 10) + ' units'})`
-      } else if (pkgType === 'CARTON') {
-        label = `Carton (${v.weightGrams >= 1000 ? (v.weightGrams / 1000).toFixed(0) + ' kg' : (v.unitsInPack || 50) + ' units'})`
+      let label = 'Single Retail Pack'
+      let subtitleWeight = weightFormatted
+
+      if (pkgType === 'SINGLE' || pkgType.startsWith('PACK') || pkgType.startsWith('RETAIL') || (v.unitsInPack === 1)) {
+        label = 'Single Retail Pack'
+        subtitleWeight = weightFormatted
+      } else if (pkgType === 'BOX' || pkgType.includes('BOX')) {
+        const units = v.unitsInPack || 10
+        label = `Medium Box Pack (${units} Units/Box)`
+        subtitleWeight = `Box (${weightFormatted})`
+      } else if (pkgType === 'CARTON' || pkgType.includes('CARTON')) {
+        const units = v.unitsInPack || 20
+        label = `Bulk Master Carton (${units} Units/Carton)`
+        subtitleWeight = `Carton (${weightFormatted})`
       } else {
-        label = v.weightGrams >= 1000
-          ? `${(v.weightGrams / 1000).toFixed(1).replace('.0', '')} kg`
-          : `${v.weightGrams} g`
+        label = weightFormatted
+        subtitleWeight = weightFormatted
       }
 
       return {
         id: v.id,
         variantIndex: idx,
         label,
-        subtitleWeight: v.weightGrams >= 1000 ? `${(v.weightGrams / 1000).toFixed(1).replace('.0', '')} kg` : `${v.weightGrams} g`,
+        subtitleWeight,
+        packagingType: v.packagingType || (idx === 0 ? 'SINGLE' : idx === 1 ? 'BOX' : 'CARTON'),
+        skuCode: v.skuCode,
         unitsInPack: v.unitsInPack || 1,
         weightGrams: v.weightGrams || 1000,
-        price: vPrice,
-        mrp: vMrp,
+        price: effectivePrice,
+        mrp,
+        hasOffer: offer.hasOffer,
+        discountPercent: offer.discountPercent,
+        savingsAmount: offer.discountAmount,
+        badgeText: offer.badgeText,
+        savingsLabel: offer.savingsLabel,
         unitPriceText: `(₹${perKgPrice}/kg)`,
       }
     })
   } else {
     // Fallback if no variants configured
+    const offer = calculateProductOffer({
+      productId: product.id,
+      categoryId: (product.category as any)?.id || (product as any).categoryId,
+      basePrice,
+    })
+    const effectivePrice = offer.hasOffer ? offer.finalPrice : basePrice
     const singleKg = baseWeight >= 1000 ? baseWeight / 1000 : 1
-    const singlePerKg = Math.round(basePrice / singleKg)
+    const singlePerKg = Math.round(effectivePrice / singleKg)
 
     packOptions = [
       {
         id: `${product.id}_single`,
         variantIndex: 0,
-        label: baseWeight >= 1000 ? `${(baseWeight / 1000).toFixed(1).replace('.0', '')} kg` : `${baseWeight} g`,
+        label: 'Single Retail Pack',
         subtitleWeight: baseWeight >= 1000 ? `${(baseWeight / 1000).toFixed(1).replace('.0', '')} kg` : `${baseWeight} g`,
+        packagingType: 'SINGLE',
         unitsInPack: 1,
         weightGrams: baseWeight,
-        price: basePrice,
-        mrp: Math.round(basePrice * 1.15),
+        price: effectivePrice,
+        mrp: offer.hasOffer ? offer.originalPrice : basePrice,
+        hasOffer: offer.hasOffer,
+        discountPercent: offer.discountPercent,
+        savingsAmount: offer.discountAmount,
+        badgeText: offer.badgeText,
+        savingsLabel: offer.savingsLabel,
         unitPriceText: `(₹${singlePerKg}/kg)`,
       }
     ]
@@ -196,8 +261,9 @@ export default function ProductDetailPage() {
   const activePack = packOptions[selectedVariantIndex] || packOptions[0]
   const activePrice = activePack.price
   const mrpPrice = activePack.mrp
-  const savings = Math.max(0, mrpPrice - activePrice)
-  const discountPercent = mrpPrice > activePrice ? Math.round(((mrpPrice - activePrice) / mrpPrice) * 100) : 15
+  const savings = (activePack as any).savingsAmount || Math.max(0, mrpPrice - activePrice)
+  const discountPercent = (activePack as any).discountPercent || 0
+
 
   // Cart sync
   const cartItem = items.find((i) => i.variantId === activePack.id)
@@ -210,10 +276,10 @@ export default function ProductDetailPage() {
       productName: product.name,
       productSlug: product.slug,
       imageUrl: product.imageUrl || product.galleryImages?.[0] || mediaData.packetImage,
-      packagingType: selectedVariantIndex === 0 ? 'SINGLE' : selectedVariantIndex === 1 ? 'BOX' : 'CARTON',
+      packagingType: (activePack.packagingType as any) || (selectedVariantIndex === 0 ? 'SINGLE' : selectedVariantIndex === 1 ? 'BOX' : 'CARTON'),
       weightGrams: activePack.weightGrams,
       unitsInPack: activePack.unitsInPack,
-      skuCode: `SKU-${product.slug?.toUpperCase().slice(0, 8)}-${selectedVariantIndex}`,
+      skuCode: activePack.skuCode || `SKU-${product.slug?.toUpperCase().slice(0, 8)}-${selectedVariantIndex}`,
       unitPrice: activePrice,
       quantity: 1,
       lineTotal: activePrice,
@@ -314,35 +380,44 @@ export default function ProductDetailPage() {
                       key={pack.id || idx}
                       type="button"
                       onClick={() => setSelectedVariantIndex(idx)}
-                      className={`relative h-[84px] sm:h-[92px] rounded-2xl border text-left p-2.5 sm:p-3 flex flex-col justify-between transition-all select-none cursor-pointer ${
+                      className={`relative min-h-[92px] sm:min-h-[98px] h-auto rounded-2xl border text-left p-2.5 sm:p-3 flex flex-col justify-between transition-all select-none cursor-pointer ${
                         isSelected
                           ? 'border-2 border-[#16a34a] bg-[#f0fdf4] shadow-xs'
                           : 'border-slate-200 hover:border-slate-300 bg-white'
                       }`}
                     >
-                      {/* Active Variant Cart Quantity Badge (Blinkit Screenshot 2) */}
+                      {/* Active Variant Cart Quantity Badge */}
                       {packQty > 0 && (
                         <span className="absolute -top-2 -right-2 w-5 h-5 bg-[#15803D] text-white text-[11px] font-black rounded-full flex items-center justify-center shadow-xs border-2 border-white animate-in zoom-in-75">
                           {packQty}
                         </span>
                       )}
 
-                      <span className="text-xs font-bold text-slate-800 leading-tight truncate">
-                        {pack.label}
-                      </span>
-                      <div className="flex items-baseline gap-1.5 flex-wrap">
-                        <span className="text-base font-black text-slate-900 leading-none">
-                          ₹{pack.price.toLocaleString('en-IN')}
+                      <div className="flex flex-col mb-1.5">
+                        <span className="text-xs font-bold text-slate-800 leading-tight">
+                          {pack.label}
                         </span>
-                        {pack.mrp > pack.price && (
-                          <span className="text-[11px] text-slate-400 font-medium">
-                            MRP ₹{pack.mrp}
+                        {pack.subtitleWeight && (
+                          <span className="text-[10px] text-slate-500 font-semibold mt-0.5">
+                            {pack.subtitleWeight}
                           </span>
                         )}
                       </div>
-                      <span className="text-[10px] sm:text-[11px] text-slate-500 font-medium">
-                        {pack.unitPriceText}
-                      </span>
+                      <div>
+                        <div className="flex items-baseline gap-1.5 flex-wrap">
+                          <span className="text-base font-black text-slate-900 leading-none">
+                            ₹{pack.price.toLocaleString('en-IN')}
+                          </span>
+                          {pack.mrp > pack.price && (
+                            <span className="text-[11px] text-slate-400 font-medium line-through">
+                              MRP ₹{pack.mrp}
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[10px] sm:text-[11px] text-slate-500 font-medium block mt-0.5">
+                          {pack.unitPriceText}
+                        </span>
+                      </div>
                     </button>
                   )
                 })}

@@ -88,9 +88,9 @@ export default function CartOfferTicket({
               key={coupon.code}
               className={`relative rounded-2xl border transition-all overflow-hidden ${
                 isApplied
-                  ? 'bg-emerald-50/70 border-emerald-400 shadow-xs'
+                  ? 'bg-emerald-50/70 border-2 border-emerald-500 shadow-xs'
                   : isUnlocked
-                  ? 'bg-white border-emerald-300 hover:border-emerald-400 shadow-2xs'
+                  ? 'bg-gradient-to-r from-emerald-50/50 to-white border-2 border-[#0c831f] shadow-sm ring-1 ring-emerald-500/20'
                   : 'bg-white border-gray-200/90'
               }`}
             >

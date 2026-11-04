@@ -145,20 +145,26 @@ export default function CartDrawer() {
 
   if (!isOpen) return null
 
-  // Pricing values fallback
-  const subtotal = pricingData?.subtotal ?? total
-  const originalSubtotal = pricingData?.originalSubtotal ?? total
-  const mrpTotal = pricingData?.mrpTotal ?? Math.round(total * 1.15)
+  const fmtPrice = (val: number | string | undefined | null): string => {
+    const num = Number(val) || 0
+    const rounded = Math.round(num * 100) / 100
+    return rounded.toFixed(2).replace(/\.00$/, '')
+  }
+
+  // Pricing values fallback with clean rounding
+  const subtotal = Math.round((pricingData?.subtotal ?? total) * 100) / 100
+  const originalSubtotal = Math.round((pricingData?.originalSubtotal ?? total) * 100) / 100
+  const mrpTotal = Math.round((pricingData?.mrpTotal ?? total) * 100) / 100
   const deliveryFee = pricingData?.delivery?.fee ?? (total > 500 ? 0 : 49)
   const convenienceFee = pricingData?.convenienceFee ?? 2
-  const grandTotal = pricingData?.grandTotal ?? (total > 0 ? total + deliveryFee + convenienceFee : 0)
-  const totalSavings = pricingData?.totalSavings ?? Math.max(0, mrpTotal - total)
-  const campaignSavings = pricingData?.campaignSavings ?? 0
-  const couponDiscount = pricingData?.appliedCoupon?.discount ?? 0
+  const grandTotal = Math.round((pricingData?.grandTotal ?? (total > 0 ? total + deliveryFee + convenienceFee : 0)) * 100) / 100
+  const campaignSavings = Math.round((pricingData?.campaignSavings ?? 0) * 100) / 100
+  const couponDiscount = Math.round((pricingData?.appliedCoupon?.discount ?? 0) * 100) / 100
+  const totalSavings = Math.round((pricingData?.totalSavings ?? (campaignSavings + couponDiscount)) * 100) / 100
   const activeCampaign = pricingData?.activeCampaign
   const availableCoupons: CouponCardData[] = pricingData?.availableCoupons || []
   const isBelowMinOrder = pricingData?.isBelowMinOrder ?? false
-  const minOrderShortfall = pricingData?.minOrderShortfall ?? 0
+  const minOrderShortfall = Math.round((pricingData?.minOrderShortfall ?? 0) * 100) / 100
 
   return (
     <div className="fixed inset-0 z-[200] flex justify-end no-print font-sans">
@@ -217,7 +223,7 @@ export default function CartDrawer() {
             <span className="flex items-center gap-1.5">
               <span>🎉</span>
               <span>
-                You saved <strong className="text-emerald-700 font-black">₹{totalSavings}</strong> on this order!
+                You saved <strong className="text-emerald-700 font-black">₹{fmtPrice(totalSavings)}</strong> on this order!
               </span>
             </span>
             <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
@@ -227,7 +233,7 @@ export default function CartDrawer() {
         )}
 
         {/* 3. CART CONTENT AREA */}
-        <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
+        <div className="flex-1 overflow-y-auto px-4 py-3.5 space-y-3.5 no-scrollbar sm:[scrollbar-width:thin] sm:[scrollbar-color:#cbd5e1_transparent]">
           
           {items.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center py-16 select-none">
@@ -278,7 +284,6 @@ export default function CartDrawer() {
 
                 <div className="bg-white rounded-2xl border border-gray-200/80 shadow-xs divide-y divide-gray-100">
                   {items.map((item) => {
-                    const itemMrp = Math.round(item.unitPrice * 1.15)
                     const itemImage = normalizeImageUrl(getProductPacketImage(item.productSlug, item.imageUrl))
                     
                     // Match calculated pricing item if available
@@ -308,15 +313,11 @@ export default function CartDrawer() {
                           </p>
                           <div className="flex items-baseline gap-1.5 mt-1">
                             <span className="text-xs font-black text-gray-900">
-                              ₹{effectivePrice}
+                              ₹{fmtPrice(effectivePrice)}
                             </span>
-                            {hasDiscount ? (
+                            {hasDiscount && (
                               <span className="text-[10px] text-orange-600 line-through">
-                                ₹{regularPrice}
-                              </span>
-                            ) : (
-                              <span className="text-[10px] text-gray-400 line-through">
-                                ₹{itemMrp}
+                                ₹{fmtPrice(regularPrice)}
                               </span>
                             )}
                             {hasDiscount && activeCampaign && (
@@ -363,13 +364,15 @@ export default function CartDrawer() {
                     <span>Items total</span>
                     {totalSavings > 0 && (
                       <span className="text-[9px] font-extrabold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
-                        Saved ₹{totalSavings}
+                        Saved ₹{fmtPrice(totalSavings)}
                       </span>
                     )}
                   </div>
                   <div className="flex items-baseline gap-1">
-                    <span className="text-gray-400 line-through text-[11px]">₹{mrpTotal}</span>
-                    <span className="font-extrabold text-gray-900">₹{originalSubtotal}</span>
+                    {mrpTotal > originalSubtotal && (
+                      <span className="text-gray-400 line-through text-[11px]">₹{fmtPrice(mrpTotal)}</span>
+                    )}
+                    <span className="font-extrabold text-gray-900">₹{fmtPrice(originalSubtotal)}</span>
                   </div>
                 </div>
 
@@ -380,7 +383,7 @@ export default function CartDrawer() {
                       <span>🪔</span>
                       <span>{activeCampaign.name} ({activeCampaign.discountValue}% OFF)</span>
                     </span>
-                    <span>-₹{campaignSavings}</span>
+                    <span>-₹{fmtPrice(campaignSavings)}</span>
                   </div>
                 )}
 
@@ -391,7 +394,7 @@ export default function CartDrawer() {
                       <Tag className="w-3 h-3" />
                       <span>Coupon ({appliedCouponCode})</span>
                     </span>
-                    <span>-₹{couponDiscount}</span>
+                    <span>-₹{fmtPrice(couponDiscount)}</span>
                   </div>
                 )}
 
@@ -406,14 +409,14 @@ export default function CartDrawer() {
                     )}
                   </div>
                   <span className={deliveryFee === 0 ? 'text-[#0c831f] font-extrabold' : 'font-extrabold text-gray-900'}>
-                    {deliveryFee === 0 ? 'FREE' : `₹${deliveryFee}`}
+                    {deliveryFee === 0 ? 'FREE' : `₹${fmtPrice(deliveryFee)}`}
                   </span>
                 </div>
 
                 {/* Convenience Fee */}
                 <div className="flex justify-between items-center text-xs text-gray-600 font-medium">
                   <span>Convenience fee</span>
-                  <span className="font-extrabold text-gray-900">₹{convenienceFee}</span>
+                  <span className="font-extrabold text-gray-900">₹{fmtPrice(convenienceFee)}</span>
                 </div>
 
                 <div className="h-px bg-gray-100 my-1" />
@@ -421,7 +424,7 @@ export default function CartDrawer() {
                 {/* Grand Total */}
                 <div className="flex justify-between items-center text-sm font-black text-gray-900">
                   <span>Grand total</span>
-                  <span className="text-[#0c831f] font-black text-base">₹{grandTotal}</span>
+                  <span className="text-[#0c831f] font-black text-base">₹{fmtPrice(grandTotal)}</span>
                 </div>
               </div>
 
@@ -430,7 +433,7 @@ export default function CartDrawer() {
                 <div className="bg-amber-50 border border-amber-200 p-3 rounded-2xl flex items-center gap-2.5 text-amber-900">
                   <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
                   <p className="text-[11px] font-bold">
-                    Add items worth <span className="font-black text-amber-950">₹{minOrderShortfall}</span> more to meet minimum order value.
+                    Add items worth <span className="font-black text-amber-950">₹{fmtPrice(minOrderShortfall)}</span> more to meet minimum order value.
                   </p>
                 </div>
               )}
@@ -445,7 +448,7 @@ export default function CartDrawer() {
             {/* Sticky Celebration Pill */}
             {totalSavings > 0 && (
               <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-black py-1 px-3 rounded-xl flex items-center justify-between">
-                <span>% You saved ₹{totalSavings} on this order!</span>
+                <span>% You saved ₹{fmtPrice(totalSavings)} on this order!</span>
                 <span className="text-xs">🥳</span>
               </div>
             )}
@@ -460,7 +463,7 @@ export default function CartDrawer() {
               }`}
             >
               <div className="flex flex-col items-start leading-tight">
-                <span className="text-base font-black">₹{grandTotal}</span>
+                <span className="text-base font-black">₹{fmtPrice(grandTotal)}</span>
                 <span className="text-[10px] text-emerald-100 font-bold uppercase tracking-wider">
                   TOTAL AMOUNT
                 </span>

@@ -77,9 +77,11 @@ const cartSlice = createSlice({
       const existing = state.items.find(i => i.variantId === action.payload.variantId)
       if (existing) {
         existing.quantity += action.payload.quantity
-        existing.lineTotal = existing.unitPrice * existing.quantity
+        existing.lineTotal = Math.round(existing.unitPrice * existing.quantity * 100) / 100
       } else {
-        state.items.push({ ...action.payload })
+        const item = { ...action.payload }
+        item.lineTotal = Math.round(item.unitPrice * item.quantity * 100) / 100
+        state.items.push(item)
       }
       saveCartToStorage(state.items, state.isB2BMode)
     },
@@ -91,7 +93,7 @@ const cartSlice = createSlice({
       const item = state.items.find(i => i.variantId === action.payload)
       if (item) { 
         item.quantity += 1
-        item.lineTotal = item.unitPrice * item.quantity 
+        item.lineTotal = Math.round(item.unitPrice * item.quantity * 100) / 100
       }
       saveCartToStorage(state.items, state.isB2BMode)
     },
@@ -102,7 +104,7 @@ const cartSlice = createSlice({
         if (item.quantity <= 0) {
           state.items = state.items.filter(i => i.variantId !== action.payload)
         } else {
-          item.lineTotal = item.unitPrice * item.quantity
+          item.lineTotal = Math.round(item.unitPrice * item.quantity * 100) / 100
         }
       }
       saveCartToStorage(state.items, state.isB2BMode)
@@ -125,7 +127,7 @@ export const selectCartItems = (state: { cart: CartState }) => state.cart.items
 export const selectCartCount = (state: { cart: CartState }) =>
   state.cart.items.reduce((acc, i) => acc + i.quantity, 0)
 export const selectCartTotal = (state: { cart: CartState }) =>
-  state.cart.items.reduce((acc, i) => acc + i.lineTotal, 0)
+  Math.round(state.cart.items.reduce((acc, i) => acc + (i.lineTotal || 0), 0) * 100) / 100
 export const selectIsB2BMode = (state: { cart: CartState }) => state.cart.isB2BMode
 export const selectCartOpen = (state: { cart: CartState }) => state.cart.isOpen
 

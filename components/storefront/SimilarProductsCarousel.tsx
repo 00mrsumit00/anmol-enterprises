@@ -6,6 +6,7 @@ import { Plus, Minus, ChevronRight, ShoppingBag } from 'lucide-react'
 import { useCart } from '@/hooks/useCart'
 import { getProductPacketImage, normalizeImageUrl } from '@/lib/productImages'
 import { useToast } from '@/components/ui/Toast'
+import { useActiveCampaign } from '@/hooks/useActiveCampaign'
 
 interface SimilarProductsProps {
   categoryId?: string
@@ -22,6 +23,7 @@ export default function SimilarProductsCarousel({
   const [isLoading, setIsLoading] = useState(true)
   const { items, add, increment, decrement, isB2BMode } = useCart()
   const { showToast } = useToast()
+  const { calculateProductOffer } = useActiveCampaign()
 
   useEffect(() => {
     fetch('/api/products')
@@ -63,10 +65,16 @@ export default function SimilarProductsCarousel({
       <div className="flex items-stretch gap-3 overflow-x-auto pb-3 pt-1 no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0 snap-x">
         {products.map((prod) => {
           const rawVariant = prod.variants?.[0]
-          const price = isB2BMode
+          const basePrice = isB2BMode
             ? (rawVariant?.b2bPrice || prod.price || 169)
             : (rawVariant?.retailPrice || prod.price || 213)
-          const mrp = Math.round(price * 1.15)
+          const offer = calculateProductOffer({
+            productId: prod.id,
+            categoryId: prod.categoryId || categoryId,
+            basePrice,
+          })
+          const price = offer.hasOffer ? offer.finalPrice : basePrice
+          const originalPrice = offer.hasOffer ? offer.originalPrice : null
           const weight = rawVariant?.weightGrams
             ? (rawVariant.weightGrams >= 1000
                 ? `${(rawVariant.weightGrams / 1000).toFixed(1).replace('.0', '')} kg`
@@ -132,6 +140,12 @@ export default function SimilarProductsCarousel({
                       }`}
                     />
                   </span>
+                  {/* Dynamic Offer Ribbon */}
+                  {offer.hasOffer && (
+                    <span className="absolute top-1.5 right-1.5 bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-black text-[9px] px-1.5 py-0.5 rounded shadow-xs uppercase tracking-wider">
+                      {offer.badgeText}
+                    </span>
+                  )}
                 </div>
 
                 {/* Title & Weight */}
@@ -149,9 +163,9 @@ export default function SimilarProductsCarousel({
                   <span className="text-xs font-black text-slate-900 block leading-tight">
                     ₹{price}
                   </span>
-                  {mrp > price && (
+                  {offer.hasOffer && (
                     <span className="text-[10px] text-slate-400 line-through leading-tight">
-                      ₹{mrp}
+                      ₹{originalPrice}
                     </span>
                   )}
                 </div>

@@ -38,7 +38,7 @@ export default function FloatingViewCartPill() {
           <div className="text-left leading-tight truncate">
             <span className="block text-xs font-black tracking-wide text-white">View cart</span>
             <span className="block text-[11px] font-medium text-emerald-100">
-              {count} {count === 1 ? 'item' : 'items'} • ₹{total}
+              {count} {count === 1 ? 'item' : 'items'} • ₹{Number(total).toFixed(2).replace(/\.00$/, '')}
             </span>
           </div>
         </div>
