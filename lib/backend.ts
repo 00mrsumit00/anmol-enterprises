@@ -2011,28 +2011,51 @@ apiRouter.put('/products/:id', authMiddleware, requireRole(['ADMIN', 'STAFF']), 
   }
 })
 
-// Admin Delete Product
-apiRouter.delete('/products/:id', authMiddleware, requireRole(['ADMIN']), async (req: Request, res: Response) => {
+// Admin Delete Product (Permanent Purge from DB and Store)
+apiRouter.delete('/products/:id', authMiddleware, requireRole(['SUPER_ADMIN', 'ADMIN']), async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string
 
-    // Check if product is in any orders
-    const orderItemsCount = await prisma.orderItem.count({ where: { productId: id } })
-    
-    if (orderItemsCount > 0) {
-      // Soft delete by deactivating
-      await prisma.product.update({
-        where: { id },
-        data: { isActive: false }
-      })
-      invalidateCatalogCache()
-      return res.json({ message: 'Product deactivated (associated with existing orders)' })
-    } else {
-      // Hard delete
-      await prisma.product.delete({ where: { id } })
-      invalidateCatalogCache()
-      return res.json({ message: 'Product deleted permanently' })
+    const target = await prisma.product.findFirst({
+      where: { OR: [{ id }, { slug: id }] }
+    })
+
+    if (!target) {
+      return res.status(404).json({ error: 'Product not found' })
     }
+
+    const productId = target.id
+
+    // Atomic transaction to permanently purge product and all dependent records from the database
+    await prisma.$transaction(async (tx) => {
+      // 1. Fetch all product variant IDs
+      const variants = await tx.productVariant.findMany({
+        where: { productId },
+        select: { id: true }
+      })
+      const variantIds = variants.map((v) => v.id)
+
+      // 2. Delete inventory movements and batches
+      if (variantIds.length > 0) {
+        await tx.stockMovement.deleteMany({ where: { variantId: { in: variantIds } } })
+        await tx.inventoryBatch.deleteMany({ where: { variantId: { in: variantIds } } })
+      }
+
+      // 3. Delete order items referencing this product or its variants
+      await tx.orderItem.deleteMany({ where: { productId } })
+      if (variantIds.length > 0) {
+        await tx.orderItem.deleteMany({ where: { variantId: { in: variantIds } } })
+      }
+
+      // 4. Delete product variants
+      await tx.productVariant.deleteMany({ where: { productId } })
+
+      // 5. Permanently delete the product
+      await tx.product.delete({ where: { id: productId } })
+    })
+
+    invalidateCatalogCache()
+    return res.json({ message: 'Product permanently deleted from database' })
   } catch (error) {
     console.error('Delete product error:', error)
     return res.status(500).json({ error: 'Failed to delete product' })

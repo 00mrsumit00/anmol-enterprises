@@ -219,26 +219,37 @@ export async function DELETE(
 
     const productId = target.id
 
-    // Check if product is in any orders
-    const orderItemCount = await prisma.orderItem.count({
-      where: { productId }
+    // Atomic transaction to permanently purge product and all dependent records from the database
+    await prisma.$transaction(async (tx) => {
+      // 1. Fetch all product variant IDs
+      const variants = await tx.productVariant.findMany({
+        where: { productId },
+        select: { id: true }
+      })
+      const variantIds = variants.map((v) => v.id)
+
+      // 2. Delete inventory movements and batches
+      if (variantIds.length > 0) {
+        await tx.stockMovement.deleteMany({ where: { variantId: { in: variantIds } } })
+        await tx.inventoryBatch.deleteMany({ where: { variantId: { in: variantIds } } })
+      }
+
+      // 3. Delete order items referencing this product or its variants
+      await tx.orderItem.deleteMany({ where: { productId } })
+      if (variantIds.length > 0) {
+        await tx.orderItem.deleteMany({ where: { variantId: { in: variantIds } } })
+      }
+
+      // 4. Delete product variants
+      await tx.productVariant.deleteMany({ where: { productId } })
+
+      // 5. Permanently delete the product
+      await tx.product.delete({ where: { id: productId } })
     })
 
-    if (orderItemCount > 0) {
-      // Deactivate instead of hard delete
-      await prisma.product.update({
-        where: { id: productId },
-        data: { isActive: false }
-      })
-      return NextResponse.json({ message: 'Product deactivated (existing orders depend on it)' })
-    } else {
-      // Safe hard delete
-      await prisma.productVariant.deleteMany({ where: { productId } })
-      await prisma.product.delete({ where: { id: productId } })
-      return NextResponse.json({ message: 'Product deleted successfully' })
-    }
+    return NextResponse.json({ message: 'Product permanently deleted from database' })
   } catch (error: any) {
-    console.error('Error deleting product in App Router:', error)
+    console.error('Error permanently deleting product in App Router:', error)
     return NextResponse.json({ error: error.message || 'Failed to delete product' }, { status: 500 })
   }
 }

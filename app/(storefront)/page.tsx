@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import HeroBanner from '@/components/storefront/HeroBanner'
 import BlinkitCategoryNavbar from '@/components/storefront/BlinkitCategoryNavbar'
@@ -8,10 +8,33 @@ import ProductGrid from '@/components/storefront/ProductGrid'
 import ProductCard from '@/components/storefront/ProductCard'
 import TrustStrip from '@/components/storefront/TrustStrip'
 import B2BBanner from '@/components/storefront/B2BBanner'
-import { ChevronRight, Award, Flame, Zap, Snowflake } from 'lucide-react'
+import { ChevronRight, ChevronLeft, Award, Flame, Zap, Snowflake } from 'lucide-react'
 
 export default function Homepage() {
   const [activeFilter, setActiveFilter] = useState('all')
+
+  // Carousel ref and scroll indicator states
+  const carouselRef = useRef<HTMLDivElement>(null)
+  const [canScrollLeft, setCanScrollLeft] = useState(false)
+  const [canScrollRight, setCanScrollRight] = useState(true)
+
+  const checkScroll = useCallback(() => {
+    if (carouselRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = carouselRef.current
+      setCanScrollLeft(scrollLeft > 15)
+      setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 15)
+    }
+  }, [])
+
+  const handleScroll = (direction: 'left' | 'right') => {
+    if (carouselRef.current) {
+      const scrollAmount = Math.max(280, Math.min(carouselRef.current.clientWidth * 0.75, 480))
+      carouselRef.current.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth',
+      })
+    }
+  }
 
   // Fetch products and categories from backend
   const { data: products = [], isLoading: productsLoading } = useQuery({
@@ -100,6 +123,19 @@ export default function Homepage() {
     return categoryGroups
   }, [activeFilter, products, filteredProducts, categories])
 
+  // Attach passive scroll listener for dynamic arrow visibility
+  useEffect(() => {
+    checkScroll()
+    const el = carouselRef.current
+    if (!el) return
+    el.addEventListener('scroll', checkScroll, { passive: true })
+    window.addEventListener('resize', checkScroll)
+    return () => {
+      el.removeEventListener('scroll', checkScroll)
+      window.removeEventListener('resize', checkScroll)
+    }
+  }, [filteredProducts, checkScroll])
+
   return (
     <div className="flex flex-col gap-3.5 sm:gap-4 md:gap-5 font-sans">
       
@@ -110,14 +146,14 @@ export default function Homepage() {
       <BlinkitCategoryNavbar activeCategory={activeFilter} onSelectCategory={setActiveFilter} />
 
       {/* C. Connected Category Product Carousel (Directly Connected to Navbar) */}
-      <section className="bg-gradient-to-r from-amber-500/10 via-yellow-500/5 to-emerald-500/10 p-3.5 sm:p-4 md:p-5 rounded-2xl sm:rounded-3xl border border-amber-200/60 no-print transition-all duration-300">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-full bg-[#EAB308] text-slate-900 flex items-center justify-center font-bold text-xs shadow-xs">
+      <section className="relative group/carousel bg-gradient-to-r from-amber-500/10 via-yellow-500/5 to-emerald-500/10 p-3.5 sm:p-4 md:p-5 rounded-2xl sm:rounded-3xl border border-amber-200/60 no-print transition-all duration-300">
+        <div className="flex items-center justify-between mb-3 gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-7 h-7 rounded-full bg-[#EAB308] text-slate-900 flex items-center justify-center font-bold text-xs shadow-xs shrink-0">
               {activeFilter === 'all' ? '✨' : (selectedCategory?.emoji || '❄️')}
             </div>
-            <div>
-              <h3 className="font-extrabold text-sm sm:text-base md:text-lg text-gray-900 leading-tight">
+            <div className="min-w-0">
+              <h3 className="font-extrabold text-sm sm:text-base md:text-lg text-gray-900 leading-tight truncate">
                 {activeFilter === 'all' ? 'Top Picks & Bestsellers' : (selectedCategory?.name || 'Category Collection')}
               </h3>
               <span className="text-[11px] text-slate-500 font-medium">
@@ -125,38 +161,99 @@ export default function Homepage() {
               </span>
             </div>
           </div>
-          <button 
-            type="button"
-            onClick={() => {
-              const el = document.getElementById('all-products-section')
-              if (el) el.scrollIntoView({ behavior: 'smooth' })
-            }} 
-            className="text-xs font-bold text-[#0c831f] hover:text-[#096918] flex items-center gap-0.5 cursor-pointer"
-          >
-            <span>See Grid</span>
-            <ChevronRight className="w-4 h-4" />
-          </button>
+
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            {/* Header Arrow Controls for Quick Navigation */}
+            <div className="flex items-center gap-1 bg-white/80 backdrop-blur-xs p-0.5 rounded-full border border-amber-200/80 shadow-2xs">
+              <button 
+                type="button"
+                onClick={() => handleScroll('left')}
+                disabled={!canScrollLeft}
+                aria-label="Scroll left"
+                className={`w-7 h-7 rounded-full flex items-center justify-center transition-all ${
+                  canScrollLeft
+                    ? 'text-slate-800 hover:bg-white hover:text-emerald-700 active:scale-95 shadow-xs cursor-pointer'
+                    : 'text-slate-300 cursor-not-allowed opacity-30'
+                }`}
+              >
+                <ChevronLeft className="w-4 h-4 stroke-[2.5]" />
+              </button>
+              <button 
+                type="button"
+                onClick={() => handleScroll('right')}
+                disabled={!canScrollRight}
+                aria-label="Scroll right"
+                className={`w-7 h-7 rounded-full flex items-center justify-center transition-all ${
+                  canScrollRight
+                    ? 'text-slate-800 hover:bg-white hover:text-emerald-700 active:scale-95 shadow-xs cursor-pointer'
+                    : 'text-slate-300 cursor-not-allowed opacity-30'
+                }`}
+              >
+                <ChevronRight className="w-4 h-4 stroke-[2.5]" />
+              </button>
+            </div>
+
+            <button 
+              type="button"
+              onClick={() => {
+                const el = document.getElementById('all-products-section')
+                if (el) el.scrollIntoView({ behavior: 'smooth' })
+              }} 
+              className="text-xs font-bold text-[#0c831f] hover:text-[#096918] flex items-center gap-0.5 cursor-pointer ml-0.5"
+            >
+              <span>See Grid</span>
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
-        {/* Horizontal scroll grid with mouse wheel scroll */}
-        <div 
-          onWheel={(e) => {
-            if (e.deltaY !== 0) {
-              e.currentTarget.scrollLeft += e.deltaY
-            }
-          }}
-          className="w-full overflow-x-auto no-scrollbar flex items-stretch gap-3.5 sm:gap-4 pb-2 -mx-4 px-4 md:mx-0 md:px-0 scroll-smooth"
-        >
-          {filteredProducts.map((product: any) => (
-            <div key={product.id} className="min-w-[190px] sm:min-w-[210px] max-w-[210px] shrink-0">
-              <ProductCard product={product} />
-            </div>
-          ))}
-          {filteredProducts.length === 0 && !productsLoading && (
-            <div className="py-8 text-center w-full text-slate-400 text-sm">
-              No products found in this category.
-            </div>
+        {/* Carousel Container with Floating Edge Arrows */}
+        <div className="relative">
+          {/* Floating Left Side Arrow Button (Desktop & Mobile) */}
+          {canScrollLeft && (
+            <button
+              type="button"
+              onClick={() => handleScroll('left')}
+              aria-label="Previous products"
+              className="absolute -left-2 sm:-left-3.5 top-1/2 -translate-y-1/2 z-20 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-white/95 hover:bg-white text-slate-800 shadow-lg border border-slate-200 flex items-center justify-center hover:scale-105 active:scale-95 transition-all cursor-pointer backdrop-blur-xs animate-in fade-in zoom-in-75 duration-200"
+            >
+              <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.5]" />
+            </button>
           )}
+
+          {/* Floating Right Side Arrow Button (Desktop & Mobile) */}
+          {canScrollRight && (
+            <button
+              type="button"
+              onClick={() => handleScroll('right')}
+              aria-label="Next products"
+              className="absolute -right-2 sm:-right-3.5 top-1/2 -translate-y-1/2 z-20 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-white/95 hover:bg-white text-slate-800 shadow-lg border border-slate-200 flex items-center justify-center hover:scale-105 active:scale-95 transition-all cursor-pointer backdrop-blur-xs animate-in fade-in zoom-in-75 duration-200"
+            >
+              <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.5]" />
+            </button>
+          )}
+
+          {/* Horizontal scroll grid with mouse wheel scroll */}
+          <div 
+            ref={carouselRef}
+            onWheel={(e) => {
+              if (e.deltaY !== 0) {
+                e.currentTarget.scrollLeft += e.deltaY
+              }
+            }}
+            className="w-full overflow-x-auto no-scrollbar flex items-stretch gap-3.5 sm:gap-4 pb-2 -mx-4 px-4 md:mx-0 md:px-0 scroll-smooth"
+          >
+            {filteredProducts.map((product: any) => (
+              <div key={product.id} className="min-w-[190px] sm:min-w-[210px] max-w-[210px] shrink-0">
+                <ProductCard product={product} />
+              </div>
+            ))}
+            {filteredProducts.length === 0 && !productsLoading && (
+              <div className="py-8 text-center w-full text-slate-400 text-sm">
+                No products found in this category.
+              </div>
+            )}
+          </div>
         </div>
       </section>
 

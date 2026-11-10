@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { 
   Package, Plus, Search, Filter, Edit3, Trash2, Eye, EyeOff, 
-  Sparkles, CheckCircle2, AlertCircle, LayoutGrid, List, Tag, Image as ImageIcon,
+  Sparkles, CheckCircle2, AlertCircle, AlertTriangle, Loader2, LayoutGrid, List, Tag, Image as ImageIcon,
   DollarSign, ShieldCheck, Flame, ChevronRight, UploadCloud, Star, ArrowLeft, ArrowRight,
   Upload, X, Boxes, ShoppingBag, Layers, BarChart3, Check
 } from 'lucide-react'
@@ -43,6 +43,7 @@ export default function AdminProductsPage() {
   const [editingProduct, setEditingProduct] = useState<any>(null)
   const [isUploading, setIsUploading] = useState(false)
   const [customImageUrlInput, setCustomImageUrlInput] = useState('')
+  const [productToDelete, setProductToDelete] = useState<any | null>(null)
 
   // Inline Category Creation State
   const [showAddCategoryInline, setShowAddCategoryInline] = useState(false)
@@ -218,7 +219,7 @@ export default function AdminProductsPage() {
       return data
     },
     onSuccess: (data) => {
-      showToast(data.message || 'Product removed!', 'success')
+      showToast(data.message || 'Product permanently deleted!', 'success')
       queryClient.invalidateQueries({ queryKey: ['admin-products'] })
       queryClient.invalidateQueries({ queryKey: ['products'] })
     },
@@ -551,10 +552,27 @@ export default function AdminProductsPage() {
     })
   }
 
-  const handleDelete = (product: any) => {
-    if (confirm(`Are you sure you want to delete or deactivate "${product.name}"?`)) {
-      deleteMutation.mutate(product.id)
+  const openDeleteModal = (product: any) => {
+    setProductToDelete(product)
+  }
+
+  const closeDeleteModal = () => {
+    if (deleteMutation.isPending) return
+    setProductToDelete(null)
+  }
+
+  const handleConfirmDelete = async () => {
+    if (!productToDelete) return
+    try {
+      await deleteMutation.mutateAsync(productToDelete.id)
+      setProductToDelete(null)
+    } catch {
+      // Handled by deleteMutation onError
     }
+  }
+
+  const handleDelete = (product: any) => {
+    openDeleteModal(product)
   }
 
   // Filter products by search and category
@@ -1966,6 +1984,100 @@ export default function AdminProductsPage() {
               )
             })()}
 
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* ============ PERMANENT DELETE PRODUCT CONFIRMATION MODAL ================ */}
+      {/* ========================================================================= */}
+      {productToDelete && (
+        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[250] flex items-center justify-center p-4">
+          <div className="bg-[#111625] rounded-3xl max-w-md w-full p-6 shadow-2xl flex flex-col gap-5 border border-rose-500/30 animate-scale-up relative">
+            {/* Top row with icon & close */}
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400 shrink-0">
+                  <AlertTriangle className="w-6 h-6 animate-pulse" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-white">Permanently Delete Product?</h3>
+                  <p className="text-xs text-rose-300/80 font-medium">This action cannot be undone.</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={closeDeleteModal}
+                disabled={deleteMutation.isPending}
+                className="text-slate-400 hover:text-white p-1 rounded-xl hover:bg-slate-800 transition-colors disabled:opacity-50"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Product card summary preview */}
+            <div className="bg-[#0B0F19] rounded-2xl p-3 border border-slate-800 flex items-center gap-3">
+              <div className="w-14 h-14 bg-slate-900 rounded-xl border border-slate-800 p-1 flex items-center justify-center shrink-0">
+                <img
+                  src={productToDelete.imageUrl || '/images/products/mccain-smiles.jpg'}
+                  alt={productToDelete.name}
+                  className="max-h-full max-w-full object-contain"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = '/images/products/mccain-smiles.jpg'
+                  }}
+                />
+              </div>
+              <div className="min-w-0 flex-1">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  {productToDelete.category?.name || 'McCain Foods'}
+                </span>
+                <h4 className="text-sm font-black text-white truncate">{productToDelete.name}</h4>
+                <span className="text-[10px] font-mono text-slate-500 truncate block mt-0.5">
+                  Slug: {productToDelete.slug || productToDelete.id}
+                </span>
+              </div>
+            </div>
+
+            {/* Warning Message Box */}
+            <div className="bg-rose-500/10 border border-rose-500/20 rounded-2xl p-3.5 text-xs text-rose-200/90 leading-relaxed space-y-1.5">
+              <p className="font-bold flex items-center gap-1.5 text-rose-300">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                Store & Database Purge Confirmation
+              </p>
+              <p className="text-[11px] text-slate-300 font-medium">
+                This product will be <span className="font-bold text-rose-300">permanently deleted</span> from the store and database. It will no longer appear on the customer storefront or the admin panel.
+              </p>
+            </div>
+
+            {/* Action buttons */}
+            <div className="flex items-center gap-2.5 pt-1">
+              <button
+                type="button"
+                onClick={closeDeleteModal}
+                disabled={deleteMutation.isPending}
+                className="flex-1 bg-[#0B0F19] hover:bg-slate-800 text-slate-300 font-bold text-xs py-3 rounded-2xl border border-slate-800 transition-all disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                disabled={deleteMutation.isPending}
+                className="flex-1 bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-500 hover:to-rose-600 text-white font-black text-xs py-3 rounded-2xl shadow-lg shadow-rose-600/30 transition-all flex items-center justify-center gap-2 disabled:opacity-50 active:scale-95"
+              >
+                {deleteMutation.isPending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Deleting...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    <span>Delete Permanently</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}
