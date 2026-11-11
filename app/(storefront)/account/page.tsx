@@ -10,7 +10,7 @@ import {
   Coffee, ShoppingBag, BadgePercent, CreditCard, Sparkles, CheckCircle2, ArrowRight, ArrowLeft,
   Package, UploadCloud, ClipboardList, BarChart3, Truck, Mail, RotateCcw, MapPin, Heart, HelpCircle, Bell, Moon,
   Home, Plus, Edit2, Trash2, Check, Star, X, MessageSquare,
-  FileSpreadsheet, Download, Calendar
+  FileSpreadsheet, Download, Calendar, Video, Play
 } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import OtpVerificationModal from '@/components/storefront/OtpVerificationModal'
@@ -530,7 +530,7 @@ export default function AccountPage() {
   }
 
   return (
-    <div className={user ? "max-w-7xl w-full mx-auto pb-12 no-print px-2 sm:px-4" : "max-w-xl mx-auto pb-12 no-print"}>
+    <div className={user ? "max-w-7xl w-full mx-auto pb-12 no-print px-2 sm:px-4" : "max-w-6xl w-full mx-auto pb-12 no-print px-3 sm:px-6"}>
       {user ? (
         /* ========================================================================= */
         /* ========================= LOGGED IN USER PROFILE ======================== */
@@ -1327,7 +1327,134 @@ export default function AccountPage() {
         /* ========================================================================= */
         /* ========================= UNAUTHENTICATED FORM VIEW ===================== */
         /* ========================================================================= */
-        <div className="bg-white rounded-3xl border border-gray-100 p-6 sm:p-8 shadow-xl flex flex-col gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start pt-2 sm:pt-6">
+          
+          {/* LEFT SHOWCASE COLUMN (Desktop: 7 cols) - Inspired by VS Techworks Interactive Demo */}
+          <div className="hidden lg:flex lg:col-span-7 flex-col gap-5 select-none">
+            
+            {/* Top Wholesale Header & Trust Badge */}
+            <div className="space-y-3">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-800 text-xs font-bold shadow-2xs">
+                <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                <span>Direct Authorized McCain Frozen Distributor • Latur & Marathwada</span>
+              </div>
+              <h1 className="text-3xl sm:text-4xl font-black text-gray-900 tracking-tight leading-tight">
+                Wholesale Frozen Foods Direct from the <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-600 to-orange-600">Cold Chain Hub</span>
+              </h1>
+              <p className="text-sm text-gray-600 leading-relaxed max-w-xl">
+                Commercial frozen food supply for Hotels, Restaurants, Cafes, Caterers & Supermarkets. Unlock bulk Master Cartons, 15–30 day credit lines, and sub-zero doorstep delivery.
+              </p>
+            </div>
+
+            {/* Interactive Wholesale Margin Advantage Card (Demo Preview Concept) */}
+            <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-950 text-white rounded-3xl p-6 shadow-xl border border-indigo-500/20 relative overflow-hidden">
+              <div className="absolute -right-8 -top-8 w-44 h-44 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
+              <div className="relative z-10 space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-white/10">
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-2xl select-none">🍟</span>
+                    <div>
+                      <h4 className="font-extrabold text-sm text-white">Wholesale Commercial Margin Advantage</h4>
+                      <p className="text-[11px] text-slate-300">Comparing McCain French Fries 420g / 1kg packs</p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                    +36% Kitchen Margin
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-white/5 rounded-2xl p-3.5 border border-white/10">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Individual Consumer MRP</span>
+                    <span className="text-xl font-black text-slate-300 block mt-1">₹180 <span className="text-xs font-normal text-slate-400">/ pack</span></span>
+                    <span className="text-[10px] text-slate-400 mt-1 block">Retail Single Pack pricing</span>
+                  </div>
+
+                  <div className="bg-emerald-500/15 rounded-2xl p-3.5 border border-emerald-500/30">
+                    <span className="text-[10px] text-emerald-300 font-bold uppercase tracking-wider block">B2B Master Carton Rate</span>
+                    <span className="text-xl font-black text-emerald-400 block mt-1">₹115 <span className="text-xs font-normal text-emerald-300/80">/ pack</span></span>
+                    <span className="text-[10px] text-emerald-300 font-semibold mt-1 block">Save ₹1,300 per 20-pack carton</span>
+                  </div>
+                </div>
+
+                <div className="pt-1 flex items-center justify-between text-xs text-slate-300">
+                  <span className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> 1-Tap GST Invoices</span>
+                  <span className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> Net 15–30 Day Credit</span>
+                  <span className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> -18°C Cold Chain</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Video Demo Teaser Card */}
+            <Link
+              href="/b2b-guide"
+              className="group bg-gradient-to-r from-purple-900/90 via-indigo-900/90 to-purple-950/90 text-white rounded-3xl p-5 border border-purple-500/30 hover:border-purple-400/50 shadow-lg transition-all flex items-center justify-between gap-4"
+            >
+              <div className="flex items-center gap-3.5">
+                <div className="w-12 h-12 rounded-2xl bg-amber-400 text-slate-950 flex items-center justify-center shrink-0 shadow-lg shadow-amber-400/20 group-hover:scale-105 transition-transform">
+                  <Play className="w-6 h-6 fill-slate-950 ml-0.5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-extrabold text-sm text-white group-hover:text-amber-300 transition-colors">
+                      Watch 3-Minute B2B Registration Demo
+                    </h4>
+                    <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-md bg-white/10 text-purple-200">
+                      3:42 Video
+                    </span>
+                  </div>
+                  <p className="text-xs text-purple-200/80 mt-0.5">
+                    See how to select wholesale account, enter GSTIN/FSSAI, and verify via email OTP step-by-step.
+                  </p>
+                </div>
+              </div>
+              <ArrowRight className="w-5 h-5 text-amber-300 group-hover:translate-x-1 transition-transform shrink-0" />
+            </Link>
+
+            {/* 3 Commercial Highlights */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="p-3.5 rounded-2xl bg-white border border-gray-100 shadow-2xs">
+                <span className="text-xl mb-1 block">🚚</span>
+                <span className="text-xs font-black text-gray-900 block leading-tight">Same-Day Slots</span>
+                <span className="text-[10px] text-gray-500">Morning & Evening dispatch</span>
+              </div>
+              <div className="p-3.5 rounded-2xl bg-white border border-gray-100 shadow-2xs">
+                <span className="text-xl mb-1 block">💳</span>
+                <span className="text-xs font-black text-gray-900 block leading-tight">Flexible Terms</span>
+                <span className="text-[10px] text-gray-500">COD, UPI, or B2B Credit</span>
+              </div>
+              <div className="p-3.5 rounded-2xl bg-white border border-gray-100 shadow-2xs">
+                <span className="text-xl mb-1 block">📑</span>
+                <span className="text-xs font-black text-gray-900 block leading-tight">Excel Ledgers</span>
+                <span className="text-[10px] text-gray-500">Instant statement download</span>
+              </div>
+            </div>
+
+          </div>
+
+          {/* RIGHT AUTH CARD (Desktop: 5 cols, Mobile: full-width) */}
+          <div className="w-full lg:col-span-5 bg-white rounded-3xl border border-gray-100 p-6 sm:p-8 shadow-xl flex flex-col gap-6">
+
+            {/* Mobile Top B2B Guide Banner */}
+            <Link
+              href="/b2b-guide"
+              className="lg:hidden p-3 rounded-2xl bg-gradient-to-r from-purple-950 via-slate-900 to-indigo-950 text-white border border-purple-500/30 flex items-center justify-between gap-3 shadow-md"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-amber-400 text-slate-950 flex items-center justify-center shrink-0 font-black">
+                  <Play className="w-4 h-4 fill-slate-950 ml-0.5" />
+                </div>
+                <div>
+                  <span className="text-xs font-black text-white block leading-tight">
+                    New to B2B? Watch Video Demo (3:42)
+                  </span>
+                  <span className="text-[10px] text-purple-200">
+                    Step-by-step registration guide →
+                  </span>
+                </div>
+              </div>
+              <ArrowRight className="w-4 h-4 text-amber-400 shrink-0" />
+            </Link>
           
           {/* Header Banner */}
           <div className="text-center pb-4 border-b border-gray-100">
@@ -1507,6 +1634,29 @@ export default function AccountPage() {
                     </div>
                   </div>
 
+                  {/* B2B Video & Step-by-Step Guide Link */}
+                  <Link
+                    href="/b2b-guide"
+                    className="p-3.5 rounded-2xl bg-gradient-to-r from-purple-50 via-indigo-50 to-amber-50 border border-purple-200/80 hover:border-purple-300 transition flex items-center justify-between gap-3 text-left group shadow-2xs"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-xl bg-purple-600 text-white flex items-center justify-center shrink-0 shadow-xs group-hover:scale-105 transition-transform">
+                        <Video className="w-4 h-4 fill-white" />
+                      </div>
+                      <div>
+                        <span className="text-xs font-black text-purple-950 block leading-tight">
+                          Need help registering your business?
+                        </span>
+                        <span className="text-[11px] text-purple-700 font-semibold">
+                          Watch 3-minute video guide & step-by-step tutorial →
+                        </span>
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-lg bg-white border border-purple-200 text-purple-900 shrink-0">
+                      User Guide
+                    </span>
+                  </Link>
+
                 </div>
               ) : (
                 /* ----- STEP 2: REGISTRATION DETAILS FORM ----- */
@@ -1526,6 +1676,24 @@ export default function AccountPage() {
                       {accountType === 'BUSINESS' ? '🏢 B2B Partner Form' : '👤 Consumer Form'}
                     </span>
                   </div>
+
+                  {/* Step 2 B2B Advisory & Guide Banner */}
+                  {accountType === 'BUSINESS' && (
+                    <div className="p-3 bg-purple-50 border border-purple-200 rounded-2xl flex items-center justify-between gap-2.5 text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="text-base select-none">💡</span>
+                        <span className="text-purple-950 font-bold leading-tight">
+                          First time registering? Follow our step-by-step guide with screencast demo.
+                        </span>
+                      </div>
+                      <Link
+                        href="/b2b-guide"
+                        className="text-[11px] font-black text-purple-800 hover:text-purple-950 underline whitespace-nowrap shrink-0"
+                      >
+                        Watch Guide (3:42)
+                      </Link>
+                    </div>
+                  )}
 
                   {/* Common: Name */}
                   <div className="flex flex-col gap-1">
@@ -1775,6 +1943,7 @@ export default function AccountPage() {
           )}
 
 
+          </div>
         </div>
       )}
 
