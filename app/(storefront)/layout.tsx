@@ -20,6 +20,7 @@ export default function StorefrontLayout({
   const isChat = pathname?.startsWith('/chat')
   const isOrderAgain = pathname?.startsWith('/order-again')
   const isProductPage = pathname?.startsWith('/product/')
+  const isB2bGuide = pathname?.startsWith('/b2b-guide')
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -36,13 +37,15 @@ export default function StorefrontLayout({
       <StorefrontAlertBanner />
 
       {/* Sticky Top Header */}
-      <Suspense fallback={<header className="sticky top-0 z-[100] w-full bg-white h-16 shadow-xs border-b border-gray-100" />}>
-        <Navbar />
-      </Suspense>
+      {!isB2bGuide && (
+        <Suspense fallback={<header className="sticky top-0 z-[100] w-full bg-white h-16 shadow-xs border-b border-gray-100" />}>
+          <Navbar />
+        </Suspense>
+      )}
 
       {/* Main Storefront Area */}
       <main className={
-        isChat
+        isChat || isB2bGuide
           ? "flex-1 w-full p-0 flex flex-col"
           : isOrderAgain
           ? "flex-1 w-full mx-auto p-0 pb-20 md:pb-12"
@@ -53,11 +56,11 @@ export default function StorefrontLayout({
         {children}
       </main>
 
-      {/* Floating Bottom Cart Bar (Blinkit/Zepto Style) - hidden on chat and product detail pages */}
-      {!isChat && !isProductPage && <FloatingCartBar />}
+      {/* Floating Bottom Cart Bar (Blinkit/Zepto Style) - hidden on chat, product detail, and b2b guide pages */}
+      {!isChat && !isProductPage && !isB2bGuide && <FloatingCartBar />}
 
-      {/* PWA Mobile Bottom Tab Navigation - hidden on chat and product detail pages */}
-      {!isChat && !isProductPage && <BottomNav />}
+      {/* PWA Mobile Bottom Tab Navigation - hidden on chat, product detail, and b2b guide pages */}
+      {!isChat && !isProductPage && !isB2bGuide && <BottomNav />}
 
       {/* Side Slide Cart Drawer */}
       <CartDrawer />
