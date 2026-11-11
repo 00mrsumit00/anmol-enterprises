@@ -5,15 +5,12 @@ import Link from 'next/link'
 import {
   Play,
   Pause,
-  Volume2,
-  VolumeX,
-  Maximize2,
+  RotateCcw,
   CheckCircle2,
   ArrowRight,
   ArrowLeft,
   ChevronDown,
   Sparkles,
-  Video,
   ExternalLink,
   Snowflake,
   CreditCard,
@@ -26,15 +23,23 @@ import {
   Store,
   Coffee,
   ShoppingCart,
-  UtensilsCrossed
+  UtensilsCrossed,
+  Phone,
+  Sun,
+  Moon,
+  Send,
+  Lock,
+  Mail,
+  User,
+  Check,
+  MousePointer,
+  HelpCircle,
+  X
 } from 'lucide-react'
+import AnimatedLogo from '@/components/storefront/AnimatedLogo'
 
 // ─── TYPES ──────────────────────────────────────────────────────────────────────
-interface Chapter {
-  time: number
-  label: string
-  shortLabel: string
-}
+type Theme = 'dark' | 'light'
 
 interface TerminalSlide {
   title: string
@@ -45,14 +50,6 @@ interface TerminalSlide {
 }
 
 // ─── CONSTANTS ──────────────────────────────────────────────────────────────────
-const CHAPTERS: Chapter[] = [
-  { time: 0, label: 'Account Type Selection', shortLabel: '0:00 — Type' },
-  { time: 65, label: 'Outlet Information', shortLabel: '1:05 — Info' },
-  { time: 110, label: 'GSTIN & FSSAI Entry', shortLabel: '1:50 — GSTIN' },
-  { time: 150, label: 'Email OTP Verification', shortLabel: '2:30 — OTP' },
-  { time: 195, label: 'Wholesale Catalog Access', shortLabel: '3:15 — Shop' }
-]
-
 const TERMINAL_SLIDES: TerminalSlide[] = [
   {
     title: 'WHOLESALE PRICING ENGINE',
@@ -103,7 +100,7 @@ const STEPS = [
     num: '01',
     terminalTitle: 'ACCOUNT TYPE SELECTION',
     title: 'Choose "Business / Wholesale Partner"',
-    description: 'On the Anmol portal, you\'ll be asked how you use our platform. Select the Business / Wholesale Partner option to unlock wholesale carton packaging, B2B tiered rates, and credit facilities.',
+    description: 'On the Anmol portal, select the Business / Wholesale Partner option to unlock wholesale carton packaging, B2B tiered rates, and credit facilities that individual consumers cannot see.',
     pills: [
       { text: 'Wholesale Unlock', color: 'amber' },
       { text: 'B2B Tiers', color: 'emerald' }
@@ -200,8 +197,8 @@ function useScrollReveal() {
   return { ref, isVisible }
 }
 
-// ─── FLOATING TERMINAL CARD COMPONENT ───────────────────────────────────────────
-function FloatingTerminalCard() {
+// ─── FLOATING TERMINAL CARD (Hero Right Column) ───────────────────────────────────
+function FloatingTerminalCard({ theme }: { theme: Theme }) {
   const [activeSlide, setActiveSlide] = useState(0)
   const [isTransitioning, setIsTransitioning] = useState(false)
 
@@ -219,10 +216,10 @@ function FloatingTerminalCard() {
   const slide = TERMINAL_SLIDES[activeSlide]
 
   const pillColorMap: Record<string, string> = {
-    amber: 'bg-amber-400/15 text-amber-300 border-amber-400/30',
-    emerald: 'bg-emerald-400/15 text-emerald-300 border-emerald-400/30',
-    cyan: 'bg-cyan-400/15 text-cyan-300 border-cyan-400/30',
-    violet: 'bg-violet-400/15 text-violet-300 border-violet-400/30'
+    amber: 'bg-amber-400/15 text-amber-500 dark:text-amber-300 border-amber-400/30',
+    emerald: 'bg-emerald-400/15 text-emerald-600 dark:text-emerald-300 border-emerald-400/30',
+    cyan: 'bg-cyan-400/15 text-cyan-600 dark:text-cyan-300 border-cyan-400/30',
+    violet: 'bg-violet-400/15 text-violet-600 dark:text-violet-300 border-violet-400/30'
   }
 
   return (
@@ -231,17 +228,24 @@ function FloatingTerminalCard() {
       style={{ animation: 'float 6s ease-in-out infinite' }}
     >
       {/* Glow behind card */}
-      <div className="absolute -inset-4 bg-amber-500/[0.07] rounded-[2rem] blur-2xl pointer-events-none" />
+      <div className="absolute -inset-4 bg-amber-500/[0.08] rounded-[2rem] blur-2xl pointer-events-none" />
 
-      <div className={`relative bg-[#0D1117] border border-slate-700/40 rounded-2xl overflow-hidden shadow-2xl shadow-black/40 transition-all duration-400 ${isTransitioning ? 'opacity-0 scale-[0.97]' : 'opacity-100 scale-100'}`}>
+      <div className={`relative ${
+        theme === 'dark'
+          ? 'bg-[#0D1117] border-slate-700/40 text-slate-100 shadow-2xl shadow-black/60'
+          : 'bg-white border-slate-200/90 text-slate-900 shadow-xl shadow-slate-300/40'
+      } border rounded-2xl overflow-hidden transition-all duration-400 ${isTransitioning ? 'opacity-0 scale-[0.97]' : 'opacity-100 scale-100'}`}>
+        
         {/* Terminal Header Bar */}
-        <div className="flex items-center justify-between px-4 py-2.5 bg-[#161B22] border-b border-slate-700/40">
+        <div className={`flex items-center justify-between px-4 py-2.5 ${
+          theme === 'dark' ? 'bg-[#161B22] border-slate-700/40' : 'bg-slate-100/80 border-slate-200'
+        } border-b`}>
           <div className="flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-full bg-red-500/80" />
             <span className="w-2.5 h-2.5 rounded-full bg-yellow-500/80" />
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/80" />
           </div>
-          <span className="font-mono text-[10px] text-slate-400 tracking-wider uppercase">
+          <span className={`font-mono text-[10px] ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'} tracking-wider uppercase font-semibold`}>
             {slide.title}
           </span>
           {/* Progress bar */}
@@ -250,7 +254,7 @@ function FloatingTerminalCard() {
               <div
                 key={i}
                 className={`h-1 rounded-full transition-all duration-300 ${
-                  i === activeSlide ? 'w-4 bg-amber-400' : 'w-1.5 bg-slate-600'
+                  i === activeSlide ? 'w-4 bg-amber-400' : (theme === 'dark' ? 'w-1.5 bg-slate-600' : 'w-1.5 bg-slate-300')
                 }`}
               />
             ))}
@@ -259,8 +263,7 @@ function FloatingTerminalCard() {
 
         {/* Card Body */}
         <div className="p-5 space-y-4">
-          {/* Subtitle */}
-          <p className="text-xs text-slate-400 leading-relaxed">
+          <p className={`text-xs ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'} leading-relaxed`}>
             {slide.subtitle}
           </p>
 
@@ -271,12 +274,16 @@ function FloatingTerminalCard() {
                 key={i}
                 className={`flex items-center justify-between px-3 py-2.5 rounded-xl border ${
                   row.highlight
-                    ? 'bg-amber-500/[0.06] border-amber-500/20'
-                    : 'bg-slate-800/40 border-slate-700/30'
+                    ? (theme === 'dark' ? 'bg-amber-500/[0.08] border-amber-500/20' : 'bg-amber-50 border-amber-200')
+                    : (theme === 'dark' ? 'bg-slate-800/40 border-slate-700/30' : 'bg-slate-50 border-slate-200/70')
                 }`}
               >
-                <span className="text-[11px] text-slate-400">{row.label}</span>
-                <span className={`text-xs font-bold ${row.highlight ? 'text-amber-300' : 'text-slate-200'}`}>
+                <span className={`text-[11px] ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'} font-medium`}>{row.label}</span>
+                <span className={`text-xs font-bold ${
+                  row.highlight
+                    ? (theme === 'dark' ? 'text-amber-300' : 'text-amber-700')
+                    : (theme === 'dark' ? 'text-slate-200' : 'text-slate-800')
+                }`}>
                   {row.value}
                 </span>
               </div>
@@ -296,12 +303,12 @@ function FloatingTerminalCard() {
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-between pt-2 border-t border-slate-700/30">
-            <span className="text-[10px] text-slate-500 flex items-center gap-1.5">
-              <Sparkles className="w-3 h-3 text-amber-400/60" />
+          <div className={`flex items-center justify-between pt-2 border-t ${theme === 'dark' ? 'border-slate-700/30' : 'border-slate-100'}`}>
+            <span className={`text-[10px] ${theme === 'dark' ? 'text-slate-500' : 'text-slate-500'} flex items-center gap-1.5`}>
+              <Sparkles className="w-3 h-3 text-amber-500" />
               {slide.footer.label}
             </span>
-            <span className="text-[10px] font-bold text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded-md border border-emerald-400/20">
+            <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
               {slide.footer.badge}
             </span>
           </div>
@@ -311,15 +318,721 @@ function FloatingTerminalCard() {
   )
 }
 
+// ─── LIVE INTERACTIVE REGISTRATION SIMULATOR (Replaces Video) ────────────────────
+function RegistrationSimulator({ theme }: { theme: Theme }) {
+  // Current step in simulation: 1: Account Type, 2: Outlet Details, 3: GSTIN/FSSAI, 4: OTP, 5: Celebration
+  const [simStep, setSimStep] = useState(1)
+  const [isPlaying, setIsPlaying] = useState(true)
+  const [speed, setSpeed] = useState<1 | 2>(1)
+  const [otpTimer, setOtpTimer] = useState(30)
+  const [cursorPos, setCursorPos] = useState({ x: 50, y: 50, clicking: false })
+  
+  // Simulated form inputs state
+  const [accountType, setAccountType] = useState<'CONSUMER' | 'BUSINESS'>('CONSUMER')
+  const [ownerName, setOwnerName] = useState('')
+  const [outletName, setOutletName] = useState('')
+  const [businessType, setBusinessType] = useState('HOTEL')
+  const [email, setEmail] = useState('')
+  const [phone, setPhone] = useState('')
+  const [gstin, setGstin] = useState('')
+  const [fssai, setFssai] = useState('')
+  const [volume, setVolume] = useState('200-500kg')
+  const [otpDigits, setOtpDigits] = useState(['', '', '', '', '', ''])
+  const [otpSent, setOtpSent] = useState(false)
+  const [toastMessage, setToastMessage] = useState<string | null>(null)
+
+  // Virtual typing helper
+  const typeText = useCallback((fullText: string, setter: (val: string) => void, onComplete?: () => void) => {
+    let currentIdx = 0
+    setter('')
+    const interval = setInterval(() => {
+      currentIdx++
+      setter(fullText.slice(0, currentIdx))
+      if (currentIdx >= fullText.length) {
+        clearInterval(interval)
+        if (onComplete) onComplete()
+      }
+    }, 45 / speed)
+  }, [speed])
+
+  // Click simulation helper
+  const triggerClick = useCallback((x: number, y: number, cb: () => void) => {
+    setCursorPos({ x, y, clicking: false })
+    setTimeout(() => {
+      setCursorPos({ x, y, clicking: true })
+      setTimeout(() => {
+        setCursorPos({ x, y, clicking: false })
+        cb()
+      }, 200)
+    }, 350 / speed)
+  }, [speed, setCursorPos])
+
+  // Simulation Sequence Engine
+  useEffect(() => {
+    if (!isPlaying) return
+
+    let isCancelled = false
+    const delay = (ms: number) => new Promise(res => setTimeout(res, ms / speed))
+
+    const runSimulation = async () => {
+      // ─── STEP 1: SELECT ACCOUNT TYPE ───
+      setSimStep(1)
+      setAccountType('CONSUMER')
+      setOwnerName('')
+      setOutletName('')
+      setEmail('')
+      setPhone('')
+      setGstin('')
+      setFssai('')
+      setOtpDigits(['', '', '', '', '', ''])
+      setOtpSent(false)
+      setToastMessage('Step 1: Choose Business / Wholesale Partner Mode')
+      await delay(700)
+      if (isCancelled) return
+
+      // Click on Business Option
+      triggerClick(65, 42, () => {
+        setAccountType('BUSINESS')
+      })
+      await delay(1200)
+      if (isCancelled) return
+
+      // ─── STEP 2: OUTLET INFORMATION ───
+      setSimStep(2)
+      setToastMessage('Step 2: Enter Outlet Details & Verification Email')
+      await delay(600)
+      if (isCancelled) return
+
+      // Type Owner Name
+      triggerClick(30, 24, () => {})
+      await delay(300)
+      await new Promise<void>(res => typeText('Sumit Sharma', setOwnerName, res))
+      await delay(400)
+      if (isCancelled) return
+
+      // Type Outlet Name
+      triggerClick(30, 42, () => {})
+      await delay(300)
+      await new Promise<void>(res => typeText('Hotel Grand Treat & Bakers, Latur', setOutletName, res))
+      await delay(400)
+      if (isCancelled) return
+
+      // Change Business Type to Hotel
+      triggerClick(30, 60, () => {
+        setBusinessType('HOTEL')
+      })
+      await delay(400)
+      if (isCancelled) return
+
+      // Type Email
+      triggerClick(30, 78, () => {})
+      await delay(300)
+      await new Promise<void>(res => typeText('anmol.partner@gmail.com', setEmail, res))
+      await delay(400)
+      if (isCancelled) return
+
+      // Type Mobile Number
+      triggerClick(75, 78, () => {})
+      await delay(300)
+      await new Promise<void>(res => typeText('9112449612', setPhone, res))
+      await delay(600)
+      if (isCancelled) return
+
+      // ─── STEP 3: GSTIN & FSSAI ───
+      setSimStep(3)
+      setToastMessage('Step 3: Enter GSTIN & FSSAI to Unlock B2B Credit')
+      await delay(600)
+      if (isCancelled) return
+
+      // Type GSTIN
+      triggerClick(30, 32, () => {})
+      await delay(300)
+      await new Promise<void>(res => typeText('27AGEPT8074F1Z0', setGstin, res))
+      await delay(400)
+      if (isCancelled) return
+
+      // Type FSSAI
+      triggerClick(75, 32, () => {})
+      await delay(300)
+      await new Promise<void>(res => typeText('11524049000286', setFssai, res))
+      await delay(400)
+      if (isCancelled) return
+
+      // Select Volume
+      triggerClick(50, 56, () => {
+        setVolume('200-500kg')
+      })
+      await delay(700)
+      if (isCancelled) return
+
+      // ─── STEP 4: SEND OTP & VERIFY ───
+      setSimStep(4)
+      setToastMessage('Step 4: Request & Enter 6-Digit Email OTP')
+      await delay(600)
+      if (isCancelled) return
+
+      // Click Send OTP
+      triggerClick(50, 48, () => {
+        setOtpSent(true)
+        setOtpTimer(30)
+      })
+      await delay(900)
+      if (isCancelled) return
+
+      // Type OTP digits: 7-4-2-8-9-1
+      const sampleOtp = ['7', '4', '2', '8', '9', '1']
+      for (let i = 0; i < sampleOtp.length; i++) {
+        await delay(200)
+        triggerClick(32 + i * 7.5, 66, () => {
+          setOtpDigits(prev => {
+            const next = [...prev]
+            next[i] = sampleOtp[i]
+            return next
+          })
+        })
+      }
+      await delay(600)
+      if (isCancelled) return
+
+      // Click Verify Button
+      triggerClick(50, 84, () => {})
+      await delay(800)
+      if (isCancelled) return
+
+      // ─── STEP 5: CELEBRATION / UNLOCKED STATE ───
+      setSimStep(5)
+      setToastMessage('🎉 B2B Wholesale Account Activated! Credit Line & Carton Rates Live')
+      await delay(5000)
+      if (isCancelled) return
+
+      // Loop restart
+      if (!isCancelled && isPlaying) {
+        runSimulation()
+      }
+    }
+
+    runSimulation()
+
+    return () => {
+      isCancelled = true
+    }
+  }, [isPlaying, speed, typeText, triggerClick])
+
+  // OTP Countdown Timer tick
+  useEffect(() => {
+    if (!otpSent || simStep !== 4) return
+    const interval = setInterval(() => {
+      setOtpTimer(prev => (prev > 0 ? prev - 1 : 30))
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [otpSent, simStep])
+
+  const restartSimulation = () => {
+    setIsPlaying(false)
+    setTimeout(() => {
+      setIsPlaying(true)
+    }, 50)
+  }
+
+  return (
+    <div className={`relative w-full rounded-3xl border overflow-hidden transition-all duration-300 ${
+      theme === 'dark'
+        ? 'bg-[#0D1117] border-slate-700/50 shadow-2xl shadow-black/60'
+        : 'bg-white border-slate-200/90 shadow-xl shadow-slate-300/40'
+    }`}>
+      {/* ─── SIMULATOR TOP CONSOLE BAR ────────────────────────────────────────── */}
+      <div className={`flex flex-wrap items-center justify-between px-4 sm:px-6 py-3 border-b gap-3 ${
+        theme === 'dark' ? 'bg-[#161B22] border-slate-700/50' : 'bg-slate-50 border-slate-200'
+      }`}>
+        {/* Left: Window Dots & Title */}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded-full bg-red-500/80 shadow-xs" />
+            <span className="w-3 h-3 rounded-full bg-yellow-500/80 shadow-xs" />
+            <span className="w-3 h-3 rounded-full bg-emerald-500/80 shadow-xs" />
+          </div>
+          <span className={`font-mono text-xs font-bold uppercase tracking-wider ${
+            theme === 'dark' ? 'text-slate-300' : 'text-slate-700'
+          }`}>
+            Anmol Commercial Onboarding Simulator
+          </span>
+          <span className="hidden sm:inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-500 border border-amber-500/30">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+            LIVE AUTOPLAY DEMO
+          </span>
+        </div>
+
+        {/* Right: Controls (Speed, Pause, Restart) */}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setSpeed(speed === 1 ? 2 : 1)}
+            className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition-all border cursor-pointer ${
+              speed === 2
+                ? 'bg-amber-500 text-slate-950 border-amber-400'
+                : (theme === 'dark' ? 'bg-slate-800 text-slate-300 border-slate-700' : 'bg-white text-slate-700 border-slate-200')
+            }`}
+            title="Toggle playback speed"
+          >
+            {speed}x SPEED
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsPlaying(!isPlaying)}
+            className={`p-1.5 rounded-lg border transition-all cursor-pointer ${
+              theme === 'dark' ? 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+            }`}
+            title={isPlaying ? 'Pause Simulation' : 'Resume Simulation'}
+          >
+            {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+          </button>
+
+          <button
+            type="button"
+            onClick={restartSimulation}
+            className={`p-1.5 rounded-lg border transition-all cursor-pointer ${
+              theme === 'dark' ? 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+            }`}
+            title="Restart from Step 1"
+          >
+            <RotateCcw className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* ─── STEP PROGRESS TRACK ──────────────────────────────────────────────── */}
+      <div className={`px-4 sm:px-6 py-2.5 border-b flex items-center justify-between overflow-x-auto gap-2 ${
+        theme === 'dark' ? 'bg-slate-900/60 border-slate-800' : 'bg-slate-100/50 border-slate-200'
+      }`}>
+        {[
+          { num: 1, label: 'Account Type' },
+          { num: 2, label: 'Outlet Details' },
+          { num: 3, label: 'GST & FSSAI' },
+          { num: 4, label: 'OTP Verify' },
+          { num: 5, label: 'Carton Rates Live 🎉' }
+        ].map((s) => {
+          const isActive = simStep === s.num
+          const isPassed = simStep > s.num
+          return (
+            <button
+              key={s.num}
+              type="button"
+              onClick={() => {
+                setSimStep(s.num)
+                setIsPlaying(false)
+              }}
+              className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                isActive
+                  ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
+                  : isPassed
+                  ? 'text-emerald-500'
+                  : (theme === 'dark' ? 'text-slate-500' : 'text-slate-400')
+              }`}
+            >
+              <span className={`w-4 h-4 rounded-full text-[10px] flex items-center justify-center font-bold ${
+                isActive ? 'bg-slate-950 text-white' : isPassed ? 'bg-emerald-500/20 text-emerald-500' : 'bg-slate-500/20'
+              }`}>
+                {isPassed ? '✓' : s.num}
+              </span>
+              <span>{s.label}</span>
+            </button>
+          )
+        })}
+      </div>
+
+      {/* ─── SIMULATION STAGE (Two-Column Layout) ──────────────────────────────── */}
+      <div className="relative p-4 sm:p-7 min-h-[460px] flex flex-col lg:flex-row gap-6">
+
+        {/* VIRTUAL MOUSE CURSOR */}
+        <div
+          className="absolute pointer-events-none z-50 transition-all duration-300 hidden md:block"
+          style={{
+            left: `${cursorPos.x}%`,
+            top: `${cursorPos.y}%`,
+            transform: 'translate(-2px, -2px)'
+          }}
+        >
+          <div className="relative">
+            <svg
+              className={`w-6 h-6 filter drop-shadow-md ${cursorPos.clicking ? 'scale-90' : 'scale-100'} transition-transform`}
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M4.5 3L11.5 21L14.5 13.5L22 10.5L4.5 3Z"
+                fill="#F59E0B"
+                stroke="#070A10"
+                strokeWidth="1.5"
+                strokeLinejoin="round"
+              />
+            </svg>
+            {cursorPos.clicking && (
+              <span className="absolute -inset-2 rounded-full border-2 border-amber-400 animate-ping opacity-75" />
+            )}
+          </div>
+        </div>
+
+        {/* LEFT COLUMN: SIMULATED FORM */}
+        <div className="flex-1 space-y-4">
+
+          {/* SIMULATED STEP 1: ACCOUNT TYPE */}
+          {simStep === 1 && (
+            <div className="space-y-4 animate-fade-in">
+              <div className="space-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-500 bg-amber-500/10 px-2.5 py-0.5 rounded-full">
+                  Step 1 of 4
+                </span>
+                <h4 className={`text-base font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                  How will you use Anmol Enterprises?
+                </h4>
+                <p className={`text-xs ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                  Select your commercial mode to unlock wholesale pricing.
+                </p>
+              </div>
+
+              {/* Option 1: Consumer */}
+              <div className={`p-4 rounded-2xl border transition-all ${
+                accountType === 'CONSUMER'
+                  ? 'border-amber-400 bg-amber-500/10 shadow-xs'
+                  : (theme === 'dark' ? 'border-slate-800 bg-slate-900/40 text-slate-400' : 'border-slate-200 bg-slate-50 text-slate-600')
+              }`}>
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-blue-500/20 text-blue-500 flex items-center justify-center font-bold">
+                    <User className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold block text-slate-300 dark:text-slate-200">
+                      Individual Consumer
+                    </span>
+                    <span className="text-[10px] text-slate-500">
+                      Standard retail MRP pricing. Single home delivery packs.
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Option 2: Business (Target of Demo) */}
+              <div className={`p-4 rounded-2xl border-2 transition-all relative ${
+                accountType === 'BUSINESS'
+                  ? 'border-amber-500 bg-amber-500/[0.08] shadow-lg shadow-amber-500/10'
+                  : (theme === 'dark' ? 'border-slate-800 bg-slate-900/40' : 'border-slate-200 bg-white')
+              }`}>
+                {accountType === 'BUSINESS' && (
+                  <span className="absolute top-3 right-3 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                    Selected ✓
+                  </span>
+                )}
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center font-bold">
+                    <Building2 className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className={`text-xs font-black block ${accountType === 'BUSINESS' ? 'text-amber-500' : 'text-slate-300'}`}>
+                      Business / Wholesale Partner
+                    </span>
+                    <span className="text-[10px] text-slate-400">
+                      For Hotels, Restaurants, Cafes & Retailers. Unlocks Master Cartons & Credit.
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* SIMULATED STEP 2: OUTLET INFORMATION */}
+          {simStep === 2 && (
+            <div className="space-y-3.5 animate-fade-in">
+              <div className="space-y-0.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-500 bg-amber-500/10 px-2.5 py-0.5 rounded-full">
+                  Step 2 of 4
+                </span>
+                <h4 className={`text-base font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                  Business Outlet Information
+                </h4>
+              </div>
+
+              {/* Owner Name */}
+              <div className="space-y-1">
+                <label className={`text-[10px] font-bold uppercase ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
+                  Owner / Manager Name *
+                </label>
+                <div className={`flex items-center px-3 py-2 rounded-xl border ${
+                  theme === 'dark' ? 'bg-slate-900/80 border-slate-700/60 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
+                }`}>
+                  <User className="w-3.5 h-3.5 text-slate-400 mr-2" />
+                  <span className="text-xs font-semibold font-mono">{ownerName || <span className="text-slate-500 italic">Enter full name</span>}</span>
+                  <span className="w-1.5 h-3.5 bg-amber-400 ml-1 animate-pulse" />
+                </div>
+              </div>
+
+              {/* Outlet Name */}
+              <div className="space-y-1">
+                <label className={`text-[10px] font-bold uppercase ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
+                  Outlet / Establishment Name *
+                </label>
+                <div className={`flex items-center px-3 py-2 rounded-xl border ${
+                  theme === 'dark' ? 'bg-slate-900/80 border-slate-700/60 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
+                }`}>
+                  <Building2 className="w-3.5 h-3.5 text-slate-400 mr-2" />
+                  <span className="text-xs font-semibold font-mono">{outletName || <span className="text-slate-500 italic">e.g. Grand Hotel & Bakers</span>}</span>
+                </div>
+              </div>
+
+              {/* Category & Email Row */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className={`text-[10px] font-bold uppercase ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
+                    Business Type *
+                  </label>
+                  <div className={`px-3 py-2 rounded-xl border text-xs font-semibold ${
+                    theme === 'dark' ? 'bg-slate-900/80 border-slate-700/60 text-amber-300' : 'bg-slate-50 border-slate-200 text-amber-700'
+                  }`}>
+                    🏨 Hotel / Multi-Cuisine
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className={`text-[10px] font-bold uppercase ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
+                    Email Address *
+                  </label>
+                  <div className={`flex items-center px-3 py-2 rounded-xl border ${
+                    theme === 'dark' ? 'bg-slate-900/80 border-slate-700/60 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
+                  }`}>
+                    <Mail className="w-3.5 h-3.5 text-slate-400 mr-1.5" />
+                    <span className="text-xs font-mono truncate">{email || <span className="text-slate-500 italic">name@gmail.com</span>}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Phone */}
+              <div className="space-y-1">
+                <label className={`text-[10px] font-bold uppercase ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
+                  Mobile Number (Optional at signup)
+                </label>
+                <div className={`flex items-center px-3 py-2 rounded-xl border ${
+                  theme === 'dark' ? 'bg-slate-900/80 border-slate-700/60 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
+                }`}>
+                  <Phone className="w-3.5 h-3.5 text-slate-400 mr-1.5" />
+                  <span className="text-xs font-mono">{phone || <span className="text-slate-500 italic">10-digit mobile</span>}</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* SIMULATED STEP 3: GSTIN & FSSAI */}
+          {simStep === 3 && (
+            <div className="space-y-3.5 animate-fade-in">
+              <div className="space-y-0.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-500 bg-amber-500/10 px-2.5 py-0.5 rounded-full">
+                  Step 3 of 4
+                </span>
+                <h4 className={`text-base font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                  Statutory Tax & Volume Details
+                </h4>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className={`text-[10px] font-bold uppercase ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
+                    GSTIN (Optional)
+                  </label>
+                  <div className={`px-3 py-2 rounded-xl border font-mono text-xs font-bold ${
+                    theme === 'dark' ? 'bg-slate-900/80 border-slate-700/60 text-emerald-400' : 'bg-slate-50 border-slate-200 text-emerald-700'
+                  }`}>
+                    {gstin || '27AGEPT8074F1Z0'}
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className={`text-[10px] font-bold uppercase ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
+                    FSSAI License (Optional)
+                  </label>
+                  <div className={`px-3 py-2 rounded-xl border font-mono text-xs font-bold ${
+                    theme === 'dark' ? 'bg-slate-900/80 border-slate-700/60 text-emerald-400' : 'bg-slate-50 border-slate-200 text-emerald-700'
+                  }`}>
+                    {fssai || '11524049000286'}
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className={`text-[10px] font-bold uppercase ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
+                  Estimated Monthly Order Volume
+                </label>
+                <div className={`px-3 py-2 rounded-xl border text-xs font-semibold ${
+                  theme === 'dark' ? 'bg-slate-900/80 border-slate-700/60 text-amber-300' : 'bg-slate-50 border-slate-200 text-amber-700'
+                }`}>
+                  📦 200 kg – 500 kg / month (Commercial Tier)
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                <span>GSTIN enables automated GST input credit invoices & Net 30-Day Credit facilities.</span>
+              </div>
+            </div>
+          )}
+
+          {/* SIMULATED STEP 4: OTP VERIFICATION */}
+          {simStep === 4 && (
+            <div className="space-y-4 animate-fade-in">
+              <div className="space-y-0.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-500 bg-amber-500/10 px-2.5 py-0.5 rounded-full">
+                  Step 4 of 4
+                </span>
+                <h4 className={`text-base font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                  Verify Email via 6-Digit OTP
+                </h4>
+                <p className={`text-xs ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                  A 6-digit code was sent to <strong className="text-amber-500 font-mono">anmol.partner@gmail.com</strong>
+                </p>
+              </div>
+
+              {/* 6-Digit Boxes */}
+              <div className="flex items-center justify-center gap-2 py-3">
+                {otpDigits.map((digit, i) => (
+                  <div
+                    key={i}
+                    className={`w-10 h-12 rounded-xl border flex items-center justify-center font-mono text-lg font-black transition-all ${
+                      digit
+                        ? 'border-amber-400 bg-amber-500/15 text-amber-500 scale-105'
+                        : (theme === 'dark' ? 'border-slate-700 bg-slate-900/60 text-slate-500' : 'border-slate-300 bg-slate-50 text-slate-400')
+                    }`}
+                  >
+                    {digit || '•'}
+                  </div>
+                ))}
+              </div>
+
+              {/* Timer Bar */}
+              <div className="flex items-center justify-between text-xs px-2">
+                <span className="text-slate-500 font-medium">
+                  Resend code in <strong className="text-amber-500 font-mono">{otpTimer}s</strong>
+                </span>
+                <span className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
+                  <Check className="w-3.5 h-3.5" /> Mail Delivered
+                </span>
+              </div>
+
+              {/* Simulated Verify Button */}
+              <div className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-black text-xs text-center shadow-lg shadow-amber-500/20">
+                Verify & Activate B2B Account →
+              </div>
+            </div>
+          )}
+
+          {/* SIMULATED STEP 5: ACTIVATION VICTORY */}
+          {simStep === 5 && (
+            <div className="space-y-4 py-2 animate-fade-in text-center">
+              <div className="w-14 h-14 mx-auto rounded-2xl bg-emerald-500/20 text-emerald-500 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                <CheckCircle2 className="w-8 h-8" />
+              </div>
+
+              <div className="space-y-1">
+                <h4 className={`text-xl font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                  Wholesale Partner Account Activated! 🎉
+                </h4>
+                <p className={`text-xs ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                  Hotel Grand Treat & Bakers is now verified for bulk carton orders.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 text-left pt-2">
+                <div className={`p-3 rounded-xl border ${
+                  theme === 'dark' ? 'bg-slate-900/60 border-slate-800' : 'bg-slate-50 border-slate-200'
+                }`}>
+                  <span className="text-[10px] text-slate-500 block">Assigned Tier</span>
+                  <span className="text-xs font-bold text-amber-500">Tier 1 Master Carton (36% Margin)</span>
+                </div>
+                <div className={`p-3 rounded-xl border ${
+                  theme === 'dark' ? 'bg-slate-900/60 border-slate-800' : 'bg-slate-50 border-slate-200'
+                }`}>
+                  <span className="text-[10px] text-slate-500 block">Credit Facility</span>
+                  <span className="text-xs font-bold text-emerald-500">₹50,000 Net 30 Days</span>
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <Link
+                  href="/account"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-black text-xs shadow-md"
+                >
+                  <span>Ready to Register Your Outlet? Start Now</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+            </div>
+          )}
+
+        </div>
+
+        {/* RIGHT COLUMN: REAL-TIME COMMERCIAL IMPACT MONITOR */}
+        <div className={`lg:w-[280px] shrink-0 p-5 rounded-2xl border space-y-4 flex flex-col justify-between ${
+          theme === 'dark' ? 'bg-[#161B22] border-slate-700/50' : 'bg-slate-50 border-slate-200'
+        }`}>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-700/30">
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">
+                Live Status Telemetry
+              </span>
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            </div>
+
+            <div className="space-y-2 text-xs">
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500">Pricing Tier:</span>
+                <span className="font-bold text-amber-500">
+                  {simStep === 1 && accountType === 'CONSUMER' ? 'Retail MRP' : 'Bulk Master Box (36% Off)'}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500">Credit Line:</span>
+                <span className="font-bold text-emerald-500">
+                  {simStep >= 3 ? '₹50,000 (Net 30)' : 'Eligible after GST'}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500">Cold Chain:</span>
+                <span className="font-bold text-cyan-500">-18°C Dedicated Van</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500">Invoices:</span>
+                <span className="font-bold text-slate-300 dark:text-slate-300">GST Input Credit</span>
+              </div>
+            </div>
+
+            {/* Notification / Advice Box */}
+            <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 space-y-1">
+              <span className="text-[10px] font-bold text-amber-500 block uppercase tracking-wider">
+                💡 Live Step Guidance
+              </span>
+              <p className="text-[11px] text-slate-400 leading-relaxed">
+                {toastMessage || 'Follow the simulated mouse clicks to see how each field is filled.'}
+              </p>
+            </div>
+          </div>
+
+          <div className="text-[10px] text-slate-500 pt-3 border-t border-slate-700/30 text-center">
+            Zero Real-Time Submission · Pure Interactive Walkthrough
+          </div>
+        </div>
+
+      </div>
+    </div>
+  )
+}
+
 // ─── STEP TERMINAL CARD COMPONENT ───────────────────────────────────────────────
-function StepCard({ step, index }: { step: typeof STEPS[0]; index: number }) {
+function StepCard({ step, index, theme }: { step: typeof STEPS[0]; index: number; theme: Theme }) {
   const { ref, isVisible } = useScrollReveal()
 
   const pillColorMap: Record<string, string> = {
-    amber: 'bg-amber-400/15 text-amber-300 border-amber-400/30',
-    emerald: 'bg-emerald-400/15 text-emerald-300 border-emerald-400/30',
-    cyan: 'bg-cyan-400/15 text-cyan-300 border-cyan-400/30',
-    violet: 'bg-violet-400/15 text-violet-300 border-violet-400/30'
+    amber: 'bg-amber-400/15 text-amber-500 dark:text-amber-300 border-amber-400/30',
+    emerald: 'bg-emerald-400/15 text-emerald-600 dark:text-emerald-300 border-emerald-400/30',
+    cyan: 'bg-cyan-400/15 text-cyan-600 dark:text-cyan-300 border-cyan-400/30',
+    violet: 'bg-violet-400/15 text-violet-600 dark:text-violet-300 border-violet-400/30'
   }
 
   return (
@@ -332,16 +1045,22 @@ function StepCard({ step, index }: { step: typeof STEPS[0]; index: number }) {
       }`}
       style={{ transitionDelay: `${index * 120}ms` }}
     >
-      <div className="group bg-[#0D1117] border border-slate-700/30 rounded-2xl overflow-hidden hover:border-slate-600/50 hover:-translate-y-1 hover:shadow-xl hover:shadow-amber-500/[0.03] transition-all duration-300">
+      <div className={`group rounded-2xl overflow-hidden border transition-all duration-300 hover:-translate-y-1 ${
+        theme === 'dark'
+          ? 'bg-[#0D1117] border-slate-700/30 hover:border-slate-600/50 hover:shadow-xl hover:shadow-amber-500/[0.03]'
+          : 'bg-white border-slate-200/90 hover:border-slate-300 hover:shadow-lg hover:shadow-slate-200/50'
+      }`}>
         {/* Terminal Header */}
-        <div className="flex items-center justify-between px-5 py-3 bg-[#161B22] border-b border-slate-700/30">
+        <div className={`flex items-center justify-between px-5 py-3 border-b ${
+          theme === 'dark' ? 'bg-[#161B22] border-slate-700/30' : 'bg-slate-50 border-slate-200'
+        }`}>
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-full bg-red-500/80" />
               <span className="w-2.5 h-2.5 rounded-full bg-yellow-500/80" />
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/80" />
             </div>
-            <span className="font-mono text-[10px] text-slate-400 tracking-wider uppercase hidden sm:inline">
+            <span className={`font-mono text-[10px] ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'} tracking-wider uppercase font-semibold hidden sm:inline`}>
               {step.terminalTitle}
             </span>
           </div>
@@ -359,28 +1078,28 @@ function StepCard({ step, index }: { step: typeof STEPS[0]; index: number }) {
 
         {/* Card Body */}
         <div className="p-6 sm:p-8 flex flex-col lg:flex-row gap-6">
-          {/* Left: Content */}
           <div className="flex-1 space-y-4">
             <div className="flex items-center gap-3">
-              <span className="font-mono text-2xl font-black text-amber-400/40">
+              <span className="font-mono text-2xl font-black text-amber-500/50">
                 {step.num}
               </span>
-              <h3 className="text-lg sm:text-xl font-bold text-white leading-snug">
+              <h3 className={`text-lg sm:text-xl font-bold leading-snug ${
+                theme === 'dark' ? 'text-white' : 'text-slate-900'
+              }`}>
                 {step.title}
               </h3>
             </div>
 
-            <p className="text-sm text-slate-400 leading-relaxed">
+            <p className={`text-sm leading-relaxed ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
               {step.description}
             </p>
 
-            {/* Info/Success Note */}
             <div className={`p-3.5 rounded-xl border text-xs leading-relaxed ${
               step.noteType === 'success'
-                ? 'bg-emerald-500/[0.06] border-emerald-500/20 text-emerald-300'
-                : 'bg-slate-800/40 border-slate-700/30 text-slate-400'
+                ? 'bg-emerald-500/[0.08] border-emerald-500/20 text-emerald-600 dark:text-emerald-300'
+                : (theme === 'dark' ? 'bg-slate-800/40 border-slate-700/30 text-slate-400' : 'bg-slate-50 border-slate-200 text-slate-600')
             }`}>
-              <span className={`font-bold ${step.noteType === 'success' ? 'text-emerald-400' : 'text-slate-300'}`}>
+              <span className={`font-bold ${step.noteType === 'success' ? 'text-emerald-500' : (theme === 'dark' ? 'text-slate-200' : 'text-slate-800')}`}>
                 {step.noteType === 'success' ? '✓ ' : '💡 '}
               </span>
               {step.note}
@@ -391,16 +1110,18 @@ function StepCard({ step, index }: { step: typeof STEPS[0]; index: number }) {
           <div className="lg:w-[240px] shrink-0 flex items-center justify-center">
             {step.visual === 'choice' && (
               <div className="w-full space-y-2.5">
-                <div className="p-3 rounded-xl bg-slate-800/40 border border-slate-700/30 text-center">
-                  <span className="text-xs text-slate-500">👤 Individual Consumer</span>
-                  <span className="block text-[10px] text-slate-600 mt-0.5">MRP Pricing Only</span>
+                <div className={`p-3 rounded-xl border text-center ${
+                  theme === 'dark' ? 'bg-slate-800/40 border-slate-700/30' : 'bg-slate-50 border-slate-200'
+                }`}>
+                  <span className="text-xs text-slate-400">👤 Individual Consumer</span>
+                  <span className="block text-[10px] text-slate-500 mt-0.5">MRP Pricing Only</span>
                 </div>
                 <div className="p-3 rounded-xl bg-amber-500/[0.08] border border-amber-500/30 text-center relative">
-                  <div className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center">
+                  <div className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center shadow-xs">
                     <CheckCircle2 className="w-3 h-3 text-slate-950" />
                   </div>
-                  <span className="text-xs font-bold text-amber-300">🏢 Business / Wholesale</span>
-                  <span className="block text-[10px] text-amber-400/60 mt-0.5">Carton Rates + Credit</span>
+                  <span className="text-xs font-bold text-amber-500">🏢 Business / Wholesale</span>
+                  <span className="block text-[10px] text-amber-600 dark:text-amber-400/60 mt-0.5">Carton Rates + Credit</span>
                 </div>
               </div>
             )}
@@ -412,45 +1133,53 @@ function StepCard({ step, index }: { step: typeof STEPS[0]; index: number }) {
                   { icon: ShoppingCart, label: 'Kirana', color: 'violet' },
                   { icon: Store, label: 'Caterer', color: 'cyan' }
                 ].map((cat, i) => (
-                  <div key={i} className="p-2.5 rounded-xl bg-slate-800/30 border border-slate-700/30 text-center flex flex-col items-center gap-1">
+                  <div key={i} className={`p-2.5 rounded-xl border text-center flex flex-col items-center gap-1 ${
+                    theme === 'dark' ? 'bg-slate-800/30 border-slate-700/30' : 'bg-slate-50 border-slate-200'
+                  }`}>
                     <cat.icon className={`w-4 h-4 ${
-                      cat.color === 'amber' ? 'text-amber-400' :
-                      cat.color === 'emerald' ? 'text-emerald-400' :
-                      cat.color === 'violet' ? 'text-violet-400' :
-                      'text-cyan-400'
+                      cat.color === 'amber' ? 'text-amber-500' :
+                      cat.color === 'emerald' ? 'text-emerald-500' :
+                      cat.color === 'violet' ? 'text-violet-500' :
+                      'text-cyan-500'
                     }`} />
-                    <span className="text-[10px] text-slate-400 font-medium">{cat.label}</span>
+                    <span className="text-[10px] text-slate-500 font-medium">{cat.label}</span>
                   </div>
                 ))}
               </div>
             )}
             {step.visual === 'compliance' && (
               <div className="w-full space-y-2.5">
-                <div className="p-3 rounded-xl bg-slate-800/30 border border-slate-700/30">
-                  <span className="text-[10px] text-slate-500 block mb-1">GSTIN</span>
-                  <span className="font-mono text-xs text-emerald-400">27XXXXXXXX●●●●●</span>
+                <div className={`p-3 rounded-xl border ${
+                  theme === 'dark' ? 'bg-slate-800/30 border-slate-700/30' : 'bg-slate-50 border-slate-200'
+                }`}>
+                  <span className="text-[10px] text-slate-400 block mb-1">GSTIN</span>
+                  <span className="font-mono text-xs text-emerald-500">27XXXXXXXX●●●●●</span>
                 </div>
-                <div className="p-3 rounded-xl bg-slate-800/30 border border-slate-700/30">
-                  <span className="text-[10px] text-slate-500 block mb-1">FSSAI</span>
-                  <span className="font-mono text-xs text-emerald-400">1152404900●●●●</span>
+                <div className={`p-3 rounded-xl border ${
+                  theme === 'dark' ? 'bg-slate-800/30 border-slate-700/30' : 'bg-slate-50 border-slate-200'
+                }`}>
+                  <span className="text-[10px] text-slate-400 block mb-1">FSSAI</span>
+                  <span className="font-mono text-xs text-emerald-500">1152404900●●●●</span>
                 </div>
               </div>
             )}
             {step.visual === 'verify' && (
               <div className="w-full space-y-2.5">
-                <div className="p-3 rounded-xl bg-slate-800/30 border border-slate-700/30 text-center">
-                  <span className="text-[10px] text-slate-500 block">OTP Sent to</span>
-                  <span className="text-xs text-slate-300 font-mono">b●●●@gmail.com</span>
+                <div className={`p-3 rounded-xl border text-center ${
+                  theme === 'dark' ? 'bg-slate-800/30 border-slate-700/30' : 'bg-slate-50 border-slate-200'
+                }`}>
+                  <span className="text-[10px] text-slate-400 block">OTP Sent to</span>
+                  <span className="text-xs text-slate-500 font-mono">b●●●@gmail.com</span>
                 </div>
                 <div className="flex items-center justify-center gap-1.5">
                   {[1, 2, 3, 4, 5, 6].map(n => (
                     <div key={n} className="w-7 h-9 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center">
-                      <span className="font-mono text-sm font-bold text-amber-300">•</span>
+                      <span className="font-mono text-sm font-bold text-amber-500">•</span>
                     </div>
                   ))}
                 </div>
                 <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-center">
-                  <span className="text-[10px] font-bold text-emerald-400">✓ Account Live — Start Ordering!</span>
+                  <span className="text-[10px] font-bold text-emerald-500">✓ Account Live — Start Ordering!</span>
                 </div>
               </div>
             )}
@@ -463,106 +1192,64 @@ function StepCard({ step, index }: { step: typeof STEPS[0]; index: number }) {
 
 // ─── MAIN PAGE COMPONENT ────────────────────────────────────────────────────────
 export default function B2BRegistrationGuidePage() {
-  const videoRef = useRef<HTMLVideoElement>(null)
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [isMuted, setIsMuted] = useState(false)
-  const [currentTime, setCurrentTime] = useState(0)
-  const [duration, setDuration] = useState(222)
-  const [activeChapter, setActiveChapter] = useState(0)
+  const [theme, setTheme] = useState<Theme>('dark')
+  const [isThemeChanging, setIsThemeChanging] = useState(false)
+  const [showInquiryModal, setShowInquiryModal] = useState(false)
   const [activeFaq, setActiveFaq] = useState<number | null>(null)
 
-  // Video YouTube embed support — hidden from UI, configurable via code
-  const youtubeUrl = '' // Set YouTube URL here when available
-
-  const togglePlay = useCallback(() => {
-    if (!videoRef.current) return
-    if (isPlaying) {
-      videoRef.current.pause()
-    } else {
-      videoRef.current.play()
-    }
-  }, [isPlaying])
-
-  const toggleMute = useCallback(() => {
-    if (!videoRef.current) return
-    videoRef.current.muted = !isMuted
-    setIsMuted(!isMuted)
-  }, [isMuted])
-
-  const handleTimeUpdate = useCallback(() => {
-    if (!videoRef.current) return
-    const cur = videoRef.current.currentTime
-    setCurrentTime(cur)
-    for (let i = CHAPTERS.length - 1; i >= 0; i--) {
-      if (cur >= CHAPTERS[i].time) {
-        setActiveChapter(i)
-        break
-      }
-    }
-  }, [])
-
-  const handleLoadedMetadata = useCallback(() => {
-    if (videoRef.current) setDuration(videoRef.current.duration || 222)
-  }, [])
-
-  const seekToChapter = useCallback((timeInSeconds: number, index: number) => {
-    if (!videoRef.current) return
-    videoRef.current.currentTime = timeInSeconds
-    setCurrentTime(timeInSeconds)
-    setActiveChapter(index)
-    if (!isPlaying) {
-      videoRef.current.play()
-      setIsPlaying(true)
-    }
-  }, [isPlaying])
-
-  const handleSeek = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = parseFloat(e.target.value)
-    if (videoRef.current) {
-      videoRef.current.currentTime = val
-      setCurrentTime(val)
-    }
-  }, [])
-
-  const handleFullscreen = useCallback(() => {
-    if (!videoRef.current) return
-    if (videoRef.current.requestFullscreen) {
-      videoRef.current.requestFullscreen()
-    }
-  }, [])
-
-  const formatTime = (secs: number) => {
-    const m = Math.floor(secs / 60)
-    const s = Math.floor(secs % 60)
-    return `${m}:${s < 10 ? '0' : ''}${s}`
-  }
-
-  const getYoutubeEmbedUrl = (url: string) => {
+  // Initialize theme from localStorage
+  useEffect(() => {
     try {
-      if (url.includes('youtube.com/watch?v=')) {
-        const id = url.split('v=')[1]?.split('&')[0]
-        return `https://www.youtube.com/embed/${id}?autoplay=1`
+      const saved = localStorage.getItem('b2b_guide_theme') as Theme
+      if (saved === 'dark' || saved === 'light') {
+        setTheme(saved)
       }
-      if (url.includes('youtu.be/')) {
-        const id = url.split('youtu.be/')[1]?.split('?')[0]
-        return `https://www.youtube.com/embed/${id}?autoplay=1`
-      }
-      if (url.includes('youtube.com/embed/')) return url
-    } catch {
-      return url
-    }
-    return url
+    } catch {}
+  }, [])
+
+  // Top-to-Bottom Curtain Theme Toggle
+  const toggleTheme = () => {
+    setIsThemeChanging(true)
+    setTimeout(() => {
+      setTheme(prev => {
+        const next = prev === 'dark' ? 'light' : 'dark'
+        try {
+          localStorage.setItem('b2b_guide_theme', next)
+        } catch {}
+        return next
+      })
+    }, 300)
+
+    setTimeout(() => {
+      setIsThemeChanging(false)
+    }, 700)
   }
 
   // Scroll-reveal hooks for sections
-  const videoSection = useScrollReveal()
+  const simulatorSection = useScrollReveal()
   const stepsSection = useScrollReveal()
   const eligibilitySection = useScrollReveal()
   const faqSection = useScrollReveal()
   const ctaSection = useScrollReveal()
 
   return (
-    <div className="min-h-screen bg-[#070A10] text-slate-100 selection:bg-amber-500/30 selection:text-amber-200">
+    <div className={`min-h-screen transition-colors duration-500 ${
+      theme === 'dark' ? 'bg-[#070A10] text-slate-100' : 'bg-[#F8FAFC] text-slate-900'
+    } selection:bg-amber-500/30 selection:text-amber-200 relative overflow-x-hidden`}>
+
+      {/* ─── TOP-TO-BOTTOM THEME CHANGER ANIMATED CURTAIN ─────────────────────── */}
+      <div
+        className={`fixed inset-x-0 z-[100] pointer-events-none transition-transform duration-700 ease-in-out ${
+          isThemeChanging ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'
+        }`}
+        style={{
+          top: 0,
+          height: '100vh',
+          background: theme === 'dark'
+            ? 'linear-gradient(180deg, #F8FAFC 0%, #FFFFFF 100%)'
+            : 'linear-gradient(180deg, #070A10 0%, #0D1117 100%)'
+        }}
+      />
 
       {/* ─── GLOBAL KEYFRAMES ──────────────────────────────────────────────── */}
       <style jsx global>{`
@@ -602,77 +1289,179 @@ export default function B2BRegistrationGuidePage() {
           animation: fade-up 0.8s ease-out 0.5s forwards;
           opacity: 0;
         }
-
-        /* Custom range slider for video */
-        input[type="range"].video-slider::-webkit-slider-thumb {
-          -webkit-appearance: none;
-          appearance: none;
-          width: 14px;
-          height: 14px;
-          border-radius: 50%;
-          background: #F59E0B;
-          cursor: pointer;
-          border: 2px solid #070A10;
-          box-shadow: 0 0 8px rgba(245,158,11,0.4);
-        }
-        input[type="range"].video-slider::-moz-range-thumb {
-          width: 14px;
-          height: 14px;
-          border-radius: 50%;
-          background: #F59E0B;
-          cursor: pointer;
-          border: 2px solid #070A10;
-          box-shadow: 0 0 8px rgba(245,158,11,0.4);
-        }
       `}</style>
 
       {/* ─── AMBIENT BACKGROUND GLOWS ──────────────────────────────────────── */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
         <div
-          className="absolute top-[-15%] left-[-8%] w-[500px] h-[500px] bg-amber-500/[0.06] rounded-full blur-[160px]"
+          className={`absolute top-[-15%] left-[-8%] w-[500px] h-[500px] rounded-full blur-[160px] transition-opacity duration-700 ${
+            theme === 'dark' ? 'bg-amber-500/[0.07]' : 'bg-amber-400/[0.12]'
+          }`}
           style={{ animation: 'float-slow 8s ease-in-out infinite' }}
         />
         <div
-          className="absolute top-[30%] right-[-10%] w-[450px] h-[450px] bg-emerald-500/[0.04] rounded-full blur-[160px]"
+          className={`absolute top-[30%] right-[-10%] w-[450px] h-[450px] rounded-full blur-[160px] transition-opacity duration-700 ${
+            theme === 'dark' ? 'bg-emerald-500/[0.04]' : 'bg-emerald-400/[0.08]'
+          }`}
           style={{ animation: 'float-slow 10s ease-in-out infinite 2s' }}
         />
         <div
-          className="absolute bottom-[-15%] left-[30%] w-[500px] h-[500px] bg-indigo-500/[0.04] rounded-full blur-[180px]"
+          className={`absolute bottom-[-15%] left-[30%] w-[500px] h-[500px] rounded-full blur-[180px] transition-opacity duration-700 ${
+            theme === 'dark' ? 'bg-indigo-500/[0.04]' : 'bg-indigo-400/[0.06]'
+          }`}
           style={{ animation: 'float-slow 12s ease-in-out infinite 4s' }}
         />
       </div>
 
-      {/* ─── COMPACT TOP NAVIGATION BAR ────────────────────────────────────── */}
-      <nav className="sticky top-0 z-40 bg-[#070A10]/80 backdrop-blur-2xl border-b border-slate-800/50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+      {/* ─── TOP NAVIGATION BAR (Matching Screenshot 2) ───────────────────────── */}
+      <nav className={`sticky top-0 z-40 backdrop-blur-2xl border-b transition-colors duration-500 ${
+        theme === 'dark' ? 'bg-[#070A10]/85 border-slate-800/60' : 'bg-white/90 border-slate-200/90 shadow-xs'
+      }`}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3">
+          
+          {/* Left: Back button + Original AnimatedLogo */}
+          <div className="flex items-center gap-2.5 sm:gap-3">
             <Link
               href="/account"
-              className="p-2 rounded-xl bg-slate-800/60 border border-slate-700/40 text-slate-400 hover:text-white hover:border-slate-600 transition-all"
-              title="Back"
+              className={`p-2 rounded-xl border transition-all ${
+                theme === 'dark'
+                  ? 'bg-slate-800/60 border-slate-700/50 text-slate-400 hover:text-white hover:border-slate-600'
+                  : 'bg-slate-100 border-slate-300 text-slate-600 hover:text-slate-900 hover:bg-slate-200'
+              }`}
+              title="Back to Account"
             >
               <ArrowLeft className="w-4 h-4" />
             </Link>
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-amber-500 to-orange-500 flex items-center justify-center">
-                <Building2 className="w-3.5 h-3.5 text-slate-950" />
+
+            {/* Original AnimatedLogo with full bike and wordmark animations */}
+            <div className="flex items-center">
+              <div className={`px-2.5 py-1 rounded-xl transition-all ${
+                theme === 'dark' ? 'bg-white/95 shadow-xs border border-white/20' : ''
+              }`}>
+                <AnimatedLogo
+                  asDiv
+                  svgClassName="h-7 sm:h-8 w-auto max-w-[180px] sm:max-w-[220px]"
+                  showSubtext={false}
+                />
               </div>
-              <span className="text-sm font-bold text-white tracking-tight hidden sm:inline">
-                Anmol <span className="text-amber-400">Enterprises</span>
-                <span className="text-slate-500 font-normal ml-2 text-xs">/ B2B Guide</span>
+              <span className={`hidden md:inline ml-2 text-xs font-semibold ${
+                theme === 'dark' ? 'text-slate-400' : 'text-slate-500'
+              }`}>
+                / B2B User Guide
               </span>
             </div>
           </div>
 
-          <Link
-            href="/account"
-            className="inline-flex items-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-bold text-xs px-4 py-2 rounded-xl shadow-lg shadow-amber-500/20 transition-all active:scale-95"
-          >
-            <span>Register Now</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </Link>
+          {/* Right Action Cluster (Matching Screenshot 2) */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            
+            {/* 1. Theme Toggle Button (Dark ⇄ Light with Top-to-Bottom Wipe) */}
+            <button
+              type="button"
+              onClick={toggleTheme}
+              disabled={isThemeChanging}
+              className={`w-10 h-10 rounded-2xl border flex items-center justify-center transition-all cursor-pointer shadow-xs ${
+                theme === 'dark'
+                  ? 'bg-slate-900/90 border-slate-700/70 text-emerald-400 hover:border-emerald-400/60 hover:shadow-emerald-500/10'
+                  : 'bg-white border-slate-300 text-amber-500 hover:border-amber-400 hover:shadow-amber-500/10'
+              }`}
+              title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
+              aria-label="Toggle Theme"
+            >
+              {theme === 'dark' ? (
+                <Sun className="w-4 h-4 text-emerald-400" />
+              ) : (
+                <Moon className="w-4 h-4 text-amber-500" />
+              )}
+            </button>
+
+            {/* 2. Direct Inquiries Button (Matching Screenshot 2 Pill with Phone Icon) */}
+            <button
+              type="button"
+              onClick={() => setShowInquiryModal(true)}
+              className={`hidden sm:inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl border text-xs font-bold transition-all cursor-pointer ${
+                theme === 'dark'
+                  ? 'bg-[#0D1117] border-slate-700/70 text-white hover:border-amber-400/50 hover:bg-slate-800/80 shadow-xs'
+                  : 'bg-white border-slate-300 text-slate-800 hover:border-amber-500 hover:bg-amber-50/40 shadow-xs'
+              }`}
+            >
+              <Phone className="w-4 h-4 text-amber-500 shrink-0" />
+              <span>Direct Inquiries</span>
+            </button>
+
+            {/* 3. Register Now CTA Button */}
+            <Link
+              href="/account"
+              className="inline-flex items-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black text-xs px-4 sm:px-5 py-2.5 rounded-2xl shadow-lg shadow-amber-500/25 transition-all active:scale-95 whitespace-nowrap"
+            >
+              <span>Register Now</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+
         </div>
       </nav>
+
+      {/* ─── DIRECT INQUIRIES MODAL ───────────────────────────────────────────── */}
+      {showInquiryModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className={`w-full max-w-md rounded-3xl border p-6 space-y-5 relative shadow-2xl ${
+            theme === 'dark' ? 'bg-[#0D1117] border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-900'
+          }`}>
+            <button
+              type="button"
+              onClick={() => setShowInquiryModal(false)}
+              className={`absolute top-5 right-5 p-1.5 rounded-xl border ${
+                theme === 'dark' ? 'border-slate-700 text-slate-400 hover:text-white' : 'border-slate-200 text-slate-500 hover:text-slate-900'
+              }`}
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="space-y-1">
+              <span className="text-xs font-bold text-amber-500 uppercase tracking-wider">
+                Direct B2B Commercial Line
+              </span>
+              <h3 className="text-xl font-black">Speak with Our Operations Team</h3>
+              <p className={`text-xs ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                Have custom volume requirements or need assistance with your B2B onboarding?
+              </p>
+            </div>
+
+            <div className="space-y-3 pt-1">
+              <a
+                href="tel:+919112449612"
+                className="flex items-center justify-between p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 hover:border-amber-500 text-amber-500 transition-all font-bold text-sm"
+              >
+                <div className="flex items-center gap-3">
+                  <Phone className="w-5 h-5 text-amber-500" />
+                  <div>
+                    <span className="block text-xs font-bold text-slate-900 dark:text-white">Call Helpline Directly</span>
+                    <span className="text-sm font-mono">+91 9112449612</span>
+                  </div>
+                </div>
+                <ArrowRight className="w-4 h-4" />
+              </a>
+
+              <a
+                href="https://wa.me/919112449612?text=Hello%20Anmol%20Enterprises,%20I%20want%20to%20inquire%20about%20B2B%20Commercial%20Partnership"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-between p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 hover:border-emerald-500 text-emerald-600 dark:text-emerald-400 transition-all font-bold text-sm"
+              >
+                <div className="flex items-center gap-3">
+                  <ExternalLink className="w-5 h-5 text-emerald-500" />
+                  <div>
+                    <span className="block text-xs font-bold text-slate-900 dark:text-white">Chat on WhatsApp</span>
+                    <span className="text-xs font-medium text-slate-400">Instant response from dispatch</span>
+                  </div>
+                </div>
+                <ArrowRight className="w-4 h-4" />
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ─── MAIN CONTENT ──────────────────────────────────────────────────── */}
       <main className="relative z-10">
@@ -680,51 +1469,55 @@ export default function B2BRegistrationGuidePage() {
         {/* ════════════════════════════════════════════════════════════════════
             SECTION 1: CINEMATIC HERO
         ════════════════════════════════════════════════════════════════════ */}
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 sm:pt-20 pb-20 sm:pb-28">
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 sm:pt-16 pb-16 sm:pb-24">
           <div className="flex flex-col lg:flex-row items-center gap-12 lg:gap-16">
-            {/* Left: Typography + CTAs */}
+            
+            {/* Left: Hero Headline & Value Statements */}
             <div className="flex-1 space-y-6 text-center lg:text-left">
-              {/* Badge */}
-              <div className="animate-fade-up inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-400/10 border border-amber-400/20">
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-400" style={{ animation: 'glow-pulse 2s ease-in-out infinite' }} />
-                <span className="text-[11px] font-bold text-amber-300">B2B Commercial Onboarding</span>
-                <span className="text-slate-600 mx-1">|</span>
-                <span className="text-[11px] text-slate-400">Quick 3-Minute Process</span>
+              
+              <div className="animate-fade-up inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500" style={{ animation: 'glow-pulse 2s ease-in-out infinite' }} />
+                <span className="text-[11px] font-bold text-amber-500">B2B Commercial Onboarding</span>
+                <span className="text-slate-400 mx-1">|</span>
+                <span className={`text-[11px] ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>3-Minute Walkthrough</span>
               </div>
 
-              {/* Hero Title */}
               <h1 className="animate-fade-up-delay-1 text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black tracking-tight leading-[1.05]">
-                <span className="text-white">Become an Anmol</span>
+                <span className={theme === 'dark' ? 'text-white' : 'text-slate-900'}>Become an Anmol</span>
                 <br />
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-orange-400 to-amber-300">
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-500 via-orange-500 to-amber-400">
                   Wholesale Partner.
                 </span>
               </h1>
 
-              {/* Subtitle */}
-              <p className="animate-fade-up-delay-2 text-sm sm:text-base text-slate-400 leading-relaxed max-w-lg mx-auto lg:mx-0">
-                Step-by-step registration guide and video demo for Hotels, Restaurants, Cafes & Caterers in Latur & Marathwada.
+              <p className={`animate-fade-up-delay-2 text-sm sm:text-base leading-relaxed max-w-lg mx-auto lg:mx-0 ${
+                theme === 'dark' ? 'text-slate-400' : 'text-slate-600'
+              }`}>
+                Step-by-step interactive simulator and registration guide for Hotels, Restaurants, Cafes & Caterers in Latur & Marathwada.
               </p>
 
-              {/* CTAs */}
               <div className="animate-fade-up-delay-3 flex flex-col sm:flex-row items-center gap-3 justify-center lg:justify-start">
                 <a
-                  href="#video-section"
-                  className="inline-flex items-center gap-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-bold text-sm px-6 py-3 rounded-xl shadow-lg shadow-amber-500/25 transition-all active:scale-95"
+                  href="#simulator-section"
+                  className="inline-flex items-center gap-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-bold text-sm px-6 py-3 rounded-2xl shadow-lg shadow-amber-500/25 transition-all active:scale-95"
                 >
                   <Play className="w-4 h-4 fill-slate-950" />
-                  <span>Watch 3-Min Demo</span>
+                  <span>Interactive Walkthrough</span>
                 </a>
                 <Link
                   href="/account"
-                  className="inline-flex items-center gap-2 text-sm font-semibold text-slate-300 hover:text-white px-5 py-3 rounded-xl border border-slate-700/50 hover:border-slate-600 transition-all hover:bg-slate-800/30"
+                  className={`inline-flex items-center gap-2 text-sm font-semibold px-5 py-3 rounded-2xl border transition-all ${
+                    theme === 'dark'
+                      ? 'text-slate-300 hover:text-white border-slate-700/60 hover:bg-slate-800/40'
+                      : 'text-slate-700 hover:text-slate-900 border-slate-300 hover:bg-slate-100'
+                  }`}
                 >
-                  <Sparkles className="w-4 h-4 text-amber-400" />
+                  <Sparkles className="w-4 h-4 text-amber-500" />
                   <span>Register as B2B</span>
                 </Link>
               </div>
 
-              {/* Value Pills Row */}
+              {/* Value Pills */}
               <div className="animate-fade-up-delay-4 flex flex-wrap items-center gap-x-5 gap-y-2 justify-center lg:justify-start pt-2">
                 {[
                   { icon: TrendingUp, text: 'Up to 35% Savings' },
@@ -732,8 +1525,10 @@ export default function B2BRegistrationGuidePage() {
                   { icon: Snowflake, text: '-18°C Cold Chain' },
                   { icon: FileText, text: 'GST Tax Invoices' }
                 ].map((item, i) => (
-                  <span key={i} className="flex items-center gap-1.5 text-xs text-slate-500">
-                    <item.icon className="w-3.5 h-3.5 text-slate-600" />
+                  <span key={i} className={`flex items-center gap-1.5 text-xs ${
+                    theme === 'dark' ? 'text-slate-400' : 'text-slate-600'
+                  }`}>
+                    <item.icon className="w-3.5 h-3.5 text-amber-500" />
                     {item.text}
                   </span>
                 ))}
@@ -742,169 +1537,85 @@ export default function B2BRegistrationGuidePage() {
 
             {/* Right: Floating Terminal Card */}
             <div className="w-full lg:w-auto flex-shrink-0 animate-fade-up-delay-3">
-              <FloatingTerminalCard />
+              <FloatingTerminalCard theme={theme} />
             </div>
+
           </div>
         </section>
 
         {/* ════════════════════════════════════════════════════════════════════
-            SECTION 2: VIDEO MASTERCLASS
+            SECTION 2: LIVE INTERACTIVE REGISTRATION SIMULATOR (Replaced Video)
         ════════════════════════════════════════════════════════════════════ */}
         <section
-          id="video-section"
-          ref={videoSection.ref}
-          className={`max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pb-24 sm:pb-32 transition-all duration-700 ${
-            videoSection.isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
+          id="simulator-section"
+          ref={simulatorSection.ref}
+          className={`max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pb-20 sm:pb-28 transition-all duration-700 ${
+            simulatorSection.isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
           }`}
         >
           <div className="text-center mb-8 space-y-2">
-            <span className="inline-flex items-center gap-2 text-xs font-bold text-amber-400 uppercase tracking-wider">
-              <Video className="w-3.5 h-3.5" />
-              Registration Walkthrough
+            <span className="inline-flex items-center gap-2 text-xs font-bold text-amber-500 uppercase tracking-wider">
+              <MousePointer className="w-3.5 h-3.5" />
+              Automated Registration Simulation
             </span>
-            <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-              Watch the Complete Demo
+            <h2 className={`text-2xl sm:text-3xl font-black tracking-tight ${
+              theme === 'dark' ? 'text-white' : 'text-slate-900'
+            }`}>
+              Interactive Registration Console
             </h2>
-            <p className="text-sm text-slate-500 max-w-md mx-auto">
-              A 3-minute screencast showing every step from account selection to your first wholesale order.
+            <p className={`text-sm max-w-md mx-auto ${
+              theme === 'dark' ? 'text-slate-400' : 'text-slate-500'
+            }`}>
+              Watch the auto-typing simulation showing how to select B2B mode, enter your outlet details, and verify via OTP.
             </p>
           </div>
 
-          {/* Video Container */}
-          <div className="relative aspect-video w-full rounded-2xl overflow-hidden bg-black border border-slate-700/40 shadow-2xl shadow-black/50 group">
-            {youtubeUrl ? (
-              <iframe
-                src={getYoutubeEmbedUrl(youtubeUrl)}
-                className="w-full h-full border-0"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                allowFullScreen
-              />
-            ) : (
-              <>
-                <video
-                  ref={videoRef}
-                  src="/videos/registration-demo.mp4"
-                  onTimeUpdate={handleTimeUpdate}
-                  onLoadedMetadata={handleLoadedMetadata}
-                  onPlay={() => setIsPlaying(true)}
-                  onPause={() => setIsPlaying(false)}
-                  playsInline
-                  className="w-full h-full object-contain cursor-pointer"
-                  onClick={togglePlay}
-                />
-
-                {/* Big Play Overlay */}
-                {!isPlaying && (
-                  <div
-                    onClick={togglePlay}
-                    className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 backdrop-blur-xs cursor-pointer transition-all"
-                  >
-                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-tr from-amber-500 to-orange-500 text-slate-950 flex items-center justify-center shadow-2xl shadow-amber-500/30 hover:scale-105 active:scale-95 transition-transform">
-                      <Play className="w-7 h-7 fill-slate-950 ml-0.5" />
-                    </div>
-                    <p className="mt-4 text-sm font-bold text-white tracking-wide">
-                      Play Demo
-                    </p>
-                    <p className="text-xs text-slate-400 mt-1">
-                      3:42 · Step-by-step walkthrough
-                    </p>
-                  </div>
-                )}
-
-                {/* Control Bar */}
-                <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-3 sm:p-4 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                  <input
-                    type="range"
-                    min={0}
-                    max={duration || 222}
-                    step={0.5}
-                    value={currentTime}
-                    onChange={handleSeek}
-                    className="video-slider w-full h-1 bg-slate-700/80 rounded-lg appearance-none cursor-pointer"
-                  />
-                  <div className="flex items-center justify-between text-xs text-white">
-                    <div className="flex items-center gap-2.5">
-                      <button type="button" onClick={togglePlay} className="p-1.5 rounded-lg hover:bg-white/10 transition cursor-pointer">
-                        {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 fill-white" />}
-                      </button>
-                      <button type="button" onClick={toggleMute} className="p-1.5 rounded-lg hover:bg-white/10 transition cursor-pointer">
-                        {isMuted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4" />}
-                      </button>
-                      <span className="font-mono text-[11px] text-slate-300">
-                        {formatTime(currentTime)} / {formatTime(duration)}
-                      </span>
-                    </div>
-                    <button type="button" onClick={handleFullscreen} className="p-1.5 rounded-lg hover:bg-white/10 transition cursor-pointer" title="Fullscreen">
-                      <Maximize2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* Chapter Chips — horizontal scroll */}
-          <div className="mt-5 flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
-            {CHAPTERS.map((ch, idx) => (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => seekToChapter(ch.time, idx)}
-                className={`shrink-0 px-3.5 py-2 rounded-xl border text-xs font-medium transition-all cursor-pointer ${
-                  activeChapter === idx
-                    ? 'bg-amber-400/15 border-amber-400/40 text-amber-300 shadow-sm shadow-amber-500/10'
-                    : 'bg-[#0D1117] border-slate-700/30 text-slate-500 hover:text-slate-300 hover:border-slate-600'
-                }`}
-              >
-                <span className="font-mono font-bold">{ch.shortLabel.split(' — ')[0]}</span>
-                <span className="ml-1.5">{ch.label}</span>
-              </button>
-            ))}
-          </div>
+          <RegistrationSimulator theme={theme} />
         </section>
 
         {/* ════════════════════════════════════════════════════════════════════
-            SECTION 3: REGISTRATION STEPS — TERMINAL CARDS
+            SECTION 3: REGISTRATION BLUEPRINT (Full-Width Terminal Cards)
         ════════════════════════════════════════════════════════════════════ */}
         <section
           ref={stepsSection.ref}
-          className={`max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pb-24 sm:pb-32 transition-all duration-700 ${
+          className={`max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pb-20 sm:pb-28 transition-all duration-700 ${
             stepsSection.isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
           }`}
         >
-          <div className="text-center mb-12 space-y-3">
-            <span className="text-xs font-bold text-amber-400 uppercase tracking-widest">
+          <div className="text-center mb-10 space-y-2">
+            <span className="text-xs font-bold text-amber-500 uppercase tracking-widest">
               Registration Blueprint
             </span>
-            <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
+            <h2 className={`text-3xl sm:text-4xl font-black tracking-tight ${
+              theme === 'dark' ? 'text-white' : 'text-slate-900'
+            }`}>
               4 Steps to Wholesale Access
             </h2>
-            <p className="text-sm text-slate-500 max-w-md mx-auto">
-              Follow the registration flow on the Anmol Enterprises portal.
-            </p>
           </div>
 
           <div className="space-y-6">
             {STEPS.map((step, idx) => (
-              <StepCard key={idx} step={step} index={idx} />
+              <StepCard key={idx} step={step} index={idx} theme={theme} />
             ))}
           </div>
         </section>
 
         {/* ════════════════════════════════════════════════════════════════════
-            SECTION 4: ELIGIBILITY AT-A-GLANCE
+            SECTION 4: ELIGIBILITY CHECKLIST
         ════════════════════════════════════════════════════════════════════ */}
         <section
           ref={eligibilitySection.ref}
-          className={`max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pb-24 sm:pb-32 transition-all duration-700 ${
+          className={`max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pb-20 sm:pb-28 transition-all duration-700 ${
             eligibilitySection.isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
           }`}
         >
           <div className="text-center mb-10 space-y-2">
-            <span className="text-xs font-bold text-amber-400 uppercase tracking-widest">
+            <span className="text-xs font-bold text-amber-500 uppercase tracking-widest">
               Quick Eligibility Check
             </span>
-            <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
+            <h2 className={`text-3xl sm:text-4xl font-black tracking-tight ${
+              theme === 'dark' ? 'text-white' : 'text-slate-900'
+            }`}>
               What You Need to Register
             </h2>
           </div>
@@ -940,15 +1651,17 @@ export default function B2BRegistrationGuidePage() {
               }
             ].map((card, i) => {
               const colorMap: Record<string, { border: string; bg: string; text: string; tag: string }> = {
-                amber: { border: 'border-t-amber-500', bg: 'bg-amber-400/10', text: 'text-amber-400', tag: 'bg-amber-400/15 text-amber-300 border-amber-400/20' },
-                emerald: { border: 'border-t-emerald-500', bg: 'bg-emerald-400/10', text: 'text-emerald-400', tag: 'bg-emerald-400/15 text-emerald-300 border-emerald-400/20' },
-                violet: { border: 'border-t-violet-500', bg: 'bg-violet-400/10', text: 'text-violet-400', tag: 'bg-violet-400/15 text-violet-300 border-violet-400/20' }
+                amber: { border: 'border-t-amber-500', bg: 'bg-amber-400/10', text: 'text-amber-500', tag: 'bg-amber-400/15 text-amber-500 border-amber-400/20' },
+                emerald: { border: 'border-t-emerald-500', bg: 'bg-emerald-400/10', text: 'text-emerald-500', tag: 'bg-emerald-400/15 text-emerald-500 border-emerald-400/20' },
+                violet: { border: 'border-t-violet-500', bg: 'bg-violet-400/10', text: 'text-violet-500', tag: 'bg-violet-400/15 text-violet-500 border-violet-400/20' }
               }
               const c = colorMap[card.accentColor] || colorMap.amber
               return (
                 <div
                   key={i}
-                  className={`bg-[#0D1117] border border-slate-700/30 border-t-2 ${c.border} rounded-2xl p-6 hover:-translate-y-1 hover:shadow-lg transition-all duration-300 space-y-5`}
+                  className={`border border-t-2 ${c.border} rounded-2xl p-6 hover:-translate-y-1 hover:shadow-lg transition-all duration-300 space-y-5 ${
+                    theme === 'dark' ? 'bg-[#0D1117] border-slate-700/30' : 'bg-white border-slate-200/90'
+                  }`}
                 >
                   <div className="flex items-center justify-between">
                     <div className={`w-10 h-10 rounded-xl ${c.bg} flex items-center justify-center`}>
@@ -958,7 +1671,7 @@ export default function B2BRegistrationGuidePage() {
                       {card.tag}
                     </span>
                   </div>
-                  <h3 className="text-base font-bold text-white">{card.title}</h3>
+                  <h3 className={`text-base font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{card.title}</h3>
                   <div className="space-y-2.5 text-xs">
                     <div className="flex justify-between items-center">
                       <span className="text-slate-500">Required</span>
@@ -966,7 +1679,7 @@ export default function B2BRegistrationGuidePage() {
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-slate-500">Credit Line</span>
-                      <span className="font-semibold text-slate-300">{card.creditLine}</span>
+                      <span className={`font-semibold ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>{card.creditLine}</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-slate-500">Payment</span>
@@ -984,15 +1697,17 @@ export default function B2BRegistrationGuidePage() {
         ════════════════════════════════════════════════════════════════════ */}
         <section
           ref={faqSection.ref}
-          className={`max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 pb-24 sm:pb-32 transition-all duration-700 ${
+          className={`max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 pb-20 sm:pb-28 transition-all duration-700 ${
             faqSection.isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
           }`}
         >
           <div className="text-center mb-10 space-y-2">
-            <span className="text-xs font-bold text-amber-400 uppercase tracking-widest">
+            <span className="text-xs font-bold text-amber-500 uppercase tracking-widest">
               Common Questions
             </span>
-            <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
+            <h2 className={`text-3xl sm:text-4xl font-black tracking-tight ${
+              theme === 'dark' ? 'text-white' : 'text-slate-900'
+            }`}>
               B2B Registration FAQs
             </h2>
           </div>
@@ -1001,10 +1716,12 @@ export default function B2BRegistrationGuidePage() {
             {FAQS.map((item, idx) => (
               <div
                 key={idx}
-                className={`bg-[#0D1117] border rounded-2xl transition-all duration-300 ${
+                className={`border rounded-2xl transition-all duration-300 ${
+                  theme === 'dark' ? 'bg-[#0D1117]' : 'bg-white'
+                } ${
                   activeFaq === idx
-                    ? 'border-amber-500/30 shadow-sm shadow-amber-500/5'
-                    : 'border-slate-700/30 hover:border-slate-600/40'
+                    ? 'border-amber-500/40 shadow-sm shadow-amber-500/10'
+                    : (theme === 'dark' ? 'border-slate-700/30 hover:border-slate-600/40' : 'border-slate-200/90 hover:border-slate-300')
                 }`}
               >
                 <button
@@ -1013,13 +1730,13 @@ export default function B2BRegistrationGuidePage() {
                   className="w-full px-6 py-5 text-left flex items-center justify-between gap-4 cursor-pointer"
                 >
                   <span className={`text-sm font-semibold transition-colors ${
-                    activeFaq === idx ? 'text-amber-300' : 'text-slate-200'
+                    activeFaq === idx ? 'text-amber-500' : (theme === 'dark' ? 'text-slate-200' : 'text-slate-800')
                   }`}>
                     {item.q}
                   </span>
                   <ChevronDown
                     className={`w-4 h-4 shrink-0 transition-all duration-300 ${
-                      activeFaq === idx ? 'rotate-180 text-amber-400' : 'text-slate-600'
+                      activeFaq === idx ? 'rotate-180 text-amber-500' : 'text-slate-400'
                     }`}
                   />
                 </button>
@@ -1028,7 +1745,9 @@ export default function B2BRegistrationGuidePage() {
                     activeFaq === idx ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'
                   }`}
                 >
-                  <div className="px-6 pb-5 text-sm text-slate-400 leading-relaxed border-t border-slate-800/50 pt-4">
+                  <div className={`px-6 pb-5 text-sm leading-relaxed border-t pt-4 ${
+                    theme === 'dark' ? 'border-slate-800/50 text-slate-400' : 'border-slate-100 text-slate-600'
+                  }`}>
                     {item.a}
                   </div>
                 </div>
@@ -1038,7 +1757,7 @@ export default function B2BRegistrationGuidePage() {
         </section>
 
         {/* ════════════════════════════════════════════════════════════════════
-            SECTION 6: CTA BANNER
+            SECTION 6: GRADIENT CTA BANNER
         ════════════════════════════════════════════════════════════════════ */}
         <section
           ref={ctaSection.ref}
@@ -1047,7 +1766,6 @@ export default function B2BRegistrationGuidePage() {
           }`}
         >
           <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 rounded-3xl p-8 sm:p-12 text-slate-950 flex flex-col md:flex-row items-center justify-between gap-8 shadow-2xl relative overflow-hidden">
-            {/* Decorative glow */}
             <div className="absolute -right-12 -bottom-12 w-64 h-64 bg-white/10 rounded-full blur-3xl pointer-events-none" />
             <div className="absolute -left-8 -top-8 w-40 h-40 bg-white/5 rounded-full blur-2xl pointer-events-none" />
 
@@ -1055,8 +1773,8 @@ export default function B2BRegistrationGuidePage() {
               <h3 className="text-2xl sm:text-3xl font-black tracking-tight leading-tight">
                 Ready to Unlock Wholesale Rates?
               </h3>
-              <p className="text-sm font-medium text-slate-900/70 max-w-lg">
-                Registration takes 2 minutes. Start ordering McCain French Fries, Smiles, and Veggie Burger Patties at distributor prices today.
+              <p className="text-sm font-semibold text-slate-900/80 max-w-lg">
+                Registration takes only 2 minutes. Start ordering McCain French Fries, Smiles, and Veggie Burger Patties at distributor prices today.
               </p>
             </div>
 
@@ -1068,15 +1786,14 @@ export default function B2BRegistrationGuidePage() {
                 <span>Register as B2B Partner</span>
                 <ArrowRight className="w-4 h-4 text-amber-400" />
               </Link>
-              <a
-                href="https://wa.me/919112449612?text=Hello%20Anmol%20Enterprises,%20I%20want%20help%20with%20B2B%20Registration"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full sm:w-auto px-5 py-3.5 rounded-2xl bg-white/20 hover:bg-white/30 text-slate-950 font-bold text-sm transition-all border border-slate-950/15 flex items-center justify-center gap-2"
+              <button
+                type="button"
+                onClick={() => setShowInquiryModal(true)}
+                className="w-full sm:w-auto px-5 py-3.5 rounded-2xl bg-white/20 hover:bg-white/30 text-slate-950 font-bold text-sm transition-all border border-slate-950/15 flex items-center justify-center gap-2 cursor-pointer"
               >
-                <span>WhatsApp Support</span>
-                <ExternalLink className="w-3.5 h-3.5" />
-              </a>
+                <Phone className="w-4 h-4" />
+                <span>Direct Inquiries</span>
+              </button>
             </div>
           </div>
         </section>
