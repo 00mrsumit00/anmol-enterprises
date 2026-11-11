@@ -9,7 +9,8 @@ import {
   ChevronRight, ShieldCheck, Clock, AlertTriangle, Store, Utensils, 
   Coffee, ShoppingBag, BadgePercent, CreditCard, Sparkles, CheckCircle2, ArrowRight, ArrowLeft,
   Package, UploadCloud, ClipboardList, BarChart3, Truck, Mail, RotateCcw, MapPin, Heart, HelpCircle, Bell, Moon,
-  Home, Plus, Edit2, Trash2, Check, Star, X, MessageSquare
+  Home, Plus, Edit2, Trash2, Check, Star, X, MessageSquare,
+  FileSpreadsheet, Download, Calendar
 } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import OtpVerificationModal from '@/components/storefront/OtpVerificationModal'
@@ -86,6 +87,15 @@ export default function AccountPage() {
   const [emailOtpToken, setEmailOtpToken] = useState('')
   const [emailAlreadyExists, setEmailAlreadyExists] = useState(false)
   const [isCheckingEmail, setIsCheckingEmail] = useState(false)
+
+  // B2B Ledger date filters
+  const [b2bLedgerFrom, setB2bLedgerFrom] = useState(() => {
+    const d = new Date()
+    d.setDate(d.getDate() - 30)
+    return d.toISOString().split('T')[0]
+  })
+  const [b2bLedgerTo, setB2bLedgerTo] = useState(() => new Date().toISOString().split('T')[0])
+  const [showB2bCustomLedger, setShowB2bCustomLedger] = useState(false)
 
   // Local user state
   const [user, setUser] = useState<any>(null)
@@ -864,6 +874,99 @@ export default function AccountPage() {
                   )}
                 </div>
 
+              </div>
+
+              {/* B2B Commercial Financial Ledger & Statement Download */}
+              <div className="relative z-10 bg-white/5 backdrop-blur-md rounded-2xl p-4 sm:p-5 border border-white/10 flex flex-col gap-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-400/20 text-emerald-300 flex items-center justify-center shrink-0 border border-emerald-400/30">
+                      <FileSpreadsheet className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="font-display text-sm font-black text-white">Commercial Financial Ledger</h4>
+                      <p className="text-[11px] text-purple-200/80 font-medium">
+                        Export debits, credits, payments, and running balance statements in Excel (.xlsx)
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const now = new Date()
+                        const d = new Date()
+                        d.setDate(d.getDate() - 30)
+                        window.open(`/api/account/ledger?from=${d.toISOString().split('T')[0]}&to=${now.toISOString().split('T')[0]}&format=excel`, '_blank')
+                      }}
+                      className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold border border-white/15 flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
+                    >
+                      <Download className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Last 1 Month</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const now = new Date()
+                        const d = new Date()
+                        d.setDate(d.getDate() - 90)
+                        window.open(`/api/account/ledger?from=${d.toISOString().split('T')[0]}&to=${now.toISOString().split('T')[0]}&format=excel`, '_blank')
+                      }}
+                      className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold border border-white/15 flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
+                    >
+                      <Download className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Last 3 Months</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowB2bCustomLedger(!showB2bCustomLedger)}
+                      className="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-slate-950 text-xs font-black flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
+                    >
+                      <Calendar className="w-3.5 h-3.5" />
+                      <span>{showB2bCustomLedger ? 'Close' : 'Custom Dates'}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {showB2bCustomLedger && (
+                  <div className="pt-3 border-t border-white/10 grid grid-cols-1 sm:grid-cols-3 gap-2.5 items-end">
+                    <div>
+                      <label className="text-[10px] text-purple-200 font-bold mb-1 block">From</label>
+                      <input
+                        type="date"
+                        value={b2bLedgerFrom}
+                        onChange={(e) => setB2bLedgerFrom(e.target.value)}
+                        className="w-full bg-white/10 text-white rounded-lg border border-white/20 px-2.5 py-1.5 text-xs focus:ring-1 focus:ring-emerald-400"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-purple-200 font-bold mb-1 block">To</label>
+                      <input
+                        type="date"
+                        value={b2bLedgerTo}
+                        onChange={(e) => setB2bLedgerTo(e.target.value)}
+                        className="w-full bg-white/10 text-white rounded-lg border border-white/20 px-2.5 py-1.5 text-xs focus:ring-1 focus:ring-emerald-400"
+                      />
+                    </div>
+                    <div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!b2bLedgerFrom || !b2bLedgerTo) {
+                            showToast('Please select from and to dates', 'error')
+                            return
+                          }
+                          window.open(`/api/account/ledger?from=${b2bLedgerFrom}&to=${b2bLedgerTo}&format=excel`, '_blank')
+                        }}
+                        className="w-full py-1.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-xs rounded-lg flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span>Download Statement (.xlsx)</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Quick Bulk Reorder Banner */}

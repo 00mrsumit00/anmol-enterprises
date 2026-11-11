@@ -5,7 +5,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { 
   Users, Building2, ShoppingBag, Search, RefreshCw, UserCheck, UserX,
   CreditCard, Calendar, Trash2, Plus, Phone, Mail, Edit3, X, ChevronRight, AlertTriangle,
-  Printer, Clock, DollarSign, CheckCircle2, Eye, Package, ShieldCheck
+  Printer, Clock, DollarSign, CheckCircle2, Eye, Package, ShieldCheck,
+  FileSpreadsheet, Download, FileText
 } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import Link from 'next/link'
@@ -24,6 +25,42 @@ export default function AdminUsersAndAccountsPage() {
 
   // Selected user for Orders History Modal Popup (No page redirect!)
   const [viewOrdersUser, setViewOrdersUser] = useState<any>(null)
+
+  // Selected user for B2B Ledger Statement Modal & Download
+  const [ledgerUser, setLedgerUser] = useState<any | null>(null)
+  const [ledgerFromDate, setLedgerFromDate] = useState<string>(() => {
+    const d = new Date()
+    d.setMonth(d.getMonth() - 1)
+    return d.toISOString().split('T')[0]
+  })
+  const [ledgerToDate, setLedgerToDate] = useState<string>(() => new Date().toISOString().split('T')[0])
+  const [previewLedgerData, setPreviewLedgerData] = useState<any | null>(null)
+  const [isLoadingLedger, setIsLoadingLedger] = useState(false)
+
+  const fetchLedgerData = async (userToFetch: any, fromStr: string, toStr: string) => {
+    if (!userToFetch?.id) return
+    setIsLoadingLedger(true)
+    try {
+      const res = await fetch(`/api/admin/users/${userToFetch.id}/ledger?from=${fromStr}&to=${toStr}&format=json`)
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to load ledger')
+      setPreviewLedgerData(data)
+    } catch (err: any) {
+      showToast(err.message || 'Failed to fetch customer ledger', 'error')
+    } finally {
+      setIsLoadingLedger(false)
+    }
+  }
+
+  const handleOpenLedgerModal = (user: any) => {
+    setLedgerUser(user)
+    fetchLedgerData(user, ledgerFromDate, ledgerToDate)
+  }
+
+  const handleDownloadExcel = (userToDownload: any) => {
+    if (!userToDownload?.id) return
+    window.open(`/api/admin/users/${userToDownload.id}/ledger?from=${ledgerFromDate}&to=${ledgerToDate}&format=excel`, '_blank')
+  }
 
   // Edit Modal Form State
   const [editName, setEditName] = useState<string>('')
@@ -664,6 +701,13 @@ export default function AdminUsersAndAccountsPage() {
                       <td className="px-5 py-4 text-right">
                         {!isStaff ? (
                           <div className="inline-flex items-center gap-1 justify-end">
+                            <button
+                              onClick={() => handleOpenLedgerModal(user)}
+                              className="p-1.5 text-slate-400 hover:text-emerald-400 hover:bg-[#0B0F19] border border-transparent hover:border-slate-800 rounded-lg transition-colors"
+                              title="Download B2B Ledger & Statements"
+                            >
+                              <FileSpreadsheet className="w-4 h-4" />
+                            </button>
                             {(isSuperAdmin || (user.role !== 'SUPER_ADMIN' && (user.role !== 'ADMIN' || currentUser?.id === user.id))) && (
                               <button
                                 onClick={() => handleOpenEdit(user)}
@@ -753,6 +797,29 @@ export default function AdminUsersAndAccountsPage() {
                   {new Date(viewOrdersUser.createdAt).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}
                 </span>
               </div>
+            </div>
+
+            {/* Quick Ledger Download Action for B2B Customers */}
+            <div className="flex items-center justify-between gap-3 p-3 bg-emerald-500/10 border border-emerald-500/25 rounded-2xl">
+              <div className="flex items-center gap-2.5">
+                <FileSpreadsheet className="w-5 h-5 text-emerald-400 shrink-0" />
+                <div>
+                  <h4 className="text-xs font-black text-white">B2B Financial Ledger & Statements</h4>
+                  <p className="text-[11px] text-emerald-300/80 font-medium">Download weekly/monthly itemized debits, credits, and balance statements.</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const u = viewOrdersUser
+                  setViewOrdersUser(null)
+                  handleOpenLedgerModal(u)
+                }}
+                className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-xs transition-all shrink-0 flex items-center gap-1.5 active:scale-95"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Open Ledger</span>
+              </button>
             </div>
 
             {/* Orders List Container */}
@@ -1075,6 +1142,240 @@ export default function AdminUsersAndAccountsPage() {
             <div className="pt-4 border-t border-slate-800 flex justify-end gap-3">
               <button onClick={() => setShowCreateModal(false)} className="px-5 py-2 text-sm font-semibold text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-xl transition-colors">Cancel</button>
               <button onClick={handleCreateUser} disabled={createMutation.isPending} className="px-5 py-2 text-sm font-bold text-slate-950 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 rounded-xl shadow-lg shadow-amber-500/20 transition-all disabled:opacity-50">Create Customer</button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* 7. B2B CUSTOMER FINANCIAL LEDGER MODAL */}
+      {ledgerUser && (
+        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 z-50 animate-in fade-in duration-150">
+          <div className="bg-[#111625] rounded-3xl max-w-4xl w-full p-6 shadow-2xl flex flex-col gap-4 max-h-[92vh] overflow-hidden border border-slate-800">
+            
+            {/* Modal Header */}
+            <div className="flex items-start justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shrink-0">
+                  <FileSpreadsheet className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-extrabold text-base sm:text-lg text-white">
+                      B2B Customer Ledger: {ledgerUser.businessName || ledgerUser.name}
+                    </h3>
+                    <span className="text-[10px] font-black uppercase bg-violet-500/20 text-violet-300 border border-violet-500/30 px-2 py-0.5 rounded-full">
+                      Statement
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400 font-medium mt-0.5">
+                    GSTIN: <span className="font-mono text-slate-300">{ledgerUser.businessProfile?.gstin || 'Unregistered'}</span> • Phone: +91 {ledgerUser.phone || 'N/A'} • Credit: ₹{ledgerUser.creditLimit || 0}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setLedgerUser(null)}
+                className="w-8 h-8 rounded-full bg-[#0B0F19] hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center font-bold text-sm border border-slate-800 transition-all"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Date Filters & Quick Actions */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-[#0B0F19] p-3 rounded-2xl border border-slate-800 text-xs">
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] font-bold text-slate-400">From:</span>
+                  <input
+                    type="date"
+                    value={ledgerFromDate}
+                    onChange={(e) => setLedgerFromDate(e.target.value)}
+                    className="bg-[#111625] border border-slate-700 text-white rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] font-bold text-slate-400">To:</span>
+                  <input
+                    type="date"
+                    value={ledgerToDate}
+                    onChange={(e) => setLedgerToDate(e.target.value)}
+                    className="bg-[#111625] border border-slate-700 text-white rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => fetchLedgerData(ledgerUser, ledgerFromDate, ledgerToDate)}
+                  className="px-3 py-1 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 rounded-lg text-xs font-bold transition-all"
+                >
+                  Apply
+                </button>
+              </div>
+
+              {/* Quick Range Presets & Excel Download */}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const d = new Date()
+                    d.setMonth(d.getMonth() - 1)
+                    const fromStr = d.toISOString().split('T')[0]
+                    const toStr = new Date().toISOString().split('T')[0]
+                    setLedgerFromDate(fromStr)
+                    setLedgerToDate(toStr)
+                    fetchLedgerData(ledgerUser, fromStr, toStr)
+                  }}
+                  className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-[11px] font-semibold transition"
+                >
+                  Last 1M
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const d = new Date()
+                    d.setMonth(d.getMonth() - 3)
+                    const fromStr = d.toISOString().split('T')[0]
+                    const toStr = new Date().toISOString().split('T')[0]
+                    setLedgerFromDate(fromStr)
+                    setLedgerToDate(toStr)
+                    fetchLedgerData(ledgerUser, fromStr, toStr)
+                  }}
+                  className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-[11px] font-semibold transition"
+                >
+                  Last 3M
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleDownloadExcel(ledgerUser)}
+                  className="px-3.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 active:scale-95"
+                  title="Download formatted Excel workbook"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Download Excel (.xlsx)</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Ledger Transactions Table Container */}
+            <div className="overflow-y-auto max-h-[55vh] border border-slate-800 rounded-2xl bg-[#0B0F19]">
+              {isLoadingLedger ? (
+                <div className="py-16 text-center text-slate-500 flex flex-col items-center gap-2">
+                  <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                  <span className="text-xs font-semibold text-slate-400">Compiling customer financial statement...</span>
+                </div>
+              ) : !previewLedgerData ? (
+                <div className="py-16 text-center text-slate-500">
+                  <FileSpreadsheet className="w-8 h-8 mx-auto mb-2 opacity-40 text-slate-400" />
+                  <p className="text-xs font-medium text-slate-400">Select dates to view ledger statement.</p>
+                </div>
+              ) : (
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead className="bg-[#111625] sticky top-0 border-b border-slate-800 text-slate-400 font-bold uppercase text-[10px]">
+                    <tr>
+                      <th className="py-3 px-3">Date</th>
+                      <th className="py-3 px-3">Invoice Ref</th>
+                      <th className="py-3 px-3">Particulars</th>
+                      <th className="py-3 px-3">Payment</th>
+                      <th className="py-3 px-3 text-right">Debit (Invoiced)</th>
+                      <th className="py-3 px-3 text-right">Credit (Paid)</th>
+                      <th className="py-3 px-3 text-right">Balance</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60 font-medium">
+                    {/* Opening Balance Row */}
+                    <tr className="bg-slate-900/40 text-slate-400 font-semibold italic text-[11px]">
+                      <td className="py-2.5 px-3">{previewLedgerData.period.formattedFrom}</td>
+                      <td className="py-2.5 px-3">-</td>
+                      <td className="py-2.5 px-3 font-bold text-slate-300">OPENING BALANCE B/F</td>
+                      <td className="py-2.5 px-3">-</td>
+                      <td className="py-2.5 px-3 text-right font-mono">₹0.00</td>
+                      <td className="py-2.5 px-3 text-right font-mono">₹0.00</td>
+                      <td className="py-2.5 px-3 text-right font-mono font-bold text-white">
+                        ₹{previewLedgerData.openingBalance.toFixed(2)}
+                      </td>
+                    </tr>
+
+                    {/* Transaction Rows */}
+                    {previewLedgerData.transactions.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="py-8 text-center text-slate-500 text-xs">
+                          No transactions found for this customer in selected period.
+                        </td>
+                      </tr>
+                    ) : (
+                      previewLedgerData.transactions.map((t: any) => (
+                        <tr key={t.id} className="hover:bg-slate-800/30 text-slate-200">
+                          <td className="py-2.5 px-3 text-slate-400 font-mono text-[11px]">{t.formattedDate}</td>
+                          <td className="py-2.5 px-3 font-mono font-bold text-amber-400">{t.invoiceNumber}</td>
+                          <td className="py-2.5 px-3 text-slate-300 truncate max-w-[240px]" title={t.particulars}>
+                            {t.particulars}
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-800 text-slate-300">
+                              {t.paymentMethod}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-mono font-bold text-rose-300">
+                            ₹{t.debit.toFixed(2)}
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-400">
+                            ₹{t.credit.toFixed(2)}
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-mono font-black text-white">
+                            ₹{t.runningBalance.toFixed(2)}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                  {/* Closing Summary Footer */}
+                  <tfoot className="bg-[#111625] sticky bottom-0 border-t-2 border-slate-700 font-black text-xs text-white">
+                    <tr>
+                      <td colSpan={4} className="py-3 px-3 uppercase tracking-wider text-slate-400">
+                        Period Totals & Net Outstanding:
+                      </td>
+                      <td className="py-3 px-3 text-right font-mono text-rose-400">
+                        ₹{previewLedgerData.summary.totalDebit.toFixed(2)}
+                      </td>
+                      <td className="py-3 px-3 text-right font-mono text-emerald-400">
+                        ₹{previewLedgerData.summary.totalCredit.toFixed(2)}
+                      </td>
+                      <td className="py-3 px-3 text-right font-mono text-base text-amber-400">
+                        ₹{previewLedgerData.summary.closingBalance.toFixed(2)}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              )}
+            </div>
+
+            {/* Bottom Actions */}
+            <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-xs">
+              <span className="text-slate-400 text-[11px]">
+                M/s Anmol Enterprises • Barshi Road Latur • GSTIN: 27AGEPT8074F1Z0
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleDownloadExcel(ledgerUser)}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition flex items-center gap-1.5"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Download Excel (.xlsx)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLedgerUser(null)}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl transition"
+                >
+                  Close
+                </button>
+              </div>
             </div>
 
           </div>

@@ -12,6 +12,7 @@ import { env } from './env'
 import { sendTwilioVerifyOtp, checkTwilioVerifyOtp, isTwilioLive, toE164India } from './twilio'
 import { uploadImageToCloudinary, isCloudinaryConfigured } from './cloudinary'
 import { calculatePricing } from './pricingEngine'
+import { sendOrderInvoiceEmail } from './invoiceEmailService'
 
 // ─── UTILITIES & INITIALIZERS ────────────────────────────────────────────────
 
@@ -3999,6 +4000,14 @@ apiRouter.put('/orders/:id/status', authMiddleware, requireRole(['ADMIN', 'STAFF
       mockSendSMS(userPhone, `Order #${currentOrder.orderNumber} status is now: ${status}.`)
     }
     mockSendPushNotification(`Order Update`, `Order #${currentOrder.orderNumber} is now ${status}`)
+
+    // When order is successfully delivered, automatically dispatch official Tax Invoice to customer via email
+    if (status === 'DELIVERED') {
+      const recipientEmail = (order as any).user?.email
+      sendOrderInvoiceEmail(id, recipientEmail).catch((err) => {
+        console.error(`[Invoice Auto-Email]: Delivery email failed for order #${currentOrder.orderNumber}:`, err)
+      })
+    }
 
     return res.json(order)
   } catch (error) {

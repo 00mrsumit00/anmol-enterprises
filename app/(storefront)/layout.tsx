@@ -8,7 +8,7 @@ import CartDrawer from '@/components/storefront/CartDrawer'
 import FloatingCartBar from '@/components/storefront/FloatingCartBar'
 import SplashScreen from '@/components/storefront/SplashScreen'
 import InstallAppBanner from '@/components/storefront/InstallAppBanner'
-import StorefrontFestiveBanner from '@/components/storefront/StorefrontFestiveBanner'
+import StorefrontAlertBanner from '@/components/storefront/StorefrontAlertBanner'
 import OrderNotificationListener from '@/components/storefront/OrderNotificationListener'
 
 export default function StorefrontLayout({
@@ -32,8 +32,8 @@ export default function StorefrontLayout({
       {/* Top Mobile & Desktop PWA Install Banner */}
       <InstallAppBanner />
 
-      {/* Top Festive Announcement Banner (Diwali Dhamaka) */}
-      <StorefrontFestiveBanner />
+      {/* Top Glowing Store Alert Banner (Offers, Emergency Notices, New Updates) */}
+      <StorefrontAlertBanner />
 
       {/* Sticky Top Header */}
       <Suspense fallback={<header className="sticky top-0 z-[100] w-full bg-white h-16 shadow-xs border-b border-gray-100" />}>

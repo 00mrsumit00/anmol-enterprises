@@ -15,7 +15,10 @@ import {
   Package,
   ArrowRight,
   Sparkles,
-  Truck
+  Truck,
+  FileSpreadsheet,
+  Download,
+  Calendar
 } from 'lucide-react'
 import { useCart } from '@/hooks/useCart'
 import { useToast } from '@/components/ui/Toast'
@@ -128,6 +131,38 @@ export default function OrderAgainPage() {
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [orders, setOrders] = useState<any[]>([])
   const [addedItemIds, setAddedItemIds] = useState<Record<string, boolean>>({})
+  const [showCustomLedger, setShowCustomLedger] = useState(false)
+  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], [])
+  const [ledgerFromDate, setLedgerFromDate] = useState(() => {
+    const d = new Date()
+    d.setDate(d.getDate() - 30)
+    return d.toISOString().split('T')[0]
+  })
+  const [ledgerToDate, setLedgerToDate] = useState(todayStr)
+
+  const handleDownloadLedger = (preset: '1m' | '3m' | 'custom') => {
+    const now = new Date()
+    let from = new Date()
+    const to = now.toISOString().split('T')[0]
+
+    if (preset === '1m') {
+      from.setDate(now.getDate() - 30)
+    } else if (preset === '3m') {
+      from.setDate(now.getDate() - 90)
+    } else {
+      if (!ledgerFromDate || !ledgerToDate) {
+        showToast('Please select both start and end dates', 'error')
+        return
+      }
+      showToast('Generating financial statement...', 'info')
+      window.open(`/api/account/ledger?from=${ledgerFromDate}&to=${ledgerToDate}&format=excel`, '_blank')
+      return
+    }
+
+    const fromStr = from.toISOString().split('T')[0]
+    showToast(`Downloading statement (${preset === '1m' ? 'Last 30 Days' : 'Last 3 Months'})...`, 'info')
+    window.open(`/api/account/ledger?from=${fromStr}&to=${to}&format=excel`, '_blank')
+  }
 
   // Fetch logged in user and order history
   useEffect(() => {
@@ -424,6 +459,94 @@ export default function OrderAgainPage() {
                 </div>
               </section>
             )}
+
+            {/* ─── ACCOUNT STATEMENTS & B2B FINANCIAL LEDGER ──────────────── */}
+            <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white rounded-3xl p-5 sm:p-6 shadow-xl border border-indigo-500/20 relative overflow-hidden">
+              <div className="absolute -right-8 -top-8 w-40 h-40 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
+              <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex items-start gap-3.5">
+                  <div className="w-11 h-11 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shrink-0 shadow-inner">
+                    <FileSpreadsheet className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-extrabold text-sm sm:text-base text-white tracking-tight">
+                        Account Statement & Financial Ledger
+                      </h3>
+                      {currentUser?.isB2B && (
+                        <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-400 text-slate-950">
+                          B2B Verified
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-300 mt-1 max-w-xl">
+                      Download tax-ready statements and debits/credits ledgers in Excel (.xlsx) for your monthly bookkeeping & GST filing.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleDownloadLedger('1m')}
+                    className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold border border-white/15 flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
+                  >
+                    <Download className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Last 30 Days</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDownloadLedger('3m')}
+                    className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold border border-white/15 flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
+                  >
+                    <Download className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Last 3 Months</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowCustomLedger(!showCustomLedger)}
+                    className="px-3.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-slate-950 text-xs font-black flex items-center gap-1.5 transition active:scale-95 shadow-md shadow-emerald-500/20 cursor-pointer"
+                  >
+                    <Calendar className="w-3.5 h-3.5" />
+                    <span>{showCustomLedger ? 'Close Dates' : 'Custom Range'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Custom Date Range Picker */}
+              {showCustomLedger && (
+                <div className="relative z-10 mt-4 pt-4 border-t border-white/10 grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-300 mb-1 block">From Date</label>
+                    <input
+                      type="date"
+                      value={ledgerFromDate}
+                      onChange={(e) => setLedgerFromDate(e.target.value)}
+                      className="w-full bg-white/10 text-white rounded-xl border border-white/20 px-3 py-2 text-xs focus:outline-hidden focus:ring-2 focus:ring-emerald-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-300 mb-1 block">To Date</label>
+                    <input
+                      type="date"
+                      value={ledgerToDate}
+                      onChange={(e) => setLedgerToDate(e.target.value)}
+                      className="w-full bg-white/10 text-white rounded-xl border border-white/20 px-3 py-2 text-xs focus:outline-hidden focus:ring-2 focus:ring-emerald-400"
+                    />
+                  </div>
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => handleDownloadLedger('custom')}
+                      className="w-full py-2 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-xs rounded-xl flex items-center justify-center gap-2 transition active:scale-95 shadow-md shadow-emerald-500/20 cursor-pointer"
+                    >
+                      <Download className="w-4 h-4" />
+                      <span>Download Statement (.xlsx)</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* ─── SECTION 2: ALL RECENT ORDERS ─────────────────────────────── */}
             <section className="space-y-3 pt-2">

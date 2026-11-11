@@ -644,4 +644,31 @@ model OrderComplaint {
   @@map("order_complaints")
 }
 
+// ─── STOREFRONT GLOWING ALERTS & ANNOUNCEMENT BANNERS ───────────────────────
 
+enum StoreAlertType {
+  OFFER        // Amber/Orange glowing (Diwali / Discounts)
+  WARNING      // Red/Rose glowing (Heavy rain / Service outage / Delay)
+  INFO         // Blue/Indigo glowing (New stock / Operating hours)
+  ANNOUNCEMENT // Emerald/Green glowing (General announcement)
+}
+
+model StoreAlert {
+  id          String         @id @default(cuid())
+  title       String         // e.g. "Diwali Dhamaka: Flat 10% OFF 🪔✨"
+  message     String         // e.g. "Use code DIWALI10 at checkout for instant discount!"
+  badgeText   String?        // e.g. "10% OFF AT CHECKOUT", "DELIVERY UPDATE"
+  alertType   StoreAlertType @default(OFFER)
+  ctaText     String?        // e.g. "Claim Offer", "View Menu", "Shop Now"
+  ctaLink     String?        // e.g. "/category/mccain-foods"
+  isGlowing   Boolean        @default(true)
+  isActive    Boolean        @default(true)
+  startsAt    DateTime       @default(now())
+  expiresAt   DateTime?
+  createdBy   String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@index([isActive, createdAt])
+  @@map("store_alerts")
+}
