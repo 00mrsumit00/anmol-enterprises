@@ -13,6 +13,7 @@ import { sendTwilioVerifyOtp, checkTwilioVerifyOtp, isTwilioLive, toE164India } 
 import { uploadImageToCloudinary, isCloudinaryConfigured } from './cloudinary'
 import { calculatePricing } from './pricingEngine'
 import { sendOrderInvoiceEmail } from './invoiceEmailService'
+import Razorpay from 'razorpay'
 
 // ─── UTILITIES & INITIALIZERS ────────────────────────────────────────────────
 
@@ -3402,6 +3403,166 @@ apiRouter.get('/config/razorpay-key', (_req: Request, res: Response) => {
       !env.RAZORPAY_KEY_ID.includes('mock')
     )
   })
+})
+
+// POST /api/create-order — Standard Razorpay Order Creation Endpoint
+apiRouter.post('/create-order', async (req: Request, res: Response) => {
+  try {
+    const keyId = env.RAZORPAY_KEY_ID || process.env.RAZORPAY_KEY_ID || ''
+    const keySecret = env.RAZORPAY_KEY_SECRET || process.env.RAZORPAY_KEY_SECRET || ''
+
+    if (!keyId || !keySecret) {
+      return res.status(401).json({ error: 'Razorpay API credentials missing or unauthorized' })
+    }
+
+    let amountInPaise = 0
+    let currency = req.body.currency || 'INR'
+    let receipt = req.body.receipt || ''
+    let notes = req.body.notes || {}
+    let matchedOrder: any = null
+
+    // Support both orderId (database order lookup) and direct amount in paise
+    if (req.body.orderId) {
+      matchedOrder = await prisma.order.findUnique({
+        where: { id: req.body.orderId }
+      })
+      if (!matchedOrder) {
+        return res.status(404).json({ error: 'Order not found' })
+      }
+      if (matchedOrder.paymentStatus === 'PAID') {
+        return res.status(400).json({ error: 'Order has already been paid' })
+      }
+      amountInPaise = Math.round(matchedOrder.totalAmount * 100)
+      receipt = matchedOrder.orderNumber
+      notes = {
+        orderId: matchedOrder.id,
+        orderNumber: matchedOrder.orderNumber,
+        customerCity: matchedOrder.deliveryCity || ''
+      }
+    } else {
+      const rawAmount = Number(req.body.amount)
+      if (isNaN(rawAmount) || rawAmount < 100) {
+        return res.status(400).json({ error: 'Amount must be at least 100 paise (₹1.00)' })
+      }
+      amountInPaise = Math.round(rawAmount)
+      receipt = receipt || `rcpt_${Date.now().toString().slice(-8)}`
+    }
+
+    if (amountInPaise < 100) {
+      return res.status(400).json({ error: 'Minimum order amount is 100 paise (₹1.00)' })
+    }
+
+    const razorpay = new Razorpay({ key_id: keyId, key_secret: keySecret })
+    const rzpOrder = await razorpay.orders.create({
+      amount: amountInPaise,
+      currency,
+      receipt,
+      notes
+    })
+
+    if (matchedOrder) {
+      await prisma.order.update({
+        where: { id: matchedOrder.id },
+        data: { razorpayOrderId: rzpOrder.id }
+      })
+    }
+
+    return res.json({
+      order_id: rzpOrder.id,
+      razorpayOrderId: rzpOrder.id,
+      amount: rzpOrder.amount,
+      currency: rzpOrder.currency,
+      key_id: keyId,
+      keyId: keyId,
+      receipt: rzpOrder.receipt
+    })
+  } catch (error: any) {
+    console.error('[Razorpay create-order error]:', error)
+    if (error?.statusCode === 401 || (error?.error && error?.error?.code === 'BAD_REQUEST_ERROR' && error?.message?.includes('auth'))) {
+      return res.status(401).json({ error: 'Razorpay authentication failed' })
+    }
+    return res.status(500).json({ error: error?.error?.description || error.message || 'Failed to create Razorpay order' })
+  }
+})
+
+// POST /api/verify-payment — Standard Razorpay Signature Verification Endpoint
+apiRouter.post('/verify-payment', async (req: Request, res: Response) => {
+  try {
+    const keySecret = env.RAZORPAY_KEY_SECRET || process.env.RAZORPAY_KEY_SECRET || ''
+    if (!keySecret) {
+      return res.status(500).json({ error: 'Razorpay secret key not configured' })
+    }
+
+    const order_id = req.body.razorpay_order_id || req.body.order_id
+    const payment_id = req.body.razorpay_payment_id || req.body.payment_id
+    const signature = req.body.razorpay_signature || req.body.signature
+
+    if (!order_id || !payment_id || !signature) {
+      return res.status(400).json({ error: 'Missing required parameters: order_id, payment_id, and signature are all required' })
+    }
+
+    // Algorithm: HMAC-SHA256(order_id + "|" + payment_id, KEY_SECRET)
+    const expectedSignature = crypto
+      .createHmac('sha256', keySecret)
+      .update(`${order_id}|${payment_id}`)
+      .digest('hex')
+
+    const isValid = timingSafeEqualStr(expectedSignature, signature)
+
+    if (!isValid) {
+      console.warn(`[Razorpay Signature Mismatch]: Verification failed for order ${order_id}`)
+      return res.status(400).json({ success: false, error: 'Signature verification failed' })
+    }
+
+    // Database order reconciliation if linked
+    const dbOrderId = req.body.orderId
+    let orderToUpdate = null
+    if (dbOrderId) {
+      orderToUpdate = await prisma.order.findUnique({ where: { id: dbOrderId } })
+    } else {
+      orderToUpdate = await prisma.order.findFirst({ where: { razorpayOrderId: order_id } })
+    }
+
+    if (orderToUpdate && orderToUpdate.paymentStatus !== 'PAID') {
+      const updateResult = await prisma.order.updateMany({
+        where: { id: orderToUpdate.id, paymentStatus: { not: 'PAID' } },
+        data: {
+          paymentStatus: 'PAID',
+          status: orderToUpdate.status === 'PENDING' ? 'CONFIRMED' : orderToUpdate.status,
+          notes: orderToUpdate.notes 
+            ? `${orderToUpdate.notes} | Paid via Razorpay: ${payment_id}` 
+            : `Paid via Razorpay: ${payment_id}`
+        }
+      })
+
+      if (updateResult.count > 0) {
+        await prisma.orderStatusLog.create({
+          data: {
+            orderId: orderToUpdate.id,
+            fromStatus: orderToUpdate.status,
+            toStatus: orderToUpdate.status === 'PENDING' ? 'CONFIRMED' : orderToUpdate.status,
+            changedBy: 'razorpay_gateway',
+            note: `Payment verified successfully (ID: ${payment_id})`
+          }
+        })
+
+        if (ioInstance) {
+          ioInstance.to('admin').emit('order_status_update', { id: orderToUpdate.id, paymentStatus: 'PAID' })
+          ioInstance.to(`order-${orderToUpdate.id}`).emit('order_status_update', { id: orderToUpdate.id, paymentStatus: 'PAID' })
+        }
+      }
+    }
+
+    return res.json({
+      success: true,
+      message: 'Payment verified successfully',
+      payment_id,
+      order_id
+    })
+  } catch (error: any) {
+    console.error('[Razorpay verify-payment error]:', error)
+    return res.status(500).json({ error: error.message || 'Payment verification failed' })
+  }
 })
 
 // POST /api/razorpay/create-order — generates order with Razorpay
