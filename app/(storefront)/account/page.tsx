@@ -10,8 +10,9 @@ import {
   Coffee, ShoppingBag, BadgePercent, CreditCard, Wallet, Sparkles, CheckCircle2, ArrowRight, ArrowLeft,
   Package, UploadCloud, ClipboardList, BarChart3, Truck, Mail, RotateCcw, MapPin, Heart, HelpCircle, Bell, Moon,
   Home, Plus, Edit2, Trash2, Check, Star, X, MessageSquare,
-  FileSpreadsheet, Download, Calendar, Video, Play
+  FileSpreadsheet, Download, Calendar, Video, Play, Zap
 } from 'lucide-react'
+import confetti from 'canvas-confetti'
 import { useToast } from '@/components/ui/Toast'
 import OtpVerificationModal from '@/components/storefront/OtpVerificationModal'
 import { GoogleLogin } from '@react-oauth/google'
@@ -97,6 +98,21 @@ export default function AccountPage() {
   const [b2bLedgerTo, setB2bLedgerTo] = useState(() => new Date().toISOString().split('T')[0])
   const [showB2bCustomLedger, setShowB2bCustomLedger] = useState(false)
 
+  // Wallet Top-Up & Dues Repayment Modal State
+  const [showTopupModal, setShowTopupModal] = useState(false)
+  const [topupAmount, setTopupAmount] = useState<number | string>(1000)
+  const [isProcessingTopup, setIsProcessingTopup] = useState(false)
+
+  // Dynamically load Razorpay checkout script on account page mount
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !(window as any).Razorpay) {
+      const script = document.createElement('script')
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js'
+      script.async = true
+      document.body.appendChild(script)
+    }
+  }, [])
+
   // Local user state
   const [user, setUser] = useState<any>(null)
   const [userLoading, setUserLoading] = useState(true)
@@ -120,6 +136,131 @@ export default function AccountPage() {
   useEffect(() => {
     fetchUser()
   }, [])
+
+  const handleProceedTopup = async () => {
+    const numAmount = Number(topupAmount)
+    if (!numAmount || numAmount < 10) {
+      showToast('Please enter an amount of at least ₹10', 'error')
+      return
+    }
+
+    setIsProcessingTopup(true)
+    try {
+      const orderRes = await fetch('/api/wallet/topup/create-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: numAmount })
+      })
+
+      const orderData = await orderRes.json()
+      if (!orderRes.ok) throw new Error(orderData.error || 'Failed to initiate payment')
+
+      // Simulated Dev Test Mode Check
+      if (orderData.isMock) {
+        const confirmMock = window.confirm(
+          `[DEV TEST MODE] Razorpay simulated test mode.\n\nTop-Up / Dues Repayment: ₹${numAmount.toLocaleString('en-IN')}.\n\nClick OK to simulate SUCCESSFUL payment, or Cancel to abort.`
+        )
+
+        if (!confirmMock) {
+          setIsProcessingTopup(false)
+          return
+        }
+
+        showToast('Verifying test payment...', 'info')
+        const verifyRes = await fetch('/api/wallet/topup/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            razorpay_order_id: orderData.razorpayOrderId,
+            razorpay_payment_id: `pay_mock_topup_${Date.now()}`,
+            razorpay_signature: 'mock_signature',
+            amount: numAmount
+          })
+        })
+
+        const verifyData = await verifyRes.json()
+        if (!verifyRes.ok) throw new Error(verifyData.error || 'Payment verification failed')
+
+        confetti({
+          particleCount: 150,
+          spread: 80,
+          origin: { y: 0.6 }
+        })
+
+        showToast(verifyData.message, 'success')
+        setShowTopupModal(false)
+        await fetchUser()
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('auth-change'))
+        }
+        return
+      }
+
+      // Live Razorpay Checkout Modal
+      const options = {
+        key: orderData.keyId,
+        amount: orderData.amount,
+        currency: orderData.currency,
+        name: 'Anmol Enterprises',
+        description: 'B2B Wallet Top-Up / Dues Clearance',
+        image: '/icon-192.png',
+        order_id: orderData.razorpayOrderId,
+        prefill: {
+          name: orderData.user?.name || user?.name || '',
+          email: orderData.user?.email || user?.email || '',
+          contact: orderData.user?.phone || user?.phone || '',
+        },
+        theme: {
+          color: '#F59E0B'
+        },
+        handler: async (response: any) => {
+          try {
+            showToast('Verifying payment confirmation...', 'info')
+            const verifyRes = await fetch('/api/wallet/topup/verify', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                amount: numAmount
+              })
+            })
+
+            const verifyData = await verifyRes.json()
+            if (!verifyRes.ok) throw new Error(verifyData.error || 'Payment verification failed')
+
+            confetti({
+              particleCount: 150,
+              spread: 80,
+              origin: { y: 0.6 }
+            })
+
+            showToast(verifyData.message, 'success')
+            setShowTopupModal(false)
+            await fetchUser()
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new Event('auth-change'))
+            }
+          } catch (verErr: any) {
+            showToast(verErr.message || 'Payment verification failed', 'error')
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            setIsProcessingTopup(false)
+          }
+        }
+      }
+
+      const rzpInstance = new (window as any).Razorpay(options)
+      rzpInstance.open()
+    } catch (err: any) {
+      showToast(err.message || 'Failed to complete top-up', 'error')
+    } finally {
+      setIsProcessingTopup(false)
+    }
+  }
 
   const socket = useSocket()
 
@@ -631,7 +772,12 @@ export default function AccountPage() {
               <span className="text-[10px] text-blue-600 font-bold mt-0.5">{savedAddresses.length} saved</span>
             </a>
 
-            <div className="bg-white hover:bg-emerald-50/50 p-3.5 rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center justify-center text-center tap-scale transition-all group">
+            <button 
+              type="button"
+              onClick={() => setShowTopupModal(true)}
+              className="bg-white hover:bg-emerald-50/60 p-3.5 rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center justify-center text-center tap-scale transition-all group cursor-pointer"
+              title="Click to Top-Up Wallet or Clear Outstanding Dues"
+            >
               <div className="w-10 h-10 rounded-xl bg-emerald-100 text-[#0c831f] flex items-center justify-center mb-1.5 group-hover:scale-105 transition-transform">
                 <Wallet className="w-5 h-5" />
               </div>
@@ -639,7 +785,10 @@ export default function AccountPage() {
               <span className="text-[10px] text-emerald-700 font-extrabold mt-0.5 font-mono">
                 ₹{Math.max(0, (user.creditLimit || 0) - (user.creditUsed || 0)).toLocaleString('en-IN')}
               </span>
-            </div>
+              <span className="text-[9px] text-amber-600 font-bold mt-0.5 group-hover:underline">
+                + Top-Up / Pay
+              </span>
+            </button>
 
             <a 
               href="tel:+919888665971"
@@ -847,15 +996,22 @@ export default function AccountPage() {
                   </div>
 
                   {(user.isCreditEnabled || user.businessProfile?.isCreditEnabled) ? (
-                    <div className="mt-2 flex flex-col gap-2">
-                      <div className="flex items-baseline justify-between">
-                        <span className="text-2xl font-black font-display text-emerald-400">
-                          ₹{Math.max(0, (user.creditLimit || 0) - (user.creditUsed || 0)).toLocaleString('en-IN')}
-                        </span>
-                        <span className="text-xs font-semibold text-purple-200">
-                          Limit: ₹{(user.creditLimit || 0).toLocaleString('en-IN')}
-                        </span>
+                    <div className="mt-2 flex flex-col gap-2.5">
+                      <div className="flex items-baseline justify-between flex-wrap gap-2">
+                        <div>
+                          <span className="text-2xl font-black font-display text-emerald-400">
+                            ₹{Math.max(0, (user.creditLimit || 0) - (user.creditUsed || 0)).toLocaleString('en-IN')}
+                          </span>
+                          <span className="text-[10px] text-purple-200 block font-medium">Available Credit Balance</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-sm font-bold text-amber-300 font-mono">
+                            ₹{(user.creditUsed || 0).toLocaleString('en-IN')}
+                          </span>
+                          <span className="text-[10px] text-purple-200 block font-medium">Outstanding Dues</span>
+                        </div>
                       </div>
+
                       <div className="w-full bg-white/10 rounded-full h-2 overflow-hidden p-0.5">
                         <div 
                           className="bg-gradient-to-r from-emerald-400 to-amber-300 h-full rounded-full transition-all duration-500"
@@ -864,12 +1020,37 @@ export default function AccountPage() {
                           }}
                         />
                       </div>
+
+                      <div className="flex items-center justify-between pt-1">
+                        <span className="text-[11px] text-purple-200 font-medium">
+                          Approved Ceiling: <span className="font-bold text-white">₹{(user.creditLimit || 0).toLocaleString('en-IN')}</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (user.creditUsed > 0) setTopupAmount(user.creditUsed)
+                            setShowTopupModal(true)
+                          }}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs rounded-xl shadow-md shadow-amber-500/20 active:scale-95 transition-all cursor-pointer"
+                        >
+                          <Wallet className="w-3.5 h-3.5" />
+                          <span>{user.creditUsed > 0 ? 'Pay Dues / Top-Up' : '+ Top-Up Wallet'}</span>
+                        </button>
+                      </div>
                     </div>
                   ) : (
-                    <div className="mt-2">
+                    <div className="mt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <p className="text-xs text-purple-100 font-semibold leading-relaxed">
                         Your account is set to <strong>Pay-on-Delivery Wholesale Mode</strong>. Enjoy instant frozen food shipments with zero credit interest, settled via COD or UPI upon arrival.
                       </p>
+                      <button
+                        type="button"
+                        onClick={() => setShowTopupModal(true)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-xl border border-white/20 transition-all shrink-0 cursor-pointer"
+                      >
+                        <Wallet className="w-3.5 h-3.5 text-amber-300" />
+                        <span>Prepaid Top-Up</span>
+                      </button>
                     </div>
                   )}
                 </div>
@@ -1943,6 +2124,179 @@ export default function AccountPage() {
           )}
 
 
+          </div>
+        </div>
+      )}
+
+      {/* B2B Wallet Top-Up & Dues Clearance Modal */}
+      {showTopupModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-amber-100 overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="relative px-6 py-5 bg-gradient-to-r from-amber-500 via-amber-600 to-orange-600 text-white">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center shadow-inner">
+                    <Wallet className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-lg text-white leading-tight">B2B Wallet & Dues Top-Up</h3>
+                    <p className="text-xs text-amber-100/90 font-medium">Revolving credit repayment & balance top-up</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowTopupModal(false)}
+                  disabled={isProcessingTopup}
+                  className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white/90 transition-colors disabled:opacity-50"
+                  aria-label="Close"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-5">
+              {/* Live Metric Strip */}
+              <div className="grid grid-cols-3 gap-2.5 p-3.5 bg-slate-50 border border-slate-200/80 rounded-2xl text-center">
+                <div className="p-2 bg-white rounded-xl shadow-xs border border-slate-100">
+                  <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Credit Limit</p>
+                  <p className="text-sm font-extrabold text-slate-800 mt-0.5">₹{(user?.creditLimit || 0).toLocaleString('en-IN')}</p>
+                </div>
+                <div className="p-2 bg-white rounded-xl shadow-xs border border-slate-100">
+                  <p className="text-[10px] uppercase font-bold text-rose-500 tracking-wider">Current Dues</p>
+                  <p className="text-sm font-extrabold text-rose-600 mt-0.5">₹{(user?.creditUsed || 0).toLocaleString('en-IN')}</p>
+                </div>
+                <div className="p-2 bg-white rounded-xl shadow-xs border border-slate-100">
+                  <p className="text-[10px] uppercase font-bold text-emerald-600 tracking-wider">Available</p>
+                  <p className="text-sm font-extrabold text-emerald-700 mt-0.5">
+                    ₹{Math.max(0, (user?.creditLimit || 0) - (user?.creditUsed || 0)).toLocaleString('en-IN')}
+                  </p>
+                </div>
+              </div>
+
+              {/* Pay Full Dues Quick Action (if dues exist) */}
+              {(user?.creditUsed || 0) > 0 && (
+                <div className="flex items-center justify-between p-3.5 bg-rose-50/70 border border-rose-200/80 rounded-2xl">
+                  <div>
+                    <p className="text-xs font-bold text-rose-800">Clear Total Outstanding Dues</p>
+                    <p className="text-[11px] text-rose-600 font-medium">Instantly restores 100% of your credit limit</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setTopupAmount(user?.creditUsed || 0)}
+                    className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-sm transition-transform active:scale-95"
+                  >
+                    Pay ₹{(user?.creditUsed || 0).toLocaleString('en-IN')}
+                  </button>
+                </div>
+              )}
+
+              {/* Amount Input */}
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  Top-Up / Repayment Amount (₹)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-lg">₹</span>
+                  <input
+                    type="number"
+                    min="10"
+                    step="50"
+                    value={topupAmount}
+                    onChange={(e) => setTopupAmount(e.target.value)}
+                    placeholder="Enter amount (min ₹10)"
+                    disabled={isProcessingTopup}
+                    className="w-full pl-9 pr-4 py-3 bg-white border-2 border-slate-200 focus:border-amber-500 rounded-2xl font-bold text-slate-900 text-lg outline-none transition-all placeholder:font-normal placeholder:text-slate-400"
+                  />
+                </div>
+              </div>
+
+              {/* Preset Chips */}
+              <div className="space-y-1.5">
+                <p className="text-[11px] font-semibold text-slate-500">Quick Select Amount:</p>
+                <div className="flex flex-wrap gap-2">
+                  {[500, 1000, 2000, 5000].map((amt) => (
+                    <button
+                      key={amt}
+                      type="button"
+                      onClick={() => setTopupAmount(amt)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border ${
+                        Number(topupAmount) === amt
+                          ? 'bg-amber-500 text-white border-amber-500 shadow-sm'
+                          : 'bg-slate-50 text-slate-700 border-slate-200 hover:border-amber-400 hover:bg-amber-50/50'
+                      }`}
+                    >
+                      +₹{amt.toLocaleString('en-IN')}
+                    </button>
+                  ))}
+                  {(user?.creditUsed || 0) > 0 && Number(topupAmount) !== (user?.creditUsed || 0) && (
+                    <button
+                      type="button"
+                      onClick={() => setTopupAmount(user?.creditUsed || 0)}
+                      className="px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100"
+                    >
+                      Exact Due (₹{(user?.creditUsed || 0).toLocaleString('en-IN')})
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Real-Time Impact Projection */}
+              {Number(topupAmount) > 0 && (
+                <div className="p-3.5 bg-gradient-to-br from-amber-50/60 to-emerald-50/60 border border-emerald-200/70 rounded-2xl flex items-center justify-between text-xs">
+                  <div>
+                    <span className="text-slate-500 block text-[10px] font-semibold uppercase">Projected Remaining Dues</span>
+                    <span className="font-extrabold text-slate-800">
+                      ₹{Math.max(0, (user?.creditUsed || 0) - (Number(topupAmount) || 0)).toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                  <ArrowRight className="w-4 h-4 text-emerald-500" />
+                  <div className="text-right">
+                    <span className="text-slate-500 block text-[10px] font-semibold uppercase">Projected Available Limit</span>
+                    <span className="font-extrabold text-emerald-700 text-sm">
+                      ₹{Math.max(0, (user?.creditLimit || 0) - Math.max(0, (user?.creditUsed || 0) - (Number(topupAmount) || 0))).toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Gateway Security Badge */}
+              <div className="flex items-center justify-center gap-2 text-[11px] text-slate-400 pt-1">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+                <span>Bank-grade 256-bit SSL • Razorpay UPI / NetBanking / Cards</span>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowTopupModal(false)}
+                disabled={isProcessingTopup}
+                className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-200/60 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleProceedTopup}
+                disabled={isProcessingTopup || !Number(topupAmount) || Number(topupAmount) < 10}
+                className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl text-xs font-bold shadow-md shadow-amber-500/20 transition-all active:scale-95 disabled:opacity-50 disabled:pointer-events-none"
+              >
+                {isProcessingTopup ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span>Processing Payment...</span>
+                  </>
+                ) : (
+                  <>
+                    <Zap className="w-4 h-4" />
+                    <span>Pay ₹{Number(topupAmount || 0).toLocaleString('en-IN')} Securely</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -3811,6 +3811,196 @@ apiRouter.post('/orders/:id/switch-to-cod', authMiddleware, async (req: Request,
   }
 })
 
+// ─── B2B WALLET TOP-UP & CREDIT REPAYMENT ENDPOINTS ─────────────────────────
+
+// POST /api/wallet/topup/create-order — initializes online payment order for wallet credit
+apiRouter.post('/wallet/topup/create-order', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.id
+    const schema = z.object({
+      amount: z.number().min(10, 'Minimum top-up amount is ₹10').max(500000, 'Maximum top-up amount is ₹5,00,000')
+    })
+    const { amount } = schema.parse(req.body)
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, name: true, phone: true, email: true, isB2B: true, creditLimit: true, creditUsed: true }
+    })
+    if (!user) return res.status(404).json({ error: 'User not found' })
+
+    const amountInPaise = Math.round(amount * 100)
+
+    // Check if real Razorpay gateway credentials are configured
+    const hasRealRazorpay = Boolean(
+      env.RAZORPAY_KEY_ID &&
+      env.RAZORPAY_KEY_SECRET &&
+      !env.RAZORPAY_KEY_ID.includes('placeholder') &&
+      !env.RAZORPAY_KEY_ID.includes('mock')
+    )
+
+    if (!hasRealRazorpay) {
+      if (env.isProd) {
+        return res.status(500).json({ error: 'Payment gateway is temporarily unavailable' })
+      }
+      // Development mock order
+      const mockRzpOrderId = `order_mock_topup_${Date.now()}`
+      return res.json({
+        success: true,
+        razorpayOrderId: mockRzpOrderId,
+        amount: amountInPaise,
+        currency: 'INR',
+        keyId: env.RAZORPAY_KEY_ID || 'rzp_test_mock',
+        isMock: true,
+        user: { name: user.name, phone: user.phone, email: user.email }
+      })
+    }
+
+    // Real Razorpay API Order Creation
+    const basicAuth = Buffer.from(`${env.RAZORPAY_KEY_ID}:${env.RAZORPAY_KEY_SECRET}`).toString('base64')
+    const rzpRes = await fetch('https://api.razorpay.com/v1/orders', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Basic ${basicAuth}`,
+      },
+      body: JSON.stringify({
+        amount: amountInPaise,
+        currency: 'INR',
+        receipt: `topup_${userId.slice(-6)}_${Date.now().toString().slice(-6)}`,
+        notes: {
+          purpose: 'B2B_WALLET_TOPUP',
+          userId: user.id,
+          userName: user.name || '',
+          userPhone: user.phone || '',
+        },
+      }),
+    })
+
+    const rzpData = await rzpRes.json()
+    if (!rzpRes.ok) {
+      console.error('[Razorpay Topup Error]:', rzpData)
+      return res.status(502).json({ error: rzpData.error?.description || 'Failed to initialize payment gateway' })
+    }
+
+    return res.json({
+      success: true,
+      razorpayOrderId: rzpData.id,
+      amount: amountInPaise,
+      currency: 'INR',
+      keyId: env.RAZORPAY_KEY_ID,
+      isMock: false,
+      user: { name: user.name, phone: user.phone, email: user.email }
+    })
+  } catch (error: any) {
+    if (error instanceof z.ZodError) return res.status(400).json({ error: getZodErrorMessage(error) })
+    console.error('Wallet create topup error:', error)
+    return res.status(500).json({ error: error.message || 'Failed to initiate wallet top-up' })
+  }
+})
+
+// POST /api/wallet/topup/verify — verifies payment signature and credits customer wallet balance
+apiRouter.post('/wallet/topup/verify', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.id
+    const schema = z.object({
+      razorpay_order_id: z.string(),
+      razorpay_payment_id: z.string(),
+      razorpay_signature: z.string(),
+      amount: z.number().positive(),
+    })
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, amount } = schema.parse(req.body)
+
+    const isMock = razorpay_order_id.startsWith('order_mock_')
+
+    if (isMock) {
+      if (env.isProd) {
+        return res.status(403).json({ error: 'Mock payments are forbidden in production' })
+      }
+      if (razorpay_signature !== 'mock_signature') {
+        return res.status(400).json({ error: 'Invalid payment signature' })
+      }
+    } else {
+      const secret = env.RAZORPAY_KEY_SECRET
+      const expectedSignature = crypto
+        .createHmac('sha256', secret)
+        .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+        .digest('hex')
+
+      if (!timingSafeEqualStr(expectedSignature, razorpay_signature)) {
+        console.warn(`[Razorpay Topup Verification Failure]: Signature mismatch for user ${userId}`)
+        return res.status(400).json({ error: 'Invalid payment signature. Verification failed.' })
+      }
+    }
+
+    // Atomic Balance Update with row-level lock
+    const result = await prisma.$transaction(async (tx) => {
+      const lockedRows: any[] = await tx.$queryRaw`
+        SELECT id, name, "creditLimit", "creditUsed", "isCreditEnabled" 
+        FROM "users" 
+        WHERE id = ${userId} 
+        FOR UPDATE
+      `
+      const liveUser = lockedRows && lockedRows.length > 0 ? lockedRows[0] : null
+      if (!liveUser) throw new Error('User not found')
+
+      const oldCreditUsed = Number(liveUser.creditUsed) || 0
+      const oldCreditLimit = Number(liveUser.creditLimit) || 0
+      // Repay dues: decrement creditUsed by amount (clamp at 0 or surplus)
+      const newCreditUsed = Math.max(0, oldCreditUsed - amount)
+
+      const updatedUser = await tx.user.update({
+        where: { id: userId },
+        data: { creditUsed: newCreditUsed },
+        select: { id: true, name: true, phone: true, isB2B: true, creditLimit: true, creditUsed: true }
+      })
+
+      // Record financial trail in CreditAuditLog
+      await tx.creditAuditLog.create({
+        data: {
+          adminId: userId,
+          adminName: liveUser.name || 'B2B Customer',
+          targetUserId: userId,
+          businessName: liveUser.name,
+          action: 'WALLET_TOPUP',
+          oldCreditEnabled: Boolean(liveUser.isCreditEnabled),
+          newCreditEnabled: Boolean(liveUser.isCreditEnabled),
+          oldCreditLimit: oldCreditLimit,
+          newCreditLimit: oldCreditLimit,
+          reason: `Customer online top-up / dues repayment of ₹${amount.toFixed(2)} (Payment ID: ${razorpay_payment_id})`
+        }
+      })
+
+      return {
+        updatedUser,
+        oldCreditUsed,
+        newCreditUsed,
+        availableCredit: Math.max(0, oldCreditLimit - newCreditUsed)
+      }
+    })
+
+    if (ioInstance) {
+      ioInstance.to('admin').emit('b2b_wallet_topup', {
+        userId,
+        amount,
+        newCreditUsed: result.newCreditUsed,
+        paymentId: razorpay_payment_id
+      })
+    }
+
+    return res.json({
+      success: true,
+      message: `Payment of ₹${amount.toFixed(2)} received successfully! Your available wallet balance is now ₹${result.availableCredit.toFixed(2)}.`,
+      user: result.updatedUser,
+      availableCredit: result.availableCredit,
+      creditUsed: result.newCreditUsed
+    })
+  } catch (error: any) {
+    if (error instanceof z.ZodError) return res.status(400).json({ error: getZodErrorMessage(error) })
+    console.error('Verify wallet topup error:', error)
+    return res.status(500).json({ error: error.message || 'Failed to verify wallet top-up payment' })
+  }
+})
+
 apiRouter.get('/orders', authMiddleware, async (req: Request, res: Response) => {
   try {
     const orders = await prisma.order.findMany({
