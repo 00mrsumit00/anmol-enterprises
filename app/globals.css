@@ -41,6 +41,37 @@ body {
   padding: 0;
 }
 
+/* Custom Smooth Yellow / Amber Scrollbar & Smooth Scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #F59E0B;
+  border-radius: 9999px;
+  border: 1.5px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #D97706;
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #F59E0B transparent;
+}
+
 /* Utilities */
 @layer utilities {
   /* Hide scrollbar for Chrome, Safari and Opera */
