@@ -6,7 +6,7 @@ import {
   Users, Building2, ShoppingBag, Search, RefreshCw, UserCheck, UserX,
   CreditCard, Calendar, Trash2, Plus, Phone, Mail, Edit3, X, ChevronRight, AlertTriangle,
   Printer, Clock, DollarSign, CheckCircle2, Eye, Package, ShieldCheck,
-  FileSpreadsheet, Download, FileText
+  FileSpreadsheet, Download, FileText, Lock, KeyRound, MapPin, TrendingUp, Wallet, ArrowLeft, Check
 } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import Link from 'next/link'
@@ -67,11 +67,14 @@ export default function AdminUsersAndAccountsPage() {
   const [editPhone, setEditPhone] = useState<string>('')
   const [editEmail, setEditEmail] = useState<string>('')
   const [editPassword, setEditPassword] = useState<string>('')
+  const [showPasswordReset, setShowPasswordReset] = useState<boolean>(false)
   const [editRole, setEditRole] = useState<'CUSTOMER' | 'STAFF' | 'ADMIN'>('CUSTOMER')
   const [editIsB2B, setEditIsB2B] = useState<boolean>(false)
   const [editBusinessName, setEditBusinessName] = useState<string>('')
+  const [editBusinessAddress, setEditBusinessAddress] = useState<string>('')
   const [editBusinessType, setEditBusinessType] = useState<string>('HOTEL')
   const [editGstin, setEditGstin] = useState<string>('')
+  const [editFssai, setEditFssai] = useState<string>('')
   const [editCreditLimit, setEditCreditLimit] = useState<number>(25000)
   const [editCreditTier, setEditCreditTier] = useState<'BRONZE' | 'SILVER' | 'GOLD'>('BRONZE')
   const [editCreditEnabled, setEditCreditEnabled] = useState<boolean>(false)
@@ -157,11 +160,11 @@ export default function AdminUsersAndAccountsPage() {
 
   // Toggle B2B / Retail
   const toggleB2bMutation = useMutation({
-    mutationFn: async ({ userId, isB2B, businessName, businessType, gstin }: any) => {
+    mutationFn: async ({ userId, isB2B, businessName, businessType, gstin, businessAddress }: any) => {
       const res = await fetch(`/api/admin/users/${userId}/toggle-b2b`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isB2B, businessName, businessType, gstin })
+        body: JSON.stringify({ isB2B, businessName, businessType, gstin, businessAddress })
       })
       const resData = await res.json()
       if (!res.ok) throw new Error(resData.error || 'Failed to update user type')
@@ -327,11 +330,14 @@ export default function AdminUsersAndAccountsPage() {
     setEditPhone(user.phone || '')
     setEditEmail(user.email || '')
     setEditPassword('')
+    setShowPasswordReset(false)
     setEditRole(user.role || 'CUSTOMER')
-    setEditIsB2B(user.isB2B)
+    setEditIsB2B(Boolean(user.isB2B))
     setEditBusinessName(user.businessName || user.businessProfile?.businessName || '')
+    setEditBusinessAddress(user.businessProfile?.businessAddress || '')
     setEditBusinessType(user.businessProfile?.businessType || 'HOTEL')
     setEditGstin(user.businessProfile?.gstin || '')
+    setEditFssai(user.businessProfile?.fssaiNumber || '')
     setEditCreditLimit(user.creditLimit || 25000)
     setEditCreditTier(user.businessProfile?.creditTier || 'BRONZE')
     setEditCreditEnabled(Boolean(user.isCreditEnabled || user.businessProfile?.isCreditEnabled))
@@ -349,26 +355,37 @@ export default function AdminUsersAndAccountsPage() {
         editPhone !== selectedUser.phone || 
         editEmail !== (selectedUser.email || '') ||
         editRole !== selectedUser.role ||
-        Boolean(editPassword.trim())
+        (showPasswordReset && Boolean(editPassword.trim()))
       ) {
+        if (showPasswordReset && editPassword.trim() && editPassword.trim().length < 6) {
+          showToast('New password must be at least 6 characters', 'error')
+          return
+        }
         await updateUserInfoMutation.mutateAsync({
           userId: selectedUser.id,
           name: editName,
           phone: editPhone,
           email: editEmail,
           role: editRole,
-          password: editPassword.trim() || undefined,
+          password: showPasswordReset && editPassword.trim() ? editPassword.trim() : undefined,
         })
       }
 
       // 2. Update B2B flag & commercial details if changed
-      if (editIsB2B !== selectedUser.isB2B || editBusinessName !== selectedUser.businessName) {
+      if (
+        editIsB2B !== selectedUser.isB2B || 
+        editBusinessName !== (selectedUser.businessName || '') ||
+        editBusinessType !== (selectedUser.businessProfile?.businessType || 'HOTEL') ||
+        editGstin !== (selectedUser.businessProfile?.gstin || '') ||
+        editBusinessAddress !== (selectedUser.businessProfile?.businessAddress || '')
+      ) {
         await toggleB2bMutation.mutateAsync({
           userId: selectedUser.id,
           isB2B: editIsB2B,
           businessName: editBusinessName,
           businessType: editBusinessType,
-          gstin: editGstin
+          gstin: editGstin,
+          businessAddress: editBusinessAddress
         })
       }
 
@@ -388,7 +405,7 @@ export default function AdminUsersAndAccountsPage() {
         })
       }
 
-      showToast('User updated successfully!', 'success')
+      showToast('Customer profile updated successfully!', 'success')
       setSelectedUser(null)
       queryClient.invalidateQueries({ queryKey: ['admin-users'] })
     } catch (err: any) {
@@ -929,159 +946,577 @@ export default function AdminUsersAndAccountsPage() {
         </div>
       )}
 
-      {/* 6. EDIT USER & COMMERCIAL ACCOUNT MODAL */}
-      {selectedUser && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-[#111625] rounded-2xl max-w-lg w-full p-6 shadow-2xl flex flex-col gap-5 max-h-[90vh] overflow-y-auto border border-slate-800">
-            
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-              <div>
-                <h3 className="font-bold text-lg text-white">Manage Account: {selectedUser.name}</h3>
-                <p className="text-xs text-slate-400 mt-0.5">Phone: +91 {selectedUser.phone || 'N/A'} • {selectedUser.email || 'No email'}</p>
-              </div>
-              <button onClick={() => setSelectedUser(null)} className="text-slate-400 hover:text-white p-1">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+      {/* 6. MANAGE ACCOUNT CONSOLE (3 Structured Sections, max-w-5xl, smooth yellow scrollbar) */}
+      {selectedUser && (() => {
+        const userOrders = selectedUser.orders || []
+        const userTotalOrders = userOrders.length || selectedUser._count?.orders || 0
+        const userTotalSpent = userOrders.reduce((sum: number, o: any) => sum + (o.status !== 'CANCELLED' ? Number(o.totalAmount || 0) : 0), 0)
+        const userAvgOrderValue = userTotalOrders > 0 ? (userTotalSpent / userTotalOrders) : 0
+        const userDeliveredOrders = userOrders.filter((o: any) => o.status === 'DELIVERED').length
+        const userAddresses: any[] = selectedUser.addresses || []
+        const currentCreditLimit = Number(editCreditLimit) || 0
+        const currentCreditUsed = Number(selectedUser.creditUsed) || 0
+        const currentAvailableCredit = Math.max(0, currentCreditLimit - currentCreditUsed)
 
-            {/* Basic Info */}
-            <div className="flex flex-col gap-3">
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Basic Information</p>
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Full Name</label>
-                <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} className="w-full bg-[#0B0F19] border border-slate-800 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500" />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Phone Number</label>
-                  <input type="text" maxLength={10} value={editPhone} onChange={(e) => setEditPhone(e.target.value.replace(/\D/g, ''))} className="w-full bg-[#0B0F19] border border-slate-800 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500" />
+        return (
+          <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 z-50 animate-in fade-in duration-150">
+            <div className="bg-[#111625] rounded-3xl max-w-5xl w-full shadow-2xl flex flex-col max-h-[92vh] border border-slate-800 overflow-hidden">
+              
+              {/* Console Header */}
+              <div className="p-5 sm:p-6 border-b border-slate-800 bg-[#0E1320] flex items-start justify-between gap-4">
+                <div className="flex items-center gap-3.5">
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-base font-black shrink-0 shadow-md ${
+                    selectedUser.isB2B
+                      ? 'bg-violet-500/20 text-violet-300 border border-violet-500/30'
+                      : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                  }`}>
+                    {(selectedUser.name || 'U').charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h2 className="text-lg sm:text-xl font-extrabold text-white tracking-tight">
+                        Manage Account: {selectedUser.name}
+                      </h2>
+                      <span className={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full border ${
+                        editIsB2B
+                          ? 'bg-violet-500/20 text-violet-300 border-violet-500/30'
+                          : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                      }`}>
+                        {editIsB2B ? 'B2B Commercial' : 'Retail Customer'}
+                      </span>
+                      {selectedUser.role !== 'CUSTOMER' && (
+                        <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                          {selectedUser.role}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-400 font-medium mt-1 flex items-center gap-2 flex-wrap">
+                      <span>User ID: <span className="font-mono text-slate-300">{selectedUser.id}</span></span>
+                      <span>•</span>
+                      <span>Phone: +91 {selectedUser.phone || 'N/A'}</span>
+                      <span>•</span>
+                      <span>Email: {selectedUser.email || 'None'}</span>
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Email Address</label>
-                  <input type="email" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} className="w-full bg-[#0B0F19] border border-slate-800 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500" />
-                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedUser(null)}
+                  className="w-9 h-9 rounded-full bg-[#111625] hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center font-bold text-sm border border-slate-800 transition-all shrink-0 cursor-pointer"
+                  title="Close Console"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
 
-              {/* Password Reset Field (Only for Admin / Super Admin managing staff/users) */}
-              {isAdmin && (
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Reset Password (leave empty to keep current password)
-                  </label>
-                  <input 
-                    type="password" 
-                    value={editPassword} 
-                    onChange={(e) => setEditPassword(e.target.value)} 
-                    placeholder="Enter new password (min. 6 chars)" 
-                    className="w-full bg-[#0B0F19] border border-slate-800 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 placeholder-slate-500" 
-                  />
-                </div>
-              )}
+              {/* Console Scrollable Body with custom smooth yellow scrollbar */}
+              <div className="p-5 sm:p-7 overflow-y-auto max-h-[calc(92vh-140px)] space-y-6 scroll-smooth [scrollbar-color:#F59E0B_#0B0F19] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2.5 [&::-webkit-scrollbar-track]:bg-[#0B0F19] [&::-webkit-scrollbar-thumb]:bg-amber-500 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb:hover]:bg-amber-400">
+                
+                {/* ────────────────────────────────────────────────────────── */}
+                {/* SECTION 1: PERSONAL INFO & PURCHASING ANALYTICS           */}
+                {/* ────────────────────────────────────────────────────────── */}
+                <div className="bg-[#0B0F19] rounded-2xl p-5 sm:p-6 border border-slate-800 space-y-5">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-800/80">
+                    <div className="flex items-center gap-2.5">
+                      <div className="p-2 bg-amber-500/10 text-amber-400 rounded-xl border border-amber-500/20">
+                        <Users className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm sm:text-base font-extrabold text-white">
+                          Section 1: Personal Info &amp; Purchasing Analytics
+                        </h3>
+                        <p className="text-[11px] text-slate-400 font-medium">
+                          Identity details, contact info, credential reset, lifetime spend metrics, and delivery addresses
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-black uppercase tracking-wider bg-slate-800 text-slate-300 px-2.5 py-1 rounded-lg border border-slate-700">
+                      Primary Profile
+                    </span>
+                  </div>
 
-              {/* Role Management */}
-              {isAdmin && selectedUser.role !== 'SUPER_ADMIN' && (
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Account Role</label>
-                  <select
-                    value={editRole}
-                    onChange={(e) => setEditRole(e.target.value as any)}
-                    className="w-full bg-[#0B0F19] border border-slate-800 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 font-semibold"
+                  {/* Core Identity Inputs Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1.5">Customer Name *</label>
+                      <input
+                        type="text"
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        className="w-full bg-[#111625] border border-slate-800 text-white rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-colors"
+                        placeholder="Full customer name"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1.5">Contact Phone Number (10 digits)</label>
+                      <div className="relative">
+                        <span className="absolute left-3.5 top-2.5 text-slate-500 text-sm font-semibold">+91</span>
+                        <input
+                          type="text"
+                          maxLength={10}
+                          value={editPhone}
+                          onChange={(e) => setEditPhone(e.target.value.replace(/\D/g, ''))}
+                          className="w-full bg-[#111625] border border-slate-800 text-white pl-12 pr-3.5 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-colors font-mono"
+                          placeholder="9876543210"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1.5">Email Address</label>
+                      <input
+                        type="email"
+                        value={editEmail}
+                        onChange={(e) => setEditEmail(e.target.value)}
+                        className="w-full bg-[#111625] border border-slate-800 text-white rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-colors"
+                        placeholder="customer@domain.com"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Security, Password & Role Section */}
+                  <div className="bg-[#111625] rounded-xl p-4 border border-slate-800/80 space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <Lock className="w-4 h-4 text-amber-400" />
+                          <span className="text-xs font-bold text-white">Account Password:</span>
+                          <span className="font-mono text-sm tracking-widest text-slate-400">••••••••••••</span>
+                        </div>
+                        <p className="text-[11px] text-slate-400 mt-0.5">
+                          Passwords are encrypted with bcrypt. Admin can override password if customer forgot credentials.
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowPasswordReset(!showPasswordReset)
+                          if (!showPasswordReset) setEditPassword('')
+                        }}
+                        className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer w-fit ${
+                          showPasswordReset
+                            ? 'bg-rose-500/15 text-rose-300 border border-rose-500/30'
+                            : 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30'
+                        }`}
+                      >
+                        <KeyRound className="w-3.5 h-3.5" />
+                        <span>{showPasswordReset ? 'Cancel Reset' : 'Reset Password'}</span>
+                      </button>
+                    </div>
+
+                    {/* Inline Password Reset Box */}
+                    {showPasswordReset && (
+                      <div className="pt-3 border-t border-slate-800 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 animate-in fade-in duration-150">
+                        <div className="flex-1">
+                          <label className="block text-[11px] font-semibold text-amber-300 mb-1">
+                            Set New Password (min. 6 characters):
+                          </label>
+                          <input
+                            type="password"
+                            value={editPassword}
+                            onChange={(e) => setEditPassword(e.target.value)}
+                            placeholder="Enter new account password"
+                            className="w-full bg-[#0B0F19] border border-amber-500/40 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                          />
+                        </div>
+                        <div className="text-[11px] text-slate-400 self-end sm:pb-2">
+                          Will update upon clicking &quot;Save &amp; Update Profile&quot; below.
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Role selector for Admin managing Staff/Users */}
+                    {isAdmin && selectedUser.role !== 'SUPER_ADMIN' && (
+                      <div className="pt-3 border-t border-slate-800 flex items-center justify-between gap-4">
+                        <div>
+                          <label className="block text-xs font-bold text-white">System Role Authority</label>
+                          <p className="text-[11px] text-slate-400">Grant dispatch management or admin privileges</p>
+                        </div>
+                        <select
+                          value={editRole}
+                          onChange={(e) => setEditRole(e.target.value as any)}
+                          className="bg-[#0B0F19] border border-slate-700 text-white rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-amber-500 font-semibold"
+                        >
+                          <option value="CUSTOMER">CUSTOMER (Standard Shopper)</option>
+                          <option value="STAFF">STAFF (Dispatch &amp; Order Manager)</option>
+                          {isSuperAdmin && <option value="ADMIN">ADMIN (Full Control)</option>}
+                        </select>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Lifetime Purchasing Analytics Strip */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2.5">
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <TrendingUp className="w-3.5 h-3.5 text-amber-400" />
+                        Lifetime Purchasing Analytics
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const u = selectedUser
+                          setSelectedUser(null)
+                          setViewOrdersUser(u)
+                        }}
+                        className="text-xs text-amber-400 hover:text-amber-300 font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                      >
+                        <span>View Orders History</span>
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <div className="bg-[#111625] p-3.5 rounded-xl border border-slate-800">
+                        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Total Orders</span>
+                        <span className="text-xl font-extrabold text-white mt-1 block">{userTotalOrders}</span>
+                        <span className="text-[10px] text-slate-500 font-medium">All time placed</span>
+                      </div>
+
+                      <div className="bg-[#111625] p-3.5 rounded-xl border border-slate-800">
+                        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Total Amount Spent</span>
+                        <span className="text-xl font-extrabold text-emerald-400 font-mono mt-1 block">
+                          ₹{userTotalSpent.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                        </span>
+                        <span className="text-[10px] text-slate-500 font-medium">Net platform purchase</span>
+                      </div>
+
+                      <div className="bg-[#111625] p-3.5 rounded-xl border border-slate-800">
+                        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Average Order Value</span>
+                        <span className="text-xl font-extrabold text-amber-400 font-mono mt-1 block">
+                          ₹{Math.round(userAvgOrderValue).toLocaleString('en-IN')}
+                        </span>
+                        <span className="text-[10px] text-slate-500 font-medium">Per confirmed cart</span>
+                      </div>
+
+                      <div className="bg-[#111625] p-3.5 rounded-xl border border-slate-800">
+                        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Delivered Orders</span>
+                        <span className="text-xl font-extrabold text-blue-400 mt-1 block">{userDeliveredOrders}</span>
+                        <span className="text-[10px] text-slate-500 font-medium">Fulfilled successfully</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Saved Delivery Addresses */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2.5">
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <MapPin className="w-3.5 h-3.5 text-blue-400" />
+                        Saved Delivery Locations ({userAddresses.length})
+                      </p>
+                    </div>
+
+                    {userAddresses.length === 0 ? (
+                      <div className="bg-[#111625] rounded-xl p-4 border border-dashed border-slate-800 text-center text-xs text-slate-500">
+                        No saved delivery addresses on file for this customer yet.
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {userAddresses.map((addr: any) => (
+                          <div key={addr.id} className="bg-[#111625] border border-slate-800 rounded-xl p-3.5 flex flex-col justify-between gap-2">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700">
+                                  {addr.label || 'Home'}
+                                </span>
+                                {addr.isDefault && (
+                                  <span className="text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-md">
+                                    ★ Default
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-[10px] text-slate-500 font-mono">PIN: {addr.pincode}</span>
+                            </div>
+                            <p className="text-xs text-slate-300 font-medium leading-relaxed">
+                              {addr.flatNo ? `${addr.flatNo}, ` : ''}{addr.street}
+                              {addr.landmark ? ` (Near ${addr.landmark})` : ''}, {addr.city || 'Latur'}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                </div>
+
+                {/* ────────────────────────────────────────────────────────── */}
+                {/* SECTION 2: BUSINESS INFO FOR B2B CUSTOMERS                */}
+                {/* ────────────────────────────────────────────────────────── */}
+                <div className="bg-[#0B0F19] rounded-2xl p-5 sm:p-6 border border-slate-800 space-y-5">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-800/80">
+                    <div className="flex items-center gap-2.5">
+                      <div className="p-2 bg-violet-500/10 text-violet-400 rounded-xl border border-violet-500/20">
+                        <Building2 className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm sm:text-base font-extrabold text-white">
+                          Section 2: Business Info &amp; Commercial Credit Facility
+                        </h3>
+                        <p className="text-[11px] text-slate-400 font-medium">
+                          Outlet details, physical business address, commercial tax GSTIN, and revolving credit line
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-black uppercase tracking-wider bg-violet-500/20 text-violet-300 px-2.5 py-1 rounded-lg border border-violet-500/30">
+                      B2B Commercial
+                    </span>
+                  </div>
+
+                  {/* Account Classification Toggle */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-2 uppercase tracking-wider">
+                      Account Classification Mode:
+                    </label>
+                    <div className="grid grid-cols-2 gap-3 bg-[#111625] p-1.5 rounded-2xl border border-slate-800">
+                      <button
+                        type="button"
+                        onClick={() => setEditIsB2B(false)}
+                        className={`py-3 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                          !editIsB2B
+                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-md shadow-emerald-500/10'
+                            : 'text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        <ShoppingBag className="w-4 h-4" />
+                        <span>Retail Consumer Account</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setEditIsB2B(true)}
+                        className={`py-3 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                          editIsB2B
+                            ? 'bg-violet-500/25 text-violet-300 border border-violet-500/40 shadow-md shadow-violet-500/10'
+                            : 'text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        <Building2 className="w-4 h-4" />
+                        <span>B2B Commercial Partner</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {!editIsB2B ? (
+                    <div className="bg-[#111625] rounded-xl p-4 border border-slate-800 text-xs text-slate-400 leading-relaxed flex items-center gap-3">
+                      <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-lg shrink-0">
+                        <ShoppingBag className="w-4 h-4" />
+                      </div>
+                      <div>
+                        This user is currently registered as a <span className="font-bold text-white">Retail Customer</span>. Standard consumer pricing applies. To enable bulk pricing tiers, tax invoices, and store credit facilities, switch account classification to <span className="font-bold text-violet-300">&quot;B2B Commercial Partner&quot;</span> above.
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-5">
+                      {/* B2B Commercial Fields Grid */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div className="sm:col-span-2">
+                          <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                            Business Outlet Name * (e.g. Musfir Caffe, Grand Hotel Latur)
+                          </label>
+                          <input
+                            type="text"
+                            value={editBusinessName}
+                            onChange={(e) => setEditBusinessName(e.target.value)}
+                            className="w-full bg-[#111625] border border-slate-800 text-white rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 placeholder-slate-500 font-semibold"
+                            placeholder="e.g. Musfir Caffe"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-300 mb-1.5">Business Type</label>
+                          <select
+                            value={editBusinessType}
+                            onChange={(e) => setEditBusinessType(e.target.value)}
+                            className="w-full bg-[#111625] border border-slate-800 text-white rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 font-semibold"
+                          >
+                            <option value="HOTEL">Hotel / Resort</option>
+                            <option value="CAFE">Cafe / Fast Food</option>
+                            <option value="RESTAURANT">Restaurant</option>
+                            <option value="CATERER">Caterer / Events</option>
+                            <option value="RETAILER">Grocery / Supermarket</option>
+                            <option value="OTHER">Other Enterprise</option>
+                          </select>
+                        </div>
+
+                        <div className="sm:col-span-3">
+                          <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                            Business Physical Address (Outlet Delivery Location)
+                          </label>
+                          <input
+                            type="text"
+                            value={editBusinessAddress}
+                            onChange={(e) => setEditBusinessAddress(e.target.value)}
+                            className="w-full bg-[#111625] border border-slate-800 text-white rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 placeholder-slate-500"
+                            placeholder="e.g. Near Shivaji Chowk, Main Road, Latur - 413512"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-300 mb-1.5">GSTIN Number (15-digit)</label>
+                          <input
+                            type="text"
+                            maxLength={15}
+                            value={editGstin}
+                            onChange={(e) => setEditGstin(e.target.value.toUpperCase())}
+                            className="w-full bg-[#111625] border border-slate-800 text-white rounded-xl px-3.5 py-2.5 text-sm uppercase font-mono focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 placeholder-slate-500"
+                            placeholder="27AAAAA0000A1Z5"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-300 mb-1.5">FSSAI License Number (optional)</label>
+                          <input
+                            type="text"
+                            maxLength={14}
+                            value={editFssai}
+                            onChange={(e) => setEditFssai(e.target.value.replace(/\D/g, ''))}
+                            className="w-full bg-[#111625] border border-slate-800 text-white rounded-xl px-3.5 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 placeholder-slate-500"
+                            placeholder="14-digit FSSAI"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-300 mb-1.5">Verification Status</label>
+                          <select
+                            value={editVerificationStatus}
+                            onChange={(e) => setEditVerificationStatus(e.target.value as any)}
+                            className="w-full bg-[#111625] border border-slate-800 text-white rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 font-semibold"
+                          >
+                            <option value="VERIFIED">VERIFIED (Approved)</option>
+                            <option value="PENDING">PENDING (Review Needed)</option>
+                            <option value="REJECTED">REJECTED (Declined)</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Financial Credit Facility Box */}
+                      <div className="bg-gradient-to-br from-[#111625] via-[#141b2e] to-[#111625] rounded-2xl p-5 border border-amber-500/30 space-y-4 shadow-xl">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                          <div className="flex items-center gap-2.5">
+                            <div className="p-2 bg-amber-500/20 text-amber-300 rounded-xl border border-amber-500/30">
+                              <Wallet className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <h4 className="text-sm font-extrabold text-white flex items-center gap-2">
+                                Revolving Store Credit &amp; Wallet Facility
+                                {editCreditEnabled ? (
+                                  <span className="text-[10px] font-black uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full">
+                                    Active
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] font-black uppercase bg-slate-800 text-slate-400 border border-slate-700 px-2 py-0.5 rounded-full">
+                                    Disabled
+                                  </span>
+                                )}
+                              </h4>
+                              <p className="text-[11px] text-slate-400">
+                                When enabled, customer can order freely against this balance without upfront COD/Online payment.
+                              </p>
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => setEditCreditEnabled(!editCreditEnabled)}
+                            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
+                              editCreditEnabled
+                                ? 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 shadow-sm'
+                                : 'bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700'
+                            }`}
+                          >
+                            <Check className={`w-3.5 h-3.5 ${editCreditEnabled ? 'opacity-100' : 'opacity-0'}`} />
+                            <span>{editCreditEnabled ? 'Credit Account Enabled' : 'Enable Credit Facility'}</span>
+                          </button>
+                        </div>
+
+                        {/* Credit Settings & Live Balance Matrix */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                              Approved Credit Limit (₹)
+                            </label>
+                            <input
+                              type="number"
+                              min={0}
+                              step={1000}
+                              value={editCreditLimit}
+                              onChange={(e) => setEditCreditLimit(Number(e.target.value))}
+                              className="w-full bg-[#0B0F19] border border-amber-500/40 text-white rounded-xl px-3.5 py-2.5 text-base font-extrabold font-mono focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                              placeholder="e.g. 5000"
+                            />
+                            <p className="text-[10px] text-slate-500 mt-1 font-medium">Revolving maximum balance limit</p>
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-300 mb-1.5">Credit Tier</label>
+                            <select
+                              value={editCreditTier}
+                              onChange={(e) => setEditCreditTier(e.target.value as any)}
+                              className="w-full bg-[#0B0F19] border border-slate-800 text-white rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-amber-500 font-semibold"
+                            >
+                              <option value="BRONZE">BRONZE (Standard Net 15)</option>
+                              <option value="SILVER">SILVER (Priority Net 21)</option>
+                              <option value="GOLD">GOLD (VIP Partner Net 30)</option>
+                            </select>
+                            <p className="text-[10px] text-slate-500 mt-1 font-medium">Determines billing cycle length</p>
+                          </div>
+
+                          {/* Live Balance Mini Display */}
+                          <div className="bg-[#0B0F19] p-3.5 rounded-xl border border-slate-800 flex flex-col justify-between">
+                            <div>
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                                Live Available Wallet Balance
+                              </span>
+                              <span className="text-xl font-black text-emerald-400 font-mono mt-1 block">
+                                ₹{currentAvailableCredit.toLocaleString('en-IN')}
+                              </span>
+                            </div>
+                            <div className="text-[10px] text-slate-500 font-medium pt-1 border-t border-slate-800/80 mt-1">
+                              Used: <span className="text-slate-300 font-mono">₹{currentCreditUsed.toLocaleString('en-IN')}</span> of ₹{currentCreditLimit.toLocaleString('en-IN')}
+                            </div>
+                          </div>
+                        </div>
+
+                      </div>
+                    </div>
+                  )}
+
+                </div>
+
+              </div>
+
+              {/* ────────────────────────────────────────────────────────── */}
+              {/* SECTION 3: BOTTOM ACTION CONTROLS                          */}
+              {/* ────────────────────────────────────────────────────────── */}
+              <div className="p-4 sm:p-5 border-t border-slate-800 bg-[#0E1320] flex items-center justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={() => setSelectedUser(null)}
+                  className="px-5 py-2.5 rounded-xl border border-slate-700 hover:bg-slate-800 text-slate-300 font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  <span>Back / Discard</span>
+                </button>
+
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleSaveModal}
+                    className="px-7 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-amber-500/20 active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
                   >
-                    <option value="CUSTOMER">Customer (Retail / B2B)</option>
-                    <option value="STAFF">Staff (Dispatch Manager)</option>
-                    {isSuperAdmin && <option value="ADMIN">Admin (Full Access)</option>}
-                  </select>
-                </div>
-              )}
-            </div>
-
-            {/* Account Classification */}
-            <div className="flex flex-col gap-2">
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Account Classification</p>
-              <div className="grid grid-cols-2 gap-2 bg-[#0B0F19] p-1 rounded-xl border border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setEditIsB2B(false)}
-                  className={`py-2 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${!editIsB2B ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30' : 'text-slate-400 hover:text-white'}`}
-                >
-                  <ShoppingBag className="w-3.5 h-3.5" /> Retail Customer
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setEditIsB2B(true)}
-                  className={`py-2 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${editIsB2B ? 'bg-violet-500/20 text-violet-300 border border-violet-500/30' : 'text-slate-400 hover:text-white'}`}
-                >
-                  <Building2 className="w-3.5 h-3.5" /> B2B Commercial
-                </button>
-              </div>
-            </div>
-
-            {/* B2B Commercial Fields */}
-            {editIsB2B && (
-              <div className="bg-[#0B0F19] rounded-xl p-4 border border-violet-500/20 flex flex-col gap-3">
-                <p className="text-xs font-bold text-violet-300 uppercase tracking-wider">Commercial Credentials</p>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Business Name</label>
-                  <input type="text" value={editBusinessName} onChange={(e) => setEditBusinessName(e.target.value)} placeholder="e.g. Grand Hotel Latur" className="w-full bg-[#111625] border border-slate-800 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-violet-500 placeholder-slate-500" />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1">Business Type</label>
-                    <select value={editBusinessType} onChange={(e) => setEditBusinessType(e.target.value)} className="w-full bg-[#111625] border border-slate-800 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-violet-500 font-medium">
-                      <option value="HOTEL">Hotel / Resort</option>
-                      <option value="CAFE">Cafe / Fast Food</option>
-                      <option value="RESTAURANT">Restaurant</option>
-                      <option value="CATERER">Caterer</option>
-                      <option value="RETAILER">Grocery / Supermarket</option>
-                      <option value="OTHER">Other</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1">GSTIN Number</label>
-                    <input type="text" value={editGstin} onChange={(e) => setEditGstin(e.target.value.toUpperCase())} placeholder="27AAAAA0000A1Z5" className="w-full bg-[#111625] border border-slate-800 text-white rounded-xl px-3 py-2 text-sm uppercase focus:outline-none focus:border-violet-500 placeholder-slate-500" />
-                  </div>
-                </div>
-
-                <div className="pt-2 border-t border-slate-800 flex flex-col gap-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs font-semibold text-white">Credit Account Facility</p>
-                      <p className="text-[11px] text-slate-400">Allow placing orders on credit</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setEditCreditEnabled(!editCreditEnabled)}
-                      className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${editCreditEnabled ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-slate-800 text-slate-400 border border-slate-700'}`}
-                    >
-                      {editCreditEnabled ? 'Enabled' : 'Disabled'}
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1">Credit Limit (₹)</label>
-                      <input type="number" value={editCreditLimit} onChange={(e) => setEditCreditLimit(Number(e.target.value))} step="5000" className="w-full bg-[#111625] border border-slate-800 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-violet-500" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1">Status</label>
-                      <select value={editVerificationStatus} onChange={(e) => setEditVerificationStatus(e.target.value as any)} className="w-full bg-[#111625] border border-slate-800 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-violet-500 font-medium">
-                        <option value="VERIFIED">Verified</option>
-                        <option value="PENDING">Pending Review</option>
-                        <option value="REJECTED">Rejected</option>
-                      </select>
-                    </div>
-                  </div>
+                    <Check className="w-4 h-4" />
+                    <span>Save &amp; Update Profile</span>
+                  </button>
                 </div>
               </div>
-            )}
 
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
-              <button type="button" onClick={() => setSelectedUser(null)} className="px-4 py-2 text-sm font-semibold text-slate-400 hover:text-white transition-colors">Cancel</button>
-              <button type="button" onClick={handleSaveModal} className="px-5 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-sm rounded-xl shadow-lg shadow-amber-500/20 transition-all active:scale-95">Save Changes</button>
             </div>
-
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* 7. CREATE USER MODAL */}
       {showCreateModal && (

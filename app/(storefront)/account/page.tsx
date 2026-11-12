@@ -7,7 +7,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { 
   User, Phone, Lock, Building2, UserPlus, LogIn, LogOut, FileText, 
   ChevronRight, ShieldCheck, Clock, AlertTriangle, Store, Utensils, 
-  Coffee, ShoppingBag, BadgePercent, CreditCard, Sparkles, CheckCircle2, ArrowRight, ArrowLeft,
+  Coffee, ShoppingBag, BadgePercent, CreditCard, Wallet, Sparkles, CheckCircle2, ArrowRight, ArrowLeft,
   Package, UploadCloud, ClipboardList, BarChart3, Truck, Mail, RotateCcw, MapPin, Heart, HelpCircle, Bell, Moon,
   Home, Plus, Edit2, Trash2, Check, Star, X, MessageSquare,
   FileSpreadsheet, Download, Calendar, Video, Play
@@ -631,13 +631,13 @@ export default function AccountPage() {
               <span className="text-[10px] text-blue-600 font-bold mt-0.5">{savedAddresses.length} saved</span>
             </a>
 
-            <div className="bg-white hover:bg-purple-50/50 p-3.5 rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center justify-center text-center tap-scale transition-all group">
-              <div className="w-10 h-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center mb-1.5 group-hover:scale-105 transition-transform">
-                <CreditCard className="w-5 h-5" />
+            <div className="bg-white hover:bg-emerald-50/50 p-3.5 rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center justify-center text-center tap-scale transition-all group">
+              <div className="w-10 h-10 rounded-xl bg-emerald-100 text-[#0c831f] flex items-center justify-center mb-1.5 group-hover:scale-105 transition-transform">
+                <Wallet className="w-5 h-5" />
               </div>
-              <span className="font-display text-xs font-black text-brand-charcoal leading-tight block">B2B Credit</span>
-              <span className="text-[10px] text-purple-700 font-bold mt-0.5">
-                {user.isB2B ? `₹${(user.creditLimit || 0) - (user.creditUsed || 0)}` : 'Standard'}
+              <span className="font-display text-xs font-black text-brand-charcoal leading-tight block">Wallet / Credit</span>
+              <span className="text-[10px] text-emerald-700 font-extrabold mt-0.5 font-mono">
+                ₹{Math.max(0, (user.creditLimit || 0) - (user.creditUsed || 0)).toLocaleString('en-IN')}
               </span>
             </div>
 

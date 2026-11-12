@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
-import { CreditCard, ArrowLeft, ArrowRight, ShieldCheck, CheckCircle2, Building2, Tag, Sparkles, X } from 'lucide-react'
+import { CreditCard, Wallet, ArrowLeft, ArrowRight, ShieldCheck, CheckCircle2, Building2, Tag, Sparkles, X } from 'lucide-react'
 import confetti from 'canvas-confetti'
 import { useCart } from '@/hooks/useCart'
 import { useToast } from '@/components/ui/Toast'
@@ -322,9 +322,12 @@ export default function CheckoutPaymentPage() {
         showToast(
           paymentMethod === 'CASH_ON_DELIVERY' 
             ? 'Order placed! Pay cash or UPI upon delivery.' 
-            : 'B2B Credit order confirmed!', 
+            : `₹${grandTotal.toFixed(2)} paid from Wallet / Credit balance! Order confirmed.`, 
           'success'
         )
+        if (paymentMethod === 'CREDIT_ACCOUNT' && typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('auth-change'))
+        }
         cleanupStorage(orderData)
         setCelebratedOrder(orderData)
         return
@@ -707,15 +710,15 @@ export default function CheckoutPaymentPage() {
             </div>
           </label>
 
-          {/* 4. Credit Account Card (ONLY SHOWN IF ADMIN HAS ENABLED CREDIT FACILITY FOR THIS BUSINESS) */}
+          {/* 4. Pay from Wallet / B2B Credit Balance Card */}
           {isCreditEnabledForUser && (
             <label className={`w-full flex items-center justify-between p-4 rounded-card border transition-all text-left ${
               isCreditEligible
-                ? 'cursor-pointer hover:border-gray-300' 
+                ? 'cursor-pointer hover:border-emerald-300' 
                 : 'opacity-50 cursor-not-allowed bg-gray-50'
             } ${
               paymentMethod === 'CREDIT_ACCOUNT' && isCreditEligible
-                ? 'bg-brand-orange-light border-brand-orange ring-1 ring-brand-orange'
+                ? 'bg-emerald-50/70 border-emerald-500 ring-1 ring-emerald-500'
                 : 'border-gray-200'
             }`}>
               <div className="flex items-center gap-3">
@@ -730,16 +733,28 @@ export default function CheckoutPaymentPage() {
                   }}
                   className="sr-only"
                 />
-                <div className="p-2 bg-purple-50 rounded-card flex items-center justify-center text-purple-500">
-                  <Building2 className="w-5 h-5" />
+                <div className="p-2.5 bg-emerald-100/80 rounded-card flex items-center justify-center text-[#0c831f]">
+                  <Wallet className="w-5 h-5" />
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-brand-charcoal">
-                    💼 B2B Credit Account (Net 15-30)
-                  </p>
-                  <p className="text-[10px] font-bold text-purple-600 mt-0.5 leading-none">
-                    Available Credit: ₹{remainingCredit.toFixed(0)}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-bold text-brand-charcoal">
+                      💳 Pay from Wallet / B2B Credit Balance
+                    </p>
+                    <span className="text-[10px] font-black uppercase bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
+                      Zero Instant Cash
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 mt-1">
+                    <p className="text-xs font-black text-[#0c831f] font-mono leading-none">
+                      Available: ₹{remainingCredit.toLocaleString('en-IN')}
+                    </p>
+                    {isCreditEligible && (
+                      <span className="text-[11px] text-gray-500 font-semibold">
+                        • Remaining after purchase: <span className="font-mono text-gray-700 font-bold">₹{Math.max(0, remainingCredit - grandTotal).toLocaleString('en-IN')}</span>
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
               
@@ -750,7 +765,7 @@ export default function CheckoutPaymentPage() {
                   </span>
                 )}
                 <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                  paymentMethod === 'CREDIT_ACCOUNT' && isCreditEligible ? 'border-brand-orange bg-brand-orange text-white' : 'border-gray-300'
+                  paymentMethod === 'CREDIT_ACCOUNT' && isCreditEligible ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-gray-300'
                 }`}>
                   {paymentMethod === 'CREDIT_ACCOUNT' && isCreditEligible && <div className="w-2.5 h-2.5 rounded-full bg-white" />}
                 </div>

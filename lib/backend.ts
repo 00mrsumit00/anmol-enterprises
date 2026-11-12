@@ -3257,24 +3257,30 @@ apiRouter.post('/orders', async (req: Request, res: Response) => {
       const validCouponDiscount = pricing.appliedCoupon?.discount || 0
       const totalSavings = pricing.totalSavings || 0
 
-      // 4. Handle credit limit checks for B2B
+      // 4. Handle credit limit checks for B2B (SEC-01: Row-level lock to prevent TOCTOU race condition)
       if (data.paymentMethod === 'CREDIT_ACCOUNT') {
         if (!loggedInUser || !loggedInUser.isB2B) {
           throw new Error('Only B2B accounts can order using credit')
         }
-        const liveUser = await tx.user.findUnique({
-          where: { id: loggedInUser.id },
-          select: { id: true, isB2B: true, isCreditEnabled: true, creditLimit: true, creditUsed: true }
-        })
+        // Acquire row lock on user record in Neon PostgreSQL
+        const lockedRows: any[] = await tx.$queryRaw`
+          SELECT id, "isB2B", "isCreditEnabled", "creditLimit", "creditUsed" 
+          FROM "users" 
+          WHERE id = ${loggedInUser.id} 
+          FOR UPDATE
+        `
+        const liveUser = lockedRows && lockedRows.length > 0 ? lockedRows[0] : null
         if (!liveUser || !liveUser.isB2B || !liveUser.isCreditEnabled) {
           throw new Error('B2B Store Credit facility is not enabled for your account. Please contact Anmol Enterprises administration.')
         }
-        const remainingCredit = liveUser.creditLimit - liveUser.creditUsed
+        const creditLimit = Number(liveUser.creditLimit) || 0
+        const creditUsed = Number(liveUser.creditUsed) || 0
+        const remainingCredit = creditLimit - creditUsed
         if (remainingCredit < finalTotalAmount) {
           throw new Error(`Insufficient credit limit. Available: ₹${remainingCredit.toFixed(2)}, Order Total: ₹${finalTotalAmount.toFixed(2)}`)
         }
 
-        // Update credit used
+        // Update credit used inside the same locked transaction
         await tx.user.update({
           where: { id: loggedInUser.id },
           data: {
@@ -3928,12 +3934,14 @@ apiRouter.put('/orders/:id/status', authMiddleware, requireRole(['ADMIN', 'STAFF
           }
         }
       } else if (status === 'CANCELLED' || status === 'RETURNED') {
-        // Return credit if paid via credit account — inside transaction
-        if (currentOrder.paymentMethod === 'CREDIT_ACCOUNT' && currentOrder.userId) {
-          await tx.user.update({
-            where: { id: currentOrder.userId },
-            data: { creditUsed: { decrement: currentOrder.totalAmount } },
-          })
+        // SEC-03: Return credit if paid via credit account ONLY if transitioning from non-cancelled/non-returned state
+        if (!['CANCELLED', 'RETURNED'].includes(currentOrder.status)) {
+          if (currentOrder.paymentMethod === 'CREDIT_ACCOUNT' && currentOrder.userId) {
+            await tx.user.update({
+              where: { id: currentOrder.userId },
+              data: { creditUsed: { decrement: currentOrder.totalAmount } },
+            })
+          }
         }
 
         // Restock all items and log RETURN movement — inside transaction
@@ -4133,8 +4141,11 @@ apiRouter.get('/admin/users', authMiddleware, requireRole(['ADMIN', 'STAFF']), a
           createdAt: true,
           businessProfile: true,
           addresses: {
-            take: 2,
             orderBy: { isDefault: 'desc' }
+          },
+          orders: {
+            select: { id: true, totalAmount: true, status: true, createdAt: true },
+            orderBy: { createdAt: 'desc' }
           },
           _count: { select: { orders: true } }
         },
@@ -4201,7 +4212,7 @@ apiRouter.put('/admin/users/:id/toggle-active', authMiddleware, requireRole(['AD
 apiRouter.put('/admin/users/:id/toggle-b2b', authMiddleware, requireRole(['ADMIN']), async (req: Request, res: Response) => {
   try {
     const userId = req.params.id as string
-    const { isB2B, businessName, businessType, gstin } = req.body
+    const { isB2B, businessName, businessType, gstin, businessAddress } = req.body
 
     if (gstin && gstin.trim() && !GSTIN_REGEX.test(gstin.trim())) {
       return res.status(400).json({ error: 'Invalid GSTIN format. Expected 15-character Indian GSTIN (e.g. 27ABCDE1234F1Z5)' })
@@ -4228,13 +4239,15 @@ apiRouter.put('/admin/users/:id/toggle-b2b', authMiddleware, requireRole(['ADMIN
               businessName: businessName || user.businessName || `${user.name}'s Enterprise`,
               businessType: businessType || 'OTHER',
               gstin: gstin || null,
+              businessAddress: businessAddress || null,
               verificationStatus: 'VERIFIED',
               isCreditEnabled: false
             },
             update: {
               businessName: businessName || user.businessName || undefined,
               businessType: businessType || undefined,
-              gstin: gstin || undefined
+              gstin: gstin || undefined,
+              businessAddress: businessAddress !== undefined ? businessAddress : undefined
             }
           }
         } : undefined
@@ -5895,30 +5908,41 @@ apiRouter.post('/orders/:id/cancel', authMiddleware, async (req: Request, res: R
       return res.status(400).json({ error: `Cannot cancel order in "${order.status}" status. Cold chain dispatch already underway.` })
     }
 
-    // Restore stock counts for variants
-    for (const item of order.items) {
-      if (item.variantId) {
-        await prisma.productVariant.update({
-          where: { id: item.variantId },
-          data: { stockCount: { increment: item.quantity } },
-        }).catch(() => {})
+    // SEC-02: Atomically restore stock and B2B credit upon customer order cancellation
+    const updated = await prisma.$transaction(async (tx) => {
+      // Restore stock counts for variants
+      for (const item of order.items) {
+        if (item.variantId) {
+          await tx.productVariant.update({
+            where: { id: item.variantId },
+            data: { stockCount: { increment: item.quantity } },
+          }).catch(() => {})
+        }
       }
-    }
 
-    const updated = await prisma.order.update({
-      where: { id },
-      data: {
-        status: 'CANCELLED',
-        cancellationReason: reason || 'Cancelled by customer',
-        statusHistory: {
-          create: {
-            fromStatus: order.status,
-            toStatus: 'CANCELLED',
-            changedBy: req.user!.name,
-            note: `Cancelled: ${reason || 'Customer requested cancellation'}`,
+      // Restore B2B store credit if paid via credit account
+      if (order.paymentMethod === 'CREDIT_ACCOUNT' && order.userId) {
+        await tx.user.update({
+          where: { id: order.userId },
+          data: { creditUsed: { decrement: order.totalAmount } },
+        }).catch((err) => console.error('Failed to restore customer credit on cancellation:', err))
+      }
+
+      return await tx.order.update({
+        where: { id },
+        data: {
+          status: 'CANCELLED',
+          cancellationReason: reason || 'Cancelled by customer',
+          statusHistory: {
+            create: {
+              fromStatus: order.status,
+              toStatus: 'CANCELLED',
+              changedBy: req.user!.name,
+              note: `Cancelled: ${reason || 'Customer requested cancellation'}`,
+            },
           },
         },
-      },
+      })
     })
 
     if (ioInstance) {

@@ -432,14 +432,14 @@ function NavbarContent() {
                 )}
               </Link>
 
-              {/* Wallet Pill */}
+              {/* Wallet Pill (Live available balance: creditLimit - creditUsed) */}
               <Link
                 href="/account"
                 className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-emerald-50 hover:bg-emerald-100/80 text-emerald-800 text-xs font-bold transition-all border border-emerald-200 shadow-xs active:scale-95"
-                title="Wallet / Credits"
+                title="Wallet / Available B2B Credit"
               >
                 <Wallet className="w-3.5 h-3.5 text-[#0c831f]" />
-                <span>₹0</span>
+                <span>₹{(user ? Math.max(0, (user.creditLimit || 0) - (user.creditUsed || 0)) : 0).toLocaleString('en-IN')}</span>
               </Link>
 
               {/* Admin Button — visible for super admin, admin, and staff */}
@@ -524,6 +524,21 @@ function NavbarContent() {
                           </Link>
                         </>
                       )}
+
+                      {/* Wallet balance display for mobile / quick check */}
+                      <Link
+                        href="/account"
+                        onClick={() => setShowDropdown(false)}
+                        className="flex items-center justify-between px-4 py-2.5 bg-emerald-50/60 hover:bg-emerald-50 border-y border-emerald-100/80 transition-colors"
+                      >
+                        <span className="flex items-center gap-2 text-emerald-900 font-bold">
+                          <Wallet className="w-4 h-4 text-[#0c831f]" />
+                          Wallet Balance:
+                        </span>
+                        <span className="font-extrabold text-emerald-700 font-mono text-sm">
+                          ₹{(user ? Math.max(0, (user.creditLimit || 0) - (user.creditUsed || 0)) : 0).toLocaleString('en-IN')}
+                        </span>
+                      </Link>
 
                       <Link
                         href="/account"
