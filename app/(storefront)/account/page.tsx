@@ -1067,7 +1067,7 @@ export default function AccountPage() {
                     <div>
                       <h4 className="font-display text-sm font-black text-white">Commercial Financial Ledger</h4>
                       <p className="text-[11px] text-purple-200/80 font-medium">
-                        Export debits, credits, payments, and running balance statements in Excel (.xlsx)
+                        Export debits, credits, payments, and running balance statements in Excel (.xlsx) or Bank Statement (PDF)
                       </p>
                     </div>
                   </div>
@@ -1075,62 +1075,117 @@ export default function AccountPage() {
                   <div className="flex flex-wrap items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => {
-                        const now = new Date()
-                        const d = new Date()
-                        d.setDate(d.getDate() - 30)
-                        window.open(`/api/account/ledger?from=${d.toISOString().split('T')[0]}&to=${now.toISOString().split('T')[0]}&format=excel`, '_blank')
-                      }}
-                      className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold border border-white/15 flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
-                    >
-                      <Download className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>Last 1 Month</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const now = new Date()
-                        const d = new Date()
-                        d.setDate(d.getDate() - 90)
-                        window.open(`/api/account/ledger?from=${d.toISOString().split('T')[0]}&to=${now.toISOString().split('T')[0]}&format=excel`, '_blank')
-                      }}
-                      className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold border border-white/15 flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
-                    >
-                      <Download className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>Last 3 Months</span>
-                    </button>
-                    <button
-                      type="button"
                       onClick={() => setShowB2bCustomLedger(!showB2bCustomLedger)}
-                      className="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-slate-950 text-xs font-black flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
+                      className="px-3 py-1.5 rounded-xl bg-purple-500/30 hover:bg-purple-500/40 text-purple-200 text-xs font-bold border border-purple-400/30 flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
                     >
                       <Calendar className="w-3.5 h-3.5" />
-                      <span>{showB2bCustomLedger ? 'Close' : 'Custom Dates'}</span>
+                      <span>{showB2bCustomLedger ? 'Hide Custom' : 'Custom Dates'}</span>
                     </button>
                   </div>
                 </div>
 
+                {/* Pre-set Quick Download Buttons: 1 Month & 3 Months (Both Excel & PDF) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                  {/* 1 Month Card */}
+                  <div className="bg-white/5 p-2.5 rounded-xl border border-white/10 flex items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-amber-300" />
+                      Last 1 Month
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const now = new Date()
+                          const d = new Date()
+                          d.setDate(d.getDate() - 30)
+                          window.open(`/api/account/ledger?from=${d.toISOString().split('T')[0]}&to=${now.toISOString().split('T')[0]}&format=excel`, '_blank')
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 text-[11px] font-bold flex items-center gap-1 transition active:scale-95 cursor-pointer"
+                        title="Download Excel Spreadsheet"
+                      >
+                        <FileSpreadsheet className="w-3 h-3" />
+                        <span>Excel</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const now = new Date()
+                          const d = new Date()
+                          d.setDate(d.getDate() - 30)
+                          window.open(`/account/statement?from=${d.toISOString().split('T')[0]}&to=${now.toISOString().split('T')[0]}`, '_blank')
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 text-[11px] font-bold flex items-center gap-1 transition active:scale-95 cursor-pointer"
+                        title="View & Print Official Bank Statement PDF"
+                      >
+                        <FileText className="w-3 h-3" />
+                        <span>PDF Statement</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 3 Months Card */}
+                  <div className="bg-white/5 p-2.5 rounded-xl border border-white/10 flex items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-blue-300" />
+                      Last 3 Months
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const now = new Date()
+                          const d = new Date()
+                          d.setDate(d.getDate() - 90)
+                          window.open(`/api/account/ledger?from=${d.toISOString().split('T')[0]}&to=${now.toISOString().split('T')[0]}&format=excel`, '_blank')
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 text-[11px] font-bold flex items-center gap-1 transition active:scale-95 cursor-pointer"
+                        title="Download Excel Spreadsheet"
+                      >
+                        <FileSpreadsheet className="w-3 h-3" />
+                        <span>Excel</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const now = new Date()
+                          const d = new Date()
+                          d.setDate(d.getDate() - 90)
+                          window.open(`/account/statement?from=${d.toISOString().split('T')[0]}&to=${now.toISOString().split('T')[0]}`, '_blank')
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 text-[11px] font-bold flex items-center gap-1 transition active:scale-95 cursor-pointer"
+                        title="View & Print Official Bank Statement PDF"
+                      >
+                        <FileText className="w-3 h-3" />
+                        <span>PDF Statement</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
                 {showB2bCustomLedger && (
-                  <div className="pt-3 border-t border-white/10 grid grid-cols-1 sm:grid-cols-3 gap-2.5 items-end">
-                    <div>
-                      <label className="text-[10px] text-purple-200 font-bold mb-1 block">From</label>
-                      <input
-                        type="date"
-                        value={b2bLedgerFrom}
-                        onChange={(e) => setB2bLedgerFrom(e.target.value)}
-                        className="w-full bg-white/10 text-white rounded-lg border border-white/20 px-2.5 py-1.5 text-xs focus:ring-1 focus:ring-emerald-400"
-                      />
+                  <div className="pt-3 border-t border-white/10 space-y-2.5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <div>
+                        <label className="text-[10px] text-purple-200 font-bold mb-1 block">From Date</label>
+                        <input
+                          type="date"
+                          value={b2bLedgerFrom}
+                          onChange={(e) => setB2bLedgerFrom(e.target.value)}
+                          className="w-full bg-white/10 text-white rounded-lg border border-white/20 px-2.5 py-1.5 text-xs focus:ring-1 focus:ring-emerald-400"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-purple-200 font-bold mb-1 block">To Date</label>
+                        <input
+                          type="date"
+                          value={b2bLedgerTo}
+                          onChange={(e) => setB2bLedgerTo(e.target.value)}
+                          className="w-full bg-white/10 text-white rounded-lg border border-white/20 px-2.5 py-1.5 text-xs focus:ring-1 focus:ring-emerald-400"
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <label className="text-[10px] text-purple-200 font-bold mb-1 block">To</label>
-                      <input
-                        type="date"
-                        value={b2bLedgerTo}
-                        onChange={(e) => setB2bLedgerTo(e.target.value)}
-                        className="w-full bg-white/10 text-white rounded-lg border border-white/20 px-2.5 py-1.5 text-xs focus:ring-1 focus:ring-emerald-400"
-                      />
-                    </div>
-                    <div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       <button
                         type="button"
                         onClick={() => {
@@ -1140,10 +1195,24 @@ export default function AccountPage() {
                           }
                           window.open(`/api/account/ledger?from=${b2bLedgerFrom}&to=${b2bLedgerTo}&format=excel`, '_blank')
                         }}
-                        className="w-full py-1.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-xs rounded-lg flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer"
+                        className="w-full py-2 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-xs rounded-lg flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer shadow"
                       >
-                        <Download className="w-3.5 h-3.5" />
-                        <span>Download Statement (.xlsx)</span>
+                        <FileSpreadsheet className="w-3.5 h-3.5" />
+                        <span>Export Excel (.xlsx)</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!b2bLedgerFrom || !b2bLedgerTo) {
+                            showToast('Please select from and to dates', 'error')
+                            return
+                          }
+                          window.open(`/account/statement?from=${b2bLedgerFrom}&to=${b2bLedgerTo}`, '_blank')
+                        }}
+                        className="w-full py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs rounded-lg flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer shadow"
+                      >
+                        <FileText className="w-3.5 h-3.5" />
+                        <span>Print / Save PDF Statement</span>
                       </button>
                     </div>
                   </div>

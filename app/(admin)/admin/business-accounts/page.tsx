@@ -62,6 +62,11 @@ export default function AdminUsersAndAccountsPage() {
     window.open(`/api/admin/users/${userToDownload.id}/ledger?from=${ledgerFromDate}&to=${ledgerToDate}&format=excel`, '_blank')
   }
 
+  const handleOpenPdfStatement = (userToView: any) => {
+    if (!userToView?.id) return
+    window.open(`/admin/business-accounts/${userToView.id}/statement?from=${ledgerFromDate}&to=${ledgerToDate}`, '_blank')
+  }
+
   // Edit Modal Form State
   const [editName, setEditName] = useState<string>('')
   const [editPhone, setEditPhone] = useState<string>('')
@@ -1687,11 +1692,21 @@ export default function AdminUsersAndAccountsPage() {
                 <button
                   type="button"
                   onClick={() => handleDownloadExcel(ledgerUser)}
-                  className="px-3.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 active:scale-95"
+                  className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 active:scale-95"
                   title="Download formatted Excel workbook"
                 >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>Download Excel (.xlsx)</span>
+                  <FileSpreadsheet className="w-3.5 h-3.5" />
+                  <span>Excel (.xlsx)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleOpenPdfStatement(ledgerUser)}
+                  className="px-3 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 active:scale-95"
+                  title="Open official Bank Statement PDF"
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>PDF Statement</span>
                 </button>
               </div>
             </div>
@@ -1798,10 +1813,18 @@ export default function AdminUsersAndAccountsPage() {
                 <button
                   type="button"
                   onClick={() => handleDownloadExcel(ledgerUser)}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition flex items-center gap-1.5"
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition flex items-center gap-1.5 shadow-sm active:scale-95"
                 >
-                  <Download className="w-3.5 h-3.5" />
+                  <FileSpreadsheet className="w-3.5 h-3.5" />
                   <span>Download Excel (.xlsx)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleOpenPdfStatement(ledgerUser)}
+                  className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-xl transition flex items-center gap-1.5 shadow-sm active:scale-95"
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>Download PDF Statement</span>
                 </button>
                 <button
                   type="button"

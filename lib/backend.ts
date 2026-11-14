@@ -1502,9 +1502,28 @@ apiRouter.get('/admin/reports', authMiddleware, requireRole(['ADMIN', 'STAFF']),
     const orders = await prisma.order.findMany({
       where: dateFilter,
       include: {
-        items: true,
+        items: {
+          include: {
+            variant: {
+              select: { unitCost: true }
+            }
+          }
+        },
         user: {
           select: { id: true, name: true, isB2B: true, businessProfile: { select: { businessName: true } } }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    })
+
+    // Fetch Inventory Batches for Purchases & Inward Restocks
+    const batches = await prisma.inventoryBatch.findMany({
+      where: dateFilter,
+      include: {
+        variant: {
+          include: {
+            product: { select: { name: true, category: { select: { name: true } } } }
+          }
         }
       },
       orderBy: { createdAt: 'desc' }
@@ -1516,6 +1535,7 @@ apiRouter.get('/admin/reports', authMiddleware, requireRole(['ADMIN', 'STAFF']),
     let retailRevenue = 0
     let deliveredCount = 0
     let cancelledCount = 0
+    let estimatedCOGS = 0
 
     const statusCounts: Record<string, number> = {}
     const paymentMethodCounts: Record<string, { count: number; total: number }> = {}
@@ -1531,7 +1551,7 @@ apiRouter.get('/admin/reports', authMiddleware, requireRole(['ADMIN', 'STAFF']),
 
       statusCounts[order.status] = (statusCounts[order.status] || 0) + 1
 
-      // Count revenue for non-cancelled orders
+      // Count revenue & COGS for non-cancelled orders
       if (!isCancelled) {
         totalRevenue += order.totalAmount
         if (order.user?.isB2B || order.businessName) {
@@ -1552,15 +1572,56 @@ apiRouter.get('/admin/reports', authMiddleware, requireRole(['ADMIN', 'STAFF']),
         dailyMap[dayKey].revenue += order.totalAmount
         dailyMap[dayKey].orders += 1
 
-        // Item breakdown
+        // Item breakdown & COGS calculation
         for (const item of order.items) {
           const pName = item.productName || 'McCain Item'
           if (!productSalesMap[pName]) productSalesMap[pName] = { name: pName, quantity: 0, revenue: 0 }
           productSalesMap[pName].quantity += item.quantity
           productSalesMap[pName].revenue += item.lineTotal
+
+          const variantCost = (item as any).variant?.unitCost
+          if (variantCost && variantCost > 0) {
+            estimatedCOGS += variantCost * item.quantity
+          } else {
+            // Standard cold-chain distributor benchmark: 68% COGS (32% gross margin)
+            estimatedCOGS += item.lineTotal * 0.68
+          }
         }
       }
     }
+
+    // Purchases & Inward Stock aggregation
+    let totalPurchaseSpend = 0
+    let totalPurchasedUnits = 0
+    const purchaseBatches = batches.map(b => {
+      const qty = b.initialQty || b.quantity || 0
+      const spend = qty * (b.unitCost || 0)
+      totalPurchaseSpend += spend
+      totalPurchasedUnits += qty
+
+      return {
+        id: b.id,
+        batchNumber: b.batchNumber,
+        supplier: b.supplier || 'McCain Foods India',
+        invoiceNo: b.invoiceNo || 'N/A',
+        productName: b.variant?.product?.name || 'McCain Frozen Product',
+        categoryName: b.variant?.product?.category?.name || 'Frozen Foods',
+        packagingType: b.variant?.packagingType || 'SINGLE',
+        quantity: qty,
+        unitCost: b.unitCost || 0,
+        totalCost: Math.round(spend),
+        expiryDate: b.expiryDate ? b.expiryDate.toISOString().slice(0, 10) : 'N/A',
+        createdAt: b.createdAt.toISOString().slice(0, 10)
+      }
+    })
+
+    const grossProfit = Math.max(0, Math.round(totalRevenue - estimatedCOGS))
+    const grossMarginPercent = totalRevenue > 0 ? Number(((grossProfit / totalRevenue) * 100).toFixed(1)) : 0
+
+    // Tax & GST estimates (18% standard GST on processed frozen foods)
+    const outputGstEstimate = Math.round(totalRevenue * 0.18 / 1.18) // Tax component inside gross sales
+    const inputGstCreditEstimate = Math.round(totalPurchaseSpend * 0.18) // ITC on inward purchases
+    const netGstPayable = Math.max(0, outputGstEstimate - inputGstCreditEstimate)
 
     const topProducts = Object.values(productSalesMap)
       .sort((a, b) => b.revenue - a.revenue)
@@ -1578,12 +1639,23 @@ apiRouter.get('/admin/reports', authMiddleware, requireRole(['ADMIN', 'STAFF']),
         deliveredCount,
         cancelledCount,
         activeOrders: totalOrders - deliveredCount - cancelledCount,
-        averageOrderValue: totalOrders > 0 ? Math.round(totalRevenue / totalOrders) : 0
+        averageOrderValue: totalOrders > 0 ? Math.round(totalRevenue / totalOrders) : 0,
+        // Purchases & Profitability
+        totalPurchaseSpend: Math.round(totalPurchaseSpend),
+        totalPurchasedUnits,
+        estimatedCOGS: Math.round(estimatedCOGS),
+        grossProfit,
+        grossMarginPercent,
+        // GST & Tax Summary
+        outputGstEstimate,
+        inputGstCreditEstimate,
+        netGstPayable
       },
       topProducts,
       dailyTrends,
       paymentMethodCounts,
-      statusCounts
+      statusCounts,
+      purchaseBatches: purchaseBatches.slice(0, 15) // Recent 15 inward batches
     })
   } catch (error: any) {
     console.error('Reports endpoint error:', error)

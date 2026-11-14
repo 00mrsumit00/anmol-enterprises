@@ -1,11 +1,12 @@
 'use client'
 
 import React, { useState } from 'react'
+import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { 
   TrendingUp, Calendar, DollarSign, Package, ShoppingBag, 
   ArrowUpRight, Download, Filter, CheckCircle2, AlertCircle, 
-  CreditCard, Truck, RefreshCw, BarChart2, PieChart
+  CreditCard, Truck, RefreshCw, BarChart2, PieChart, FileText
 } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 
@@ -121,11 +122,20 @@ export default function AdminReportsPage() {
 
           <button
             onClick={handleExportCSV}
-            className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs px-5 py-3 rounded-2xl shadow-lg shadow-amber-500/20 transition-all active:scale-95 flex items-center justify-center gap-2"
+            className="bg-[#0B0F19] hover:bg-slate-800 text-slate-300 hover:text-white font-bold text-xs px-4 py-3 rounded-2xl border border-slate-800 transition-all active:scale-95 flex items-center justify-center gap-2"
           >
-            <Download className="w-4 h-4" />
+            <Download className="w-4 h-4 text-emerald-400" />
             <span>Export CSV</span>
           </button>
+
+          <Link
+            href={`/admin/reports/pdf?range=${range}&startDate=${startDate}&endDate=${endDate}`}
+            target="_blank"
+            className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs px-5 py-3 rounded-2xl shadow-lg shadow-amber-500/20 transition-all active:scale-95 flex items-center justify-center gap-2"
+          >
+            <FileText className="w-4 h-4" />
+            <span>Download PDF Report</span>
+          </Link>
         </div>
       </div>
 
