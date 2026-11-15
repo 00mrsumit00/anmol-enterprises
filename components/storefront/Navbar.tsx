@@ -28,7 +28,7 @@ function NavbarContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const pathname = usePathname()
-  const { isB2BMode } = useCart()
+  const { isB2BMode, setB2B } = useCart()
   const { showToast } = useToast()
 
   // Hide search bar on profile/account, checkout & chat pages
@@ -37,6 +37,31 @@ function NavbarContent() {
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '')
   const [isSearchFocused, setIsSearchFocused] = useState(false)
   const searchContainerRef = useRef<HTMLDivElement>(null)
+
+  // Auto-clear search when returning to homepage or navigating away from search
+  useEffect(() => {
+    if (pathname === '/') {
+      const q = searchParams.get('q')
+      if (!q) {
+        setSearchQuery('')
+      } else {
+        setSearchQuery(q)
+      }
+    } else {
+      const q = searchParams.get('q')
+      if (q) setSearchQuery(q)
+    }
+  }, [pathname, searchParams])
+
+  // Listen for explicit clear-search events
+  useEffect(() => {
+    const handleClear = () => {
+      setSearchQuery('')
+      setIsSearchFocused(false)
+    }
+    window.addEventListener('clear-search', handleClear)
+    return () => window.removeEventListener('clear-search', handleClear)
+  }, [])
 
   const [user, setUser] = useState<any>(null)
   const [showDropdown, setShowDropdown] = useState(false)
@@ -156,11 +181,16 @@ function NavbarContent() {
         .then((data) => {
           if (data && data.user) {
             setUser(data.user)
+            setB2B(Boolean(data.user.isB2B))
           } else {
             setUser(null)
+            setB2B(false)
           }
         })
-        .catch(() => setUser(null))
+        .catch(() => {
+          setUser(null)
+          setB2B(false)
+        })
     }
 
     fetchUser()
@@ -184,7 +214,6 @@ function NavbarContent() {
     }
   }
 
-
   const handleLogout = async () => {
     try {
       await fetch('/api/auth/logout', { 
@@ -202,6 +231,7 @@ function NavbarContent() {
     } catch {}
 
     setUser(null)
+    setB2B(false)
     setShowDropdown(false)
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('auth-change'))

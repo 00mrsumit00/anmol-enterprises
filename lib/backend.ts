@@ -1001,7 +1001,7 @@ apiRouter.post('/auth/register', async (req: Request, res: Response) => {
             fssaiNumber: data.fssaiNumber || null,
             monthlyVolumeEst: data.monthlyVolumeEst || '< 50kg',
             businessAddress: data.businessAddress || null,
-            verificationStatus: 'PENDING',
+            verificationStatus: 'VERIFIED',
             creditTier: 'BRONZE',
           }
         } : undefined
@@ -6469,8 +6469,10 @@ apiRouter.post('/cart/pricing', async (req: Request, res: Response) => {
       }
     }
 
+    // B2B pricing is strictly reserved for verified B2B accounts approved in the database
+    // Retail users and guests cannot override or claim B2B pricing
     if (req.body.isB2B !== undefined) {
-      isB2B = Boolean(req.body.isB2B)
+      isB2B = isB2B && Boolean(req.body.isB2B)
     }
 
     const pricing = await calculatePricing({

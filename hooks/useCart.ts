@@ -8,6 +8,7 @@ import {
   decrementItem,
   clearCart,
   toggleB2BMode,
+  setB2BMode,
   openCart,
   closeCart,
   selectCartItems,
@@ -37,6 +38,7 @@ export function useCart() {
   const decrement = (variantId: string) => dispatch(decrementItem(variantId))
   const clear = () => dispatch(clearCart())
   const toggleB2B = () => dispatch(toggleB2BMode())
+  const setB2B = (val: boolean) => dispatch(setB2BMode(val))
   const open = () => dispatch(openCart())
   const close = () => dispatch(closeCart())
 
@@ -52,6 +54,7 @@ export function useCart() {
     decrement,
     clear,
     toggleB2B,
+    setB2B,
     open,
     close,
   }

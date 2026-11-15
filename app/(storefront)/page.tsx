@@ -8,6 +8,7 @@ import ProductGrid from '@/components/storefront/ProductGrid'
 import ProductCard from '@/components/storefront/ProductCard'
 import TrustStrip from '@/components/storefront/TrustStrip'
 import B2BBanner from '@/components/storefront/B2BBanner'
+import CustomerReviewsMarquee from '@/components/storefront/CustomerReviewsMarquee'
 import { ChevronRight, ChevronLeft, Award, Flame, Zap, Snowflake } from 'lucide-react'
 
 export default function Homepage() {
@@ -329,10 +330,13 @@ export default function Homepage() {
         </section>
       )}
 
-      {/* G. B2B Wholesale Banner */}
+      {/* G. Verified Customer & B2B Reviews Marquee */}
+      <CustomerReviewsMarquee />
+
+      {/* H. B2B Wholesale Banner */}
       <B2BBanner />
 
-      {/* G. Footer */}
+      {/* I. Footer */}
       <footer className="mt-8 pt-8 border-t border-gray-200 text-gray-500 text-xs leading-relaxed no-print">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div>
@@ -366,8 +370,14 @@ export default function Homepage() {
             </p>
           </div>
         </div>
-        <div className="mt-8 text-center text-gray-400 text-[10px] pb-4">
-          © {new Date().getFullYear()} Anmol Enterprises. Authorized McCain Regional Distributor. All rights reserved.
+        <div className="mt-8 text-center text-gray-400 text-[10px] pb-4 flex flex-col items-center justify-center gap-1.5">
+          <p>© {new Date().getFullYear()} Anmol Enterprises. Authorized McCain Regional Distributor. All rights reserved.</p>
+          <p className="flex items-center gap-1.5 text-[11px] text-slate-500 font-semibold tracking-wide">
+            <span>Made with</span>
+            <span className="text-rose-500 animate-pulse text-xs">💖</span>
+            <span>by</span>
+            <strong className="text-slate-800 font-extrabold hover:text-amber-600 transition">Sumit</strong>
+          </p>
         </div>
       </footer>
 

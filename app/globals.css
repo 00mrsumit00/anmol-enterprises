@@ -464,4 +464,18 @@ html {
   }
 }
 
+/* 14. Customer Reviews Infinite Marquee */
+@keyframes reviewsScroll {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-reviews-scroll {
+  animation: reviewsScroll 45s linear infinite;
+}
+
 

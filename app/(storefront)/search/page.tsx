@@ -230,7 +230,12 @@ function SearchPageContent() {
       {/* Navigation Header Row */}
       <div className="flex items-center justify-between gap-3 pt-1">
         <button 
-          onClick={() => router.push('/')}
+          onClick={() => {
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new Event('clear-search'))
+            }
+            router.push('/')
+          }}
           className="px-3.5 py-2 bg-white hover:bg-gray-50 border border-gray-200 rounded-full shadow-xs active:scale-95 transition-transform shrink-0 flex items-center gap-1.5 text-xs font-bold text-gray-700"
           title="Back to Home"
         >

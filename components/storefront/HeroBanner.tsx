@@ -110,12 +110,13 @@ export default function HeroBanner() {
                 <h3 className="font-black text-white text-sm sm:text-base leading-tight">Box & Carton Wholesale</h3>
                 <span className="text-[10px] text-gray-300 font-bold">Wholesale rates for Cafes & Hotels</span>
               </div>
-              <button
-                onClick={toggleB2B}
+              <Link
+                href="/b2b-guide"
                 className="inline-flex items-center gap-1 bg-[#FFC700] hover:bg-[#ffcf33] text-black font-black text-[11px] px-3 py-1 rounded-lg active:scale-95 transition-all shadow-sm shrink-0"
               >
-                {isB2BMode ? '✓ B2B ON' : 'Explore B2B'}
-              </button>
+                <span>Explore B2B</span>
+                <ArrowRight className="w-3 h-3" />
+              </Link>
             </div>
           </div>
         </div>

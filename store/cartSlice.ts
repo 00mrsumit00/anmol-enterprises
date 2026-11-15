@@ -117,6 +117,10 @@ const cartSlice = createSlice({
       state.isB2BMode = !state.isB2BMode 
       saveCartToStorage(state.items, state.isB2BMode)
     },
+    setB2BMode: (state, action: PayloadAction<boolean>) => {
+      state.isB2BMode = action.payload
+      saveCartToStorage(state.items, state.isB2BMode)
+    },
     openCart: (state) => { state.isOpen = true },
     closeCart: (state) => { state.isOpen = false },
   },
@@ -132,5 +136,5 @@ export const selectIsB2BMode = (state: { cart: CartState }) => state.cart.isB2BM
 export const selectCartOpen = (state: { cart: CartState }) => state.cart.isOpen
 
 export const { hydrateCart, addItem, removeItem, incrementItem, decrementItem,
-               clearCart, toggleB2BMode, openCart, closeCart } = cartSlice.actions
+               clearCart, toggleB2BMode, setB2BMode, openCart, closeCart } = cartSlice.actions
 export default cartSlice.reducer
