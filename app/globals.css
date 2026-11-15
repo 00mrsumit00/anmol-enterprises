@@ -66,10 +66,10 @@ html {
   background: #D97706;
 }
 
-/* Firefox */
+/* Scrollbar styling */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #F59E0B transparent;
+  scrollbar-color: #334155 transparent;
 }
 
 /* Utilities */
@@ -79,15 +79,6 @@ html {
     display: none;
   }
 
-  /* Admin Panel High-Density SaaS View (Applies 88% scale on mobile and 82% on desktop) */
-  .admin-desktop-scaled {
-    zoom: 0.88;
-  }
-  @media (min-width: 1024px) {
-    .admin-desktop-scaled {
-      zoom: 0.82;
-    }
-  }
   /* Hide scrollbar for IE, Edge and Firefox */
   .no-scrollbar {
     -ms-overflow-style: none;  /* IE and Edge */

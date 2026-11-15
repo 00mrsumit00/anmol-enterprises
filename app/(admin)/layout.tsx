@@ -63,6 +63,16 @@ export default function AdminLayout({
     }
   }, [socket, admin])
 
+  // Ensure body and html background are dark while inside admin layout to prevent white flashing/letterboxing
+  useEffect(() => {
+    document.body.classList.add('bg-[#0B0F19]')
+    document.documentElement.classList.add('bg-[#0B0F19]')
+    return () => {
+      document.body.classList.remove('bg-[#0B0F19]')
+      document.documentElement.classList.remove('bg-[#0B0F19]')
+    }
+  }, [])
+
   const handleLogout = async () => {
     try {
       await fetch('/api/auth/logout', { 
@@ -147,7 +157,7 @@ export default function AdminLayout({
 
   return (
     <AdminThemeProvider>
-      <div id="admin-main-container" className="h-screen max-h-screen overflow-hidden bg-[#0B0F19] flex flex-col md:flex-row font-sans text-white admin-desktop-scaled">
+      <div id="admin-main-container" className="fixed inset-0 w-full h-full h-[100dvh] overflow-hidden bg-[#0B0F19] flex flex-col md:flex-row font-sans text-white">
         
         {/* 1. Sidebar (Desktop, 240px - 256px / w-60 lg:w-64) */}
         <aside className="hidden md:flex flex-col justify-between w-60 lg:w-64 bg-[#0F1117] text-white shrink-0 relative no-print border-r border-slate-800/80 h-full max-h-screen overflow-hidden">
