@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { ClipboardList, Package, BarChart3, Truck, Home, LogOut, Users, Shield, Activity, Layers, TrendingUp, MessageSquare, Radio, Tag } from 'lucide-react'
+import { ClipboardList, Package, BarChart3, Truck, Home, LogOut, Users, Shield, Activity, Layers, TrendingUp, MessageSquare, Radio, Tag, Menu, X, MoreHorizontal, ChevronRight } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import { useSocket } from '@/hooks/useSocket'
 import AnimatedLogo from '@/components/storefront/AnimatedLogo'
@@ -20,6 +20,12 @@ export default function AdminLayout({
 
   const [admin, setAdmin] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+
+  // Automatically close mobile slide-up drawer on route change
+  useEffect(() => {
+    setMobileMenuOpen(false)
+  }, [pathname])
 
   const isLoginPage = pathname === '/admin/login'
   const isInvoicePage = pathname.includes('/invoice')
@@ -114,6 +120,12 @@ export default function AdminLayout({
     // Default fallback for legacy staff accounts without permissions array:
     return link.perm !== 'users'
   })
+
+  // Partition navigation into 4 Primary Bottom Tabs + Secondary modules inside "More ☰" drawer
+  const primaryPaths = ['/admin/orders', '/admin/messages', '/admin/products', '/admin/business-accounts']
+  const primaryNavLinks = navLinks.filter((l) => primaryPaths.includes(l.path))
+  const secondaryNavLinks = navLinks.filter((l) => !primaryPaths.includes(l.path))
+  const isSecondaryActive = secondaryNavLinks.some((l) => pathname === l.path)
 
   // Login page & invoice print: Render raw children directly without sidebar or auth gate
   if (isLoginPage || isInvoicePage) {
@@ -216,45 +228,167 @@ export default function AdminLayout({
           </div>
         </aside>
 
-        {/* 2. Mobile Bottom tab bar navigation */}
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 h-[60px] bg-slate-900 border-t border-slate-800 flex items-center justify-around z-50 select-none no-print shadow-xl">
-          {navLinks.map((link) => {
+        {/* Mobile Slide-Up "More" Navigation Drawer Backdrop */}
+        {mobileMenuOpen && (
+          <div 
+            className="md:hidden fixed inset-0 bg-black/70 backdrop-blur-xs z-50 transition-opacity duration-200"
+            onClick={() => setMobileMenuOpen(false)}
+          />
+        )}
+        
+        {/* Mobile Slide-Up "More" Navigation Drawer */}
+        <div 
+          className={`md:hidden fixed bottom-[60px] left-0 right-0 max-h-[82vh] overflow-y-auto bg-[#0F1422] border-t border-slate-800 rounded-t-3xl z-50 p-5 shadow-2xl transition-all duration-300 ease-out ${
+            mobileMenuOpen ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0 pointer-events-none'
+          }`}
+        >
+          {/* Drawer Handle */}
+          <div className="w-12 h-1.5 bg-slate-700/80 rounded-full mx-auto mb-4" />
+
+          {/* Drawer Header with Admin Profile */}
+          <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-[#F59E0B] to-[#D97706] text-white font-bold flex items-center justify-center text-sm shadow-md">
+                {admin.name?.charAt(0).toUpperCase() || 'A'}
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-white leading-tight">{admin.name}</h3>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider inline-block mt-0.5 ${
+                  admin.role === 'SUPER_ADMIN' 
+                    ? 'bg-amber-400/20 text-amber-300 border border-amber-400/30' 
+                    : admin.role === 'ADMIN' 
+                      ? 'bg-red-500/20 text-red-400' 
+                      : 'bg-blue-500/20 text-blue-400'
+                }`}>
+                  {admin.role === 'SUPER_ADMIN' ? 'SUPER ADMIN' : admin.role}
+                </span>
+              </div>
+            </div>
+            <button
+              onClick={() => setMobileMenuOpen(false)}
+              className="p-2 text-slate-400 hover:text-white rounded-xl bg-slate-800/60 active:scale-95 transition-all"
+              aria-label="Close menu"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Secondary Modules Grid */}
+          <div className="mt-4">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-2 px-1">
+              More Admin Modules
+            </span>
+            <div className="grid grid-cols-2 gap-2.5">
+              {secondaryNavLinks.map((link) => {
+                const Icon = link.icon
+                const active = pathname === link.path
+                return (
+                  <Link
+                    key={link.path}
+                    href={link.path}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`flex items-center gap-2.5 p-3 rounded-xl transition-all ${
+                      active
+                        ? 'bg-gradient-to-r from-[#F59E0B] to-[#D97706] text-white font-semibold shadow-md shadow-amber-500/10'
+                        : 'bg-slate-900/80 hover:bg-slate-800 text-slate-300 border border-slate-800/80'
+                    }`}
+                  >
+                    <Icon className="w-4 h-4 shrink-0 text-amber-400" />
+                    <span className="text-xs truncate">{link.name}</span>
+                  </Link>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Storefront & Logout Quick Actions */}
+          <div className="mt-5 pt-4 border-t border-slate-800 flex flex-col gap-2">
+            <Link
+              href="/"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center justify-between p-3 rounded-xl bg-slate-900/60 hover:bg-slate-800 text-slate-300 border border-slate-800/80 text-xs font-semibold"
+            >
+              <div className="flex items-center gap-2.5">
+                <Home className="w-4 h-4 text-emerald-400" />
+                <span>View Storefront</span>
+              </div>
+              <ChevronRight className="w-4 h-4 text-slate-500" />
+            </Link>
+
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center justify-center gap-2 p-3 text-rose-400 hover:text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 rounded-xl text-xs font-bold transition-all"
+            >
+              <LogOut className="w-4 h-4" />
+              <span>Logout from Admin</span>
+            </button>
+          </div>
+        </div>
+
+        {/* 2. Mobile 5-Tab Bottom Navigation Bar */}
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 h-[60px] bg-[#0E131F]/95 backdrop-blur-md border-t border-slate-800/90 flex items-center justify-around z-50 select-none no-print shadow-2xl px-1">
+          {primaryNavLinks.map((link) => {
             const Icon = link.icon
             const active = pathname === link.path
+            const shortName = link.path === '/admin/business-accounts' 
+              ? 'Accounts' 
+              : link.name.replace(' Dispatch', '').replace('Registered ', '').replace(' List', '')
             
             return (
               <Link
                 key={link.path}
                 href={link.path}
-                className={`flex flex-col items-center gap-1 justify-center flex-1 h-full transition-all ${
-                  active ? 'text-[#F59E0B]' : 'text-slate-400'
+                className={`flex flex-col items-center justify-center flex-1 h-full py-1 transition-all ${
+                  active ? 'text-[#F59E0B] font-bold' : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
-                <Icon className="w-5 h-5" />
-                <span className="text-[10px] font-medium tracking-wide">
-                  {link.name.split(' ')[0]}
+                <div className={`p-1 rounded-xl transition-all ${active ? 'bg-amber-400/10' : ''}`}>
+                  <Icon className="w-5 h-5" />
+                </div>
+                <span className="text-[10px] tracking-tight mt-0.5 font-medium truncate max-w-[68px]">
+                  {shortName}
                 </span>
               </Link>
-            )}
-          )}
+            )
+          })}
+
+          {/* 5th Tab: More Button */}
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className={`flex flex-col items-center justify-center flex-1 h-full py-1 transition-all ${
+              isSecondaryActive || mobileMenuOpen ? 'text-[#F59E0B] font-bold' : 'text-slate-400 hover:text-slate-200'
+            }`}
+            aria-label="More navigation options"
+          >
+            <div className={`relative p-1 rounded-xl transition-all ${isSecondaryActive || mobileMenuOpen ? 'bg-amber-400/10' : ''}`}>
+              <Menu className="w-5 h-5" />
+              {isSecondaryActive && (
+                <span className="absolute top-0 right-0 w-2 h-2 rounded-full bg-amber-400 shadow-xs" />
+              )}
+            </div>
+            <span className="text-[10px] tracking-tight mt-0.5 font-medium">
+              More
+            </span>
+          </button>
         </nav>
 
         {/* 3. Main Dashboard Workspace Content */}
-        <div className="flex-1 flex flex-col min-w-0 pb-[60px] md:pb-0 h-screen bg-[#0B0F19]">
+        <div className="flex-1 flex flex-col min-w-0 pb-[65px] md:pb-0 h-screen bg-[#0B0F19]">
           
           {/* Top Header */}
-          <header className="bg-[#111625] border-b border-slate-800/80 h-[60px] flex items-center justify-between px-6 shrink-0 no-print">
-            <h1 className="text-lg font-semibold text-white capitalize">
+          <header className="bg-[#111625] border-b border-slate-800/80 h-[60px] flex items-center justify-between px-4 sm:px-6 shrink-0 no-print">
+            <h1 className="text-base sm:text-lg font-semibold text-white capitalize truncate max-w-[180px] sm:max-w-none">
               {pathname.split('/').pop()?.replace(/-/g, ' ') || 'Admin Dashboard'}
             </h1>
-            <div className="flex items-center gap-3 sm:gap-4">
+            <div className="flex items-center gap-2 sm:gap-4">
               {/* Live Status Indicator */}
-              <div className="flex items-center gap-2 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
+              <div className="flex items-center gap-1.5 sm:gap-2 bg-emerald-500/10 px-2 sm:px-2.5 py-1 rounded-full border border-emerald-500/20">
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                 </span>
-                <span className="text-[10px] font-semibold uppercase tracking-widest text-emerald-400">Live</span>
+                <span className="text-[9px] sm:text-[10px] font-semibold uppercase tracking-widest text-emerald-400">Live</span>
               </div>
 
               {/* Theme Toggle Button (Light / Dark) */}
@@ -279,7 +413,7 @@ export default function AdminLayout({
           </header>
 
           {/* Dashboard Workspace */}
-          <main id="admin-main-workspace" className="flex-1 p-5 md:p-7 overflow-y-auto bg-[#0B0F19]">
+          <main id="admin-main-workspace" className="flex-1 p-3 sm:p-5 md:p-7 overflow-y-auto bg-[#0B0F19]">
             <div className="max-w-[1600px] mx-auto w-full">
               {children}
             </div>

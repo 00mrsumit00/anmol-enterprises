@@ -491,15 +491,15 @@ export default function AdminOrdersPage() {
     <div className="flex flex-col gap-6 font-sans text-white">
       
       {/* 1. Header with Title, Date, and Export Button */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold text-white tracking-tight">Orders dispatch</h1>
-            <span className="text-xs font-semibold text-slate-400 bg-[#111625] border border-slate-800 px-3 py-1 rounded-full">
+          <div className="flex items-center gap-2.5 sm:gap-3 flex-wrap">
+            <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">Orders dispatch</h1>
+            <span className="text-[11px] sm:text-xs font-semibold text-slate-400 bg-[#111625] border border-slate-800 px-2.5 sm:px-3 py-1 rounded-full">
               {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}
             </span>
           </div>
-          <p className="text-sm text-slate-400 mt-1">Real-time express dispatch management and cold-chain order logistics.</p>
+          <p className="text-xs sm:text-sm text-slate-400 mt-1">Real-time express dispatch management and cold-chain order logistics.</p>
         </div>
 
         <div className="flex items-center gap-2.5">
@@ -525,71 +525,71 @@ export default function AdminOrdersPage() {
       </div>
 
       {/* 2. Operational KPI Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3.5">
         {/* Total orders */}
-        <div className="bg-[#111625] p-4 rounded-2xl border border-slate-800/80 shadow-xl flex flex-col justify-between">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total orders</span>
-          <div className="mt-2">
-            <span className="text-2xl font-black text-white leading-none">{totalTodayCount}</span>
-            <span className="text-[11px] text-slate-500 font-medium block mt-1">today</span>
+        <div className="bg-[#111625] p-2.5 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-800/80 shadow-md sm:shadow-xl flex flex-col justify-between">
+          <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-400">Total orders</span>
+          <div className="mt-1.5 sm:mt-2">
+            <span className="text-lg sm:text-2xl font-black text-white leading-none">{totalTodayCount}</span>
+            <span className="text-[10px] sm:text-[11px] text-slate-500 font-medium block mt-0.5 sm:mt-1">today</span>
           </div>
         </div>
 
         {/* Needs action */}
-        <div className="bg-[#111625] p-4 rounded-2xl border border-slate-800/80 shadow-xl flex flex-col justify-between">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Needs action</span>
-          <div className="mt-2">
-            <span className={`text-2xl font-black leading-none ${needsActionCount > 0 ? 'text-amber-400' : 'text-white'}`}>
+        <div className="bg-[#111625] p-2.5 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-800/80 shadow-md sm:shadow-xl flex flex-col justify-between">
+          <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-400">Needs action</span>
+          <div className="mt-1.5 sm:mt-2">
+            <span className={`text-lg sm:text-2xl font-black leading-none ${needsActionCount > 0 ? 'text-amber-400' : 'text-white'}`}>
               {needsActionCount}
             </span>
-            <span className="text-[11px] text-slate-500 font-medium block mt-1">before dispatch</span>
+            <span className="text-[10px] sm:text-[11px] text-slate-500 font-medium block mt-0.5 sm:mt-1">before dispatch</span>
           </div>
         </div>
 
         {/* Unassigned */}
-        <div className="bg-[#111625] p-4 rounded-2xl border border-slate-800/80 shadow-xl flex flex-col justify-between">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Unassigned</span>
-          <div className="mt-2">
-            <span className={`text-2xl font-black leading-none ${unassignedCount > 0 ? 'text-rose-400' : 'text-white'}`}>
+        <div className="bg-[#111625] p-2.5 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-800/80 shadow-md sm:shadow-xl flex flex-col justify-between">
+          <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-400">Unassigned</span>
+          <div className="mt-1.5 sm:mt-2">
+            <span className={`text-lg sm:text-2xl font-black leading-none ${unassignedCount > 0 ? 'text-rose-400' : 'text-white'}`}>
               {unassignedCount}
             </span>
-            <span className="text-[11px] text-slate-500 font-medium block mt-1">assign a driver</span>
+            <span className="text-[10px] sm:text-[11px] text-slate-500 font-medium block mt-0.5 sm:mt-1">assign a driver</span>
           </div>
         </div>
 
         {/* Out for delivery */}
-        <div className="bg-[#111625] p-4 rounded-2xl border border-slate-800/80 shadow-xl flex flex-col justify-between">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Out for delivery</span>
-          <div className="mt-2">
-            <span className="text-2xl font-black text-orange-400 leading-none">{outForDeliveryCount}</span>
-            <span className="text-[11px] text-slate-500 font-medium block mt-1">on the road</span>
+        <div className="bg-[#111625] p-2.5 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-800/80 shadow-md sm:shadow-xl flex flex-col justify-between">
+          <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-400">Out for delivery</span>
+          <div className="mt-1.5 sm:mt-2">
+            <span className="text-lg sm:text-2xl font-black text-orange-400 leading-none">{outForDeliveryCount}</span>
+            <span className="text-[10px] sm:text-[11px] text-slate-500 font-medium block mt-0.5 sm:mt-1">on the road</span>
           </div>
         </div>
 
         {/* Delivered */}
-        <div className="bg-[#111625] p-4 rounded-2xl border border-slate-800/80 shadow-xl flex flex-col justify-between">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Delivered</span>
-          <div className="mt-2">
-            <span className="text-2xl font-black text-emerald-400 leading-none">{deliveredCount}</span>
-            <span className="text-[11px] text-emerald-400 font-semibold block mt-1">₹{deliveredEarned} earned</span>
+        <div className="bg-[#111625] p-2.5 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-800/80 shadow-md sm:shadow-xl flex flex-col justify-between">
+          <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-400">Delivered</span>
+          <div className="mt-1.5 sm:mt-2">
+            <span className="text-lg sm:text-2xl font-black text-emerald-400 leading-none">{deliveredCount}</span>
+            <span className="text-[10px] sm:text-[11px] text-emerald-400 font-semibold block mt-0.5 sm:mt-1">₹{deliveredEarned} earned</span>
           </div>
         </div>
 
         {/* 💵 COD to collect */}
-        <div className="bg-[#111625] p-4 rounded-2xl border border-amber-500/30 shadow-xl bg-gradient-to-br from-[#111625] to-amber-950/20 flex flex-col justify-between">
+        <div className="bg-[#111625] p-2.5 sm:p-4 rounded-xl sm:rounded-2xl border border-amber-500/30 shadow-md sm:shadow-xl bg-gradient-to-br from-[#111625] to-amber-950/20 flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black uppercase tracking-wider text-amber-400">COD to collect</span>
-            <DollarSign className="w-3.5 h-3.5 text-amber-400" />
+            <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-amber-400">COD to collect</span>
+            <DollarSign className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-400" />
           </div>
-          <div className="mt-2">
-            <span className="text-2xl font-black text-white leading-none">₹{codAmount.toLocaleString('en-IN')}</span>
-            <span className="text-[11px] text-amber-300 font-medium block mt-1">across {codOrdersCount} orders</span>
+          <div className="mt-1.5 sm:mt-2">
+            <span className="text-lg sm:text-2xl font-black text-white leading-none">₹{codAmount.toLocaleString('en-IN')}</span>
+            <span className="text-[10px] sm:text-[11px] text-amber-300 font-medium block mt-0.5 sm:mt-1">across {codOrdersCount} orders</span>
           </div>
         </div>
       </div>
 
       {/* 3. Search Bar, Quick Date Presets & Streamlined Dispatch Tabs */}
-      <div className="bg-[#111625] p-4 rounded-2xl shadow-xl border border-slate-800/80 flex flex-col gap-3.5">
+      <div className="bg-[#111625] p-3 sm:p-4 rounded-xl sm:rounded-2xl shadow-xl border border-slate-800/80 flex flex-col gap-3 sm:gap-3.5">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
           {/* Search input */}
           <div className="relative flex-1">
@@ -609,30 +609,32 @@ export default function AdminOrdersPage() {
           </div>
 
           {/* Date range filter with 1-click presets */}
-          <div className="flex flex-wrap items-center gap-2 text-xs">
-            <span className="font-bold text-slate-400 flex items-center gap-1">
-              <Calendar className="w-3.5 h-3.5 text-amber-400" /> Date:
-            </span>
-            <input
-              type="date"
-              value={fromDate}
-              onChange={(e) => setFromDate(e.target.value)}
-              className="bg-[#0B0F19] border border-slate-800 text-slate-200 rounded-xl px-2.5 py-1.5 font-medium focus:outline-none focus:border-amber-500"
-            />
-            <span className="text-slate-500 font-bold">to</span>
-            <input
-              type="date"
-              value={toDate}
-              onChange={(e) => setToDate(e.target.value)}
-              className="bg-[#0B0F19] border border-slate-800 text-slate-200 rounded-xl px-2.5 py-1.5 font-medium focus:outline-none focus:border-amber-500"
-            />
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 text-xs">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="font-bold text-slate-400 flex items-center gap-1">
+                <Calendar className="w-3.5 h-3.5 text-amber-400" /> Date:
+              </span>
+              <input
+                type="date"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+                className="bg-[#0B0F19] border border-slate-800 text-slate-200 rounded-xl px-2 py-1 sm:px-2.5 sm:py-1.5 font-medium focus:outline-none focus:border-amber-500 text-xs"
+              />
+              <span className="text-slate-500 font-bold">to</span>
+              <input
+                type="date"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+                className="bg-[#0B0F19] border border-slate-800 text-slate-200 rounded-xl px-2 py-1 sm:px-2.5 sm:py-1.5 font-medium focus:outline-none focus:border-amber-500 text-xs"
+              />
+            </div>
 
-            {/* Quick 1-Click Date Presets */}
-            <div className="flex items-center gap-1 ml-1">
+            {/* Quick 1-Click Date Presets (Scrollable on mobile) */}
+            <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5">
               <button
                 type="button"
                 onClick={() => setDatePreset('today')}
-                className={`px-2.5 py-1.5 rounded-lg font-bold text-[11px] transition-all ${
+                className={`px-2.5 py-1 sm:py-1.5 rounded-lg font-bold text-[11px] whitespace-nowrap transition-all ${
                   fromDate === getTodayLocalDateStr() && toDate === getTodayLocalDateStr()
                     ? 'bg-amber-500 text-slate-950 shadow-xs'
                     : 'bg-[#0B0F19] text-slate-400 hover:text-white border border-slate-800'
@@ -643,21 +645,21 @@ export default function AdminOrdersPage() {
               <button
                 type="button"
                 onClick={() => setDatePreset('yesterday')}
-                className="px-2.5 py-1.5 bg-[#0B0F19] text-slate-400 hover:text-white border border-slate-800 hover:border-slate-700 rounded-lg font-bold text-[11px] transition-all"
+                className="px-2.5 py-1 sm:py-1.5 bg-[#0B0F19] text-slate-400 hover:text-white border border-slate-800 hover:border-slate-700 rounded-lg font-bold text-[11px] whitespace-nowrap transition-all"
               >
                 Yesterday
               </button>
               <button
                 type="button"
                 onClick={() => setDatePreset('last7')}
-                className="px-2.5 py-1.5 bg-[#0B0F19] text-slate-400 hover:text-white border border-slate-800 hover:border-slate-700 rounded-lg font-bold text-[11px] transition-all"
+                className="px-2.5 py-1 sm:py-1.5 bg-[#0B0F19] text-slate-400 hover:text-white border border-slate-800 hover:border-slate-700 rounded-lg font-bold text-[11px] whitespace-nowrap transition-all"
               >
                 Last 7 Days
               </button>
               <button
                 type="button"
                 onClick={() => setDatePreset('thisMonth')}
-                className="px-2.5 py-1.5 bg-[#0B0F19] text-slate-400 hover:text-white border border-slate-800 hover:border-slate-700 rounded-lg font-bold text-[11px] transition-all"
+                className="px-2.5 py-1 sm:py-1.5 bg-[#0B0F19] text-slate-400 hover:text-white border border-slate-800 hover:border-slate-700 rounded-lg font-bold text-[11px] whitespace-nowrap transition-all"
               >
                 This Month
               </button>
@@ -665,7 +667,7 @@ export default function AdminOrdersPage() {
                 <button
                   type="button"
                   onClick={() => { setFromDate(''); setToDate('') }}
-                  className="px-2 py-1.5 text-slate-500 hover:text-rose-400 font-bold text-[11px] transition-colors ml-1"
+                  className="px-2 py-1 text-slate-500 hover:text-rose-400 font-bold text-[11px] whitespace-nowrap transition-colors ml-1"
                   title="Clear date filter to show all time"
                 >
                   Clear

@@ -17,6 +17,7 @@ import {
   MessageSquare,
   ShieldCheck,
   Sparkles,
+  ArrowLeft,
 } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useToast } from '@/components/ui/Toast'
@@ -98,8 +99,9 @@ export default function AdminMessagesPage() {
 
   const conversations = convData?.conversations || []
 
-  // Auto-select first conversation on initial load if none selected
+  // Auto-select first conversation on initial load on desktop screens (>= 768px)
   useEffect(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 768) return
     if (!selectedConvId && conversations.length > 0) {
       setSelectedConvId(conversations[0].id)
     }
@@ -231,11 +233,13 @@ export default function AdminMessagesPage() {
   const isCustomerOnline = activeConv?.customerId ? !!onlineUsers[activeConv.customerId] : false
 
   return (
-    <div className="flex h-[calc(100vh-100px)] min-h-[600px] rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
+    <div className="flex h-[calc(100vh-120px)] md:h-[calc(100vh-100px)] min-h-[500px] md:min-h-[600px] rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
       {/* ─── LEFT PANE: Conversation List ────────────────────────────────────────── */}
-      <div className="w-80 md:w-96 flex-shrink-0 flex flex-col border-r border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/60">
+      <div className={`w-full md:w-80 lg:w-96 flex-shrink-0 flex-col border-r border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/60 ${
+        selectedConvId ? 'hidden md:flex' : 'flex'
+      }`}>
         {/* Pane Header */}
-        <div className="p-4 border-b border-slate-200 dark:border-slate-800 space-y-3">
+        <div className="p-3 sm:p-4 border-b border-slate-200 dark:border-slate-800 space-y-2.5 sm:space-y-3">
           <div className="flex items-center justify-between">
             <h1 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
               <MessageSquare className="w-5 h-5 text-orange-500" />
@@ -390,41 +394,53 @@ export default function AdminMessagesPage() {
       </div>
 
       {/* ─── RIGHT PANE: Chat View & Message Thread ─────────────────────────────── */}
-      <div className="flex-1 flex flex-col bg-white dark:bg-slate-900">
+      <div className={`flex-1 flex-col bg-white dark:bg-slate-900 ${
+        !selectedConvId ? 'hidden md:flex' : 'flex'
+      }`}>
         {activeConv ? (
           <>
             {/* Thread Header */}
-            <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-slate-900 z-10">
-              <div className="flex items-center gap-3">
-                <div className="relative">
-                  <div className="w-10 h-10 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 font-bold flex items-center justify-center">
+            <div className="p-3 sm:p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-slate-900 z-10">
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                {/* Mobile Back Button to Conversation List */}
+                <button
+                  type="button"
+                  onClick={() => setSelectedConvId(null)}
+                  className="md:hidden p-1.5 -ml-1 text-slate-500 hover:text-slate-900 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                  aria-label="Back to conversations list"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                </button>
+
+                <div className="relative shrink-0">
+                  <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 font-bold flex items-center justify-center text-sm sm:text-base">
                     {activeConv.customer?.name?.charAt(0).toUpperCase() || 'C'}
                   </div>
                   {isCustomerOnline && (
-                    <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900" />
+                    <span className="absolute bottom-0 right-0 w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900" />
                   )}
                 </div>
 
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-semibold text-slate-900 dark:text-white">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5 sm:gap-2">
+                    <h3 className="font-semibold text-sm sm:text-base text-slate-900 dark:text-white truncate">
                       {activeConv.customer?.name || 'Customer'}
                     </h3>
                     {isCustomerOnline ? (
-                      <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
+                      <span className="text-[10px] sm:text-xs text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1 shrink-0">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                         ONLINE
                       </span>
                     ) : (
-                      <span className="text-xs text-slate-400 font-medium">OFFLINE</span>
+                      <span className="text-[10px] sm:text-xs text-slate-400 font-medium shrink-0">OFFLINE</span>
                     )}
                   </div>
-                  <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                  <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 truncate">
                     <span>{activeConv.customer?.phone || 'No phone'}</span>
                     {activeConv.orderId && (
                       <Link
                         href={`/admin/orders?search=${activeConv.orderId}`}
-                        className="inline-flex items-center gap-1 text-orange-600 hover:underline font-medium"
+                        className="inline-flex items-center gap-1 text-orange-600 hover:underline font-medium shrink-0"
                       >
                         <ShoppingBag className="w-3 h-3" />
                         Order #{activeConv.orderId.slice(-6)}
