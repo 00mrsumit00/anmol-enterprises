@@ -296,17 +296,17 @@ export default function SubAdminsPage() {
   const staffMembers = data?.staffMembers || []
 
   return (
-    <div className="min-h-[85vh] p-2 md:p-4 bg-[#0B0F19] text-white">
+    <div className="w-full flex flex-col gap-3.5 sm:gap-4.5 font-sans text-white">
       {/* Header Bar */}
-      <div className="max-w-7xl mx-auto flex flex-col items-center text-center gap-3 mb-10">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-semibold uppercase tracking-wider">
-          <Shield className="w-3.5 h-3.5" />
+      <div className="max-w-7xl mx-auto flex flex-col items-center text-center gap-2 mb-3">
+        <div className="inline-flex items-center gap-2 px-3 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[11px] font-semibold uppercase tracking-wider">
+          <Shield className="w-3 h-3" />
           <span>Access Control</span>
         </div>
-        <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-white">
+        <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white">
           Staff & Access Management
         </h1>
-        <p className="text-slate-400 text-sm md:text-base max-w-xl">
+        <p className="text-slate-400 text-xs max-w-xl">
           Manage team access accounts and granular tab permissions for your warehouse and dispatch operations.
         </p>
 

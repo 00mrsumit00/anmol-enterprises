@@ -115,9 +115,9 @@ export default function AuditLogsPage() {
   }
 
   return (
-    <div className="min-h-[85vh] -m-5 md:-m-7 p-6 md:p-8 bg-[#0B0F19] text-white">
+    <div className="w-full flex flex-col gap-3.5 sm:gap-4.5 font-sans text-white">
       {/* Header matching Screenshot 2 */}
-      <div className="max-w-7xl mx-auto mb-8">
+      <div className="max-w-7xl mx-auto w-full mb-1">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight">
@@ -172,8 +172,8 @@ export default function AuditLogsPage() {
       </div>
 
       {/* Table Container matching Screenshot 2 */}
-      <div className="max-w-7xl mx-auto bg-[#111625] border border-slate-800/80 rounded-2xl overflow-hidden shadow-2xl">
-        <div className="overflow-x-auto">
+      <div className="max-w-7xl mx-auto w-full bg-[#111625] border border-slate-800/80 rounded-2xl overflow-hidden shadow-2xl">
+        <div className="overflow-x-auto max-h-[calc(100vh-280px)] overflow-y-auto">
           <table className="w-full text-left text-xs">
             {/* Table Header */}
             <thead>

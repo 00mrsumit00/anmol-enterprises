@@ -233,7 +233,7 @@ export default function AdminMessagesPage() {
   const isCustomerOnline = activeConv?.customerId ? !!onlineUsers[activeConv.customerId] : false
 
   return (
-    <div className="flex h-[calc(100vh-120px)] md:h-[calc(100vh-100px)] min-h-[500px] md:min-h-[600px] rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
+    <div className="flex h-[calc(100vh-125px)] md:h-[calc(100vh-92px)] rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
       {/* ─── LEFT PANE: Conversation List ────────────────────────────────────────── */}
       <div className={`w-full md:w-80 lg:w-96 flex-shrink-0 flex-col border-r border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/60 ${
         selectedConvId ? 'hidden md:flex' : 'flex'

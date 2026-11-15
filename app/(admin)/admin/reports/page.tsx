@@ -92,10 +92,10 @@ export default function AdminReportsPage() {
   const maxDailyRevenue = Math.max(...dailyTrends.map((d: any) => d.revenue), 1)
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-20">
+    <div className="flex flex-col gap-3.5 sm:gap-4.5 font-sans text-white">
       
       {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-[#111625] p-6 rounded-3xl border border-slate-800 shadow-xl">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-[#111625] p-4 sm:p-5 rounded-2xl border border-slate-800 shadow-xl">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <span className="p-2 rounded-2xl bg-amber-500/10 text-amber-400 border border-amber-500/20">

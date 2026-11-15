@@ -488,7 +488,7 @@ export default function AdminOrdersPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6 font-sans text-white">
+    <div className="flex flex-col gap-3.5 sm:gap-4.5 font-sans text-white">
       
       {/* 1. Header with Title, Date, and Export Button */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
@@ -744,7 +744,7 @@ export default function AdminOrdersPage() {
 
       {/* 4. Orders Data Table with Vertical Scrolling & Sticky Header */}
       <div className="bg-[#111625] border border-slate-800/80 shadow-xl rounded-2xl overflow-hidden">
-        <div className="overflow-x-auto max-h-[calc(100vh-340px)] min-h-[380px] overflow-y-auto">
+        <div className="overflow-x-auto max-h-[calc(100vh-320px)] min-h-[280px] overflow-y-auto">
           <table className="w-full text-left border-collapse">
             <thead className="sticky top-0 bg-[#0E1320] border-b border-slate-800 z-10">
               <tr>

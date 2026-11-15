@@ -587,7 +587,7 @@ export default function AdminProductsPage() {
   })
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8 flex flex-col gap-6 font-sans text-white">
+    <div className="w-full flex flex-col gap-3.5 sm:gap-4.5 font-sans text-white">
       
       {/* Top Header Row */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-800 pb-5">
@@ -807,7 +807,7 @@ export default function AdminProductsPage() {
 
       {/* Table View */}
       {!isProductsLoading && viewMode === 'table' && (
-        <div className="bg-[#111625] rounded-3xl border border-slate-800/80 overflow-hidden shadow-xl">
+        <div className="bg-[#111625] rounded-2xl border border-slate-800/80 overflow-hidden shadow-xl max-h-[calc(100vh-280px)] overflow-y-auto overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="bg-[#0E1320] border-b border-slate-800 text-slate-400 font-bold uppercase text-[10px]">
               <tr>

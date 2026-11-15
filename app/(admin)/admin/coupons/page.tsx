@@ -402,7 +402,7 @@ export default function AdminPromotionsPage() {
   )
 
   return (
-    <div className="flex flex-col gap-6 font-sans text-white">
+    <div className="flex flex-col gap-3.5 sm:gap-4.5 font-sans text-white">
       
       {/* ─── 1. HEADER BAR ───────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

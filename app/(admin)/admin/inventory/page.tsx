@@ -483,10 +483,10 @@ export default function AdminInventoryPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0B0F19] text-slate-100 p-4 md:p-7 font-sans">
+    <div className="w-full flex flex-col gap-3.5 sm:gap-4.5 font-sans text-slate-100">
       
       {/* ─── 1. TOP HEADER ────────────────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-slate-800">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
         <div>
           <h1 className="text-2xl font-black text-white tracking-tight flex items-center gap-2.5">
             <span className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 text-lg">
@@ -679,7 +679,7 @@ export default function AdminInventoryPage() {
                 </button>
               </div>
             ) : viewMode === 'table' ? (
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto max-h-[calc(100vh-280px)] overflow-y-auto">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="border-b border-slate-800 bg-[#0E1320] text-slate-400 font-bold uppercase tracking-wider text-[11px] select-none">

@@ -267,7 +267,7 @@ export default function AdminBroadcastsPage() {
   const broadcasts = broadcastsData?.broadcasts || []
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto font-sans">
+    <div className="flex flex-col gap-3.5 sm:gap-4.5 font-sans">
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-5">
         <div>

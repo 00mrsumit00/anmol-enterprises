@@ -434,7 +434,7 @@ export default function AdminUsersAndAccountsPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6 font-sans text-white">
+    <div className="flex flex-col gap-3.5 sm:gap-4.5 font-sans text-white">
       
       {/* 1. Header Banner & Action Button */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -582,7 +582,7 @@ export default function AdminUsersAndAccountsPage() {
       {/* 4. Data Table with Sticky Header & Vertical Scrolling */}
       <div className="bg-[#111625] border border-slate-800/80 shadow-xl rounded-2xl overflow-hidden">
         {/* Scrollable viewport with maximum height */}
-        <div className="overflow-x-auto max-h-[calc(100vh-320px)] min-h-[350px] overflow-y-auto">
+        <div className="overflow-x-auto max-h-[calc(100vh-280px)] min-h-[260px] overflow-y-auto">
           <table className="w-full text-left border-collapse">
             <thead className="sticky top-0 bg-[#0E1320] border-b border-slate-800 z-10">
               <tr>

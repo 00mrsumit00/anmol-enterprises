@@ -194,7 +194,7 @@ export default function AdminDriversPage() {
   const totalPendingPayout = drivers.reduce((sum, d) => sum + (d.unsettledCommission || 0), 0)
 
   return (
-    <div className="flex flex-col gap-6 font-sans select-none">
+    <div className="flex flex-col gap-3.5 sm:gap-4.5 font-sans select-none">
       
       {/* ─── 1. TOP METRICS DASHBOARD ────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 no-print">
