@@ -19,6 +19,10 @@ import {
   RotateCcw,
   MessageCircle,
   FileText,
+  Zap,
+  ChevronUp,
+  ChevronDown,
+  Mic,
 } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useToast } from '@/components/ui/Toast'
@@ -79,6 +83,16 @@ const QUICK_ACTIONS = [
   },
 ]
 
+// Exact Quick Chat 1-tap dispatch options (Matching User Screenshot)
+const QUICK_CHAT_OPTIONS = [
+  { id: '1', text: 'Are you coming ❓' },
+  { id: '2', text: 'Waiting at pickup 📍' },
+  { id: '3', text: 'My location is as per map 🗺️' },
+  { id: '4', text: 'Message when reached 💬' },
+  { id: '5', text: 'Please call upon arrival 📞' },
+  { id: '6', text: 'Is my order on the way? 🚚' },
+]
+
 function CustomerChatContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -123,6 +137,8 @@ function CustomerChatContent() {
 
   const [activeTab, setActiveTab] = useState<'CHAT' | 'UPDATES'>('CHAT')
   const [inputText, setInputText] = useState('')
+  const [isQuickChatOpen, setIsQuickChatOpen] = useState(true)
+  const [isListening, setIsListening] = useState(false)
   const [statusRequestedTime, setStatusRequestedTime] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -281,6 +297,61 @@ function CustomerChatContent() {
     if (e) e.preventDefault()
     if (!inputText.trim() || sendMessageMutation.isPending) return
     sendMessageMutation.mutate(inputText.trim())
+  }
+
+  // 1-Tap Quick Chat sender (Matching user screenshot)
+  const handleSendQuickChat = (text: string) => {
+    if (sendMessageMutation.isPending) return
+    sendMessageMutation.mutate(text)
+  }
+
+  // Speech-to-Text Voice Input handler
+  const handleToggleVoiceInput = () => {
+    if (typeof window === 'undefined') return
+
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+    if (!SpeechRecognition) {
+      showToast('Speech recognition not supported in this browser. Please type your message.', 'info')
+      return
+    }
+
+    try {
+      if (isListening) {
+        setIsListening(false)
+        return
+      }
+
+      const recognition = new SpeechRecognition()
+      recognition.lang = 'en-IN'
+      recognition.continuous = false
+      recognition.interimResults = false
+
+      recognition.onstart = () => {
+        setIsListening(true)
+        showToast('Listening... Speak your query 🎙️', 'info')
+      }
+
+      recognition.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript
+        if (transcript) {
+          setInputText((prev) => (prev ? `${prev} ${transcript}` : transcript))
+          showToast(`Voice captured: "${transcript}"`, 'success')
+        }
+      }
+
+      recognition.onerror = () => {
+        setIsListening(false)
+      }
+
+      recognition.onend = () => {
+        setIsListening(false)
+      }
+
+      recognition.start()
+    } catch {
+      setIsListening(false)
+      showToast('Could not start microphone', 'error')
+    }
   }
 
   const formatCurrentTime = () => {
@@ -497,7 +568,7 @@ function CustomerChatContent() {
                       <div
                         className={`relative max-w-[85%] sm:max-w-[78%] rounded-2xl p-3 shadow-2xs ${
                           isCustomer
-                            ? 'bg-[#DCF8C6] text-[#111B21] rounded-tr-xs border border-[#C5EDB0]'
+                            ? 'bg-[#FFE885] text-[#111B21] rounded-tr-xs border border-amber-300/60 shadow-xs'
                             : 'bg-[#F0F4F8] text-[#111B21] rounded-tl-xs border border-slate-200/70'
                         }`}
                       >
@@ -513,12 +584,12 @@ function CustomerChatContent() {
 
                         <div
                           className={`flex items-center justify-end gap-1 mt-1 text-[10px] ${
-                            isCustomer ? 'text-slate-500' : 'text-slate-400'
+                            isCustomer ? 'text-slate-600' : 'text-slate-400'
                           }`}
                         >
                           <span>{formatTime(msg.createdAt)}</span>
                           {isCustomer && (
-                            <CheckCheck className="w-3.5 h-3.5 text-[#128C7E]" />
+                            <CheckCheck className="w-3.5 h-3.5 text-[#1976D2]" />
                           )}
                         </div>
                       </div>
@@ -540,67 +611,112 @@ function CustomerChatContent() {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* ─── QUICK ACTION PILLS ────── */}
-            <div className="relative z-10 px-4 py-2.5 bg-[#FAF7F2] border-t border-slate-100 overflow-x-auto no-scrollbar shrink-0">
-              <div className="flex items-center gap-2 min-w-max">
-                {QUICK_ACTIONS.map((action) => {
-                  const Icon = action.icon
-                  return (
+            {/* ─── QUICK CHAT FLOATING CARD (Matching Exact Screenshot) ─────── */}
+            <div className="relative px-3 sm:px-4 pb-2 z-20 flex justify-end">
+              {isQuickChatOpen ? (
+                <div className="w-full max-w-[320px] bg-white rounded-2xl border border-slate-200/90 shadow-xl p-3 sm:p-3.5 animate-in fade-in slide-in-from-bottom-2 duration-200">
+                  {/* Quick Chat Header with Lightning Icon & Toggle */}
+                  <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-lg bg-gradient-to-tr from-amber-400 to-orange-500 text-white flex items-center justify-center shadow-xs">
+                        <Zap className="w-3.5 h-3.5 fill-current" />
+                      </div>
+                      <span className="font-bold text-slate-800 text-xs sm:text-sm tracking-tight">
+                        Quick Chat
+                      </span>
+                    </div>
+
                     <button
-                      key={action.id}
                       type="button"
-                      onClick={() => handleQuickAction(action)}
-                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white hover:bg-orange-50 text-slate-800 hover:text-[#FF6B00] border border-slate-200/90 hover:border-orange-200 text-xs font-bold shadow-2xs transition-all active:scale-95 whitespace-nowrap"
+                      onClick={() => setIsQuickChatOpen(false)}
+                      className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                      title="Collapse Quick Chat"
+                      aria-label="Collapse Quick Chat"
                     >
-                      <Icon className="w-3.5 h-3.5 text-[#FF6B00]" />
-                      <span>{action.label}</span>
+                      <ChevronUp className="w-4 h-4" />
                     </button>
-                  )
-                })}
-              </div>
+                  </div>
+
+                  {/* Quick Options List */}
+                  <div className="space-y-1.5 max-h-[220px] overflow-y-auto pr-0.5">
+                    {QUICK_CHAT_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => handleSendQuickChat(opt.text)}
+                        disabled={sendMessageMutation.isPending}
+                        className="w-full flex items-center justify-between p-2.5 rounded-xl border border-slate-200/90 bg-white hover:bg-amber-50 hover:border-amber-300 transition-all text-left shadow-2xs group active:scale-[0.98] cursor-pointer"
+                      >
+                        <span className="text-xs font-semibold text-slate-800 group-hover:text-amber-950 pr-2">
+                          {opt.text}
+                        </span>
+                        <div className="w-6 h-6 rounded-lg bg-slate-100 group-hover:bg-amber-500 group-hover:text-white text-slate-700 flex items-center justify-center shrink-0 transition-colors">
+                          <Send className="w-3 h-3 ml-0.5" />
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setIsQuickChatOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white hover:bg-amber-50 text-slate-700 hover:text-amber-600 border border-slate-200 shadow-md text-xs font-bold transition-all active:scale-95"
+                >
+                  <div className="w-4 h-4 rounded bg-amber-400 text-white flex items-center justify-center">
+                    <Zap className="w-2.5 h-2.5 fill-current" />
+                  </div>
+                  <span>Quick Chat</span>
+                  <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                </button>
+              )}
             </div>
 
             {/* ─── COMPOSER BAR ──────────── */}
             <form
               onSubmit={handleSendMessage}
-              className="relative z-10 p-3 bg-white border-t border-slate-100 flex items-center gap-2 shrink-0 md:rounded-b-3xl"
+              className="relative z-10 p-2.5 sm:p-3 bg-white border-t border-slate-100 flex items-center gap-2 shrink-0 md:rounded-b-3xl"
             >
-              <button
-                type="button"
-                onClick={() => {
-                  setInputText((prev) => (prev ? `${prev} ` : 'Hi Anmol Support, '))
-                  setTimeout(() => inputRef.current?.focus(), 50)
-                }}
-                className="w-10 h-10 rounded-full bg-[#F3F4F6] hover:bg-[#E5E7EB] text-slate-700 flex items-center justify-center shrink-0 transition active:scale-95"
-                title="Quick query"
-              >
-                <Plus className="w-5 h-5" />
-              </button>
-
-              <div className="flex-1 flex items-center bg-[#F3F4F6] rounded-full px-4 py-1.5 border border-slate-200/50 focus-within:border-orange-400 focus-within:bg-white transition-all">
+              <div className="flex-1 flex items-center bg-[#F3F4F6] rounded-full px-4 py-1.5 border border-slate-200/60 focus-within:border-orange-400 focus-within:bg-white transition-all">
                 <input
                   ref={inputRef}
                   type="text"
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
-                  placeholder="Message Anmol Support..."
+                  placeholder="Type here..."
                   maxLength={2000}
                   className="w-full bg-transparent text-slate-900 placeholder-slate-400 text-xs sm:text-sm focus:outline-none py-1.5"
                 />
               </div>
 
-              <button
-                type="submit"
-                disabled={!inputText.trim() || sendMessageMutation.isPending}
-                className="w-10 h-10 rounded-full bg-[#FF6B00] hover:bg-[#E05E00] disabled:opacity-40 text-white flex items-center justify-center shadow-md shadow-orange-500/25 active:scale-95 transition-all shrink-0 cursor-pointer"
-                title="Send message"
-              >
-                {sendMessageMutation.isPending ? (
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Send className="w-4 h-4 ml-0.5" />
-                )}
-              </button>
+              {inputText.trim() ? (
+                <button
+                  type="submit"
+                  disabled={sendMessageMutation.isPending}
+                  className="w-10 h-10 rounded-full bg-[#FF6B00] hover:bg-[#E05E00] disabled:opacity-40 text-white flex items-center justify-center shadow-md shadow-orange-500/25 active:scale-95 transition-all shrink-0 cursor-pointer"
+                  title="Send message"
+                >
+                  {sendMessageMutation.isPending ? (
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Send className="w-4 h-4 ml-0.5" />
+                  )}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleToggleVoiceInput}
+                  className={`w-10 h-10 rounded-full flex items-center justify-center shadow-xs transition-all active:scale-95 shrink-0 ${
+                    isListening
+                      ? 'bg-rose-500 text-white animate-pulse'
+                      : 'bg-[#EBF2FE] hover:bg-[#DCE7FD] text-[#1A73E8]'
+                  }`}
+                  title={isListening ? 'Listening...' : 'Voice Input'}
+                  aria-label="Voice input"
+                >
+                  <Mic className="w-5 h-5" />
+                </button>
+              )}
             </form>
           </div>
         )}
