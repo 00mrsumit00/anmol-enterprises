@@ -64,6 +64,10 @@ export default function AdminOrdersPage() {
   const [newTemplateTitle, setNewTemplateTitle] = useState('')
   const [newTemplateBadge, setNewTemplateBadge] = useState('')
 
+  // Permanent Delete Order Modal State
+  const [orderToDelete, setOrderToDelete] = useState<any | null>(null)
+  const [isDeletingOrder, setIsDeletingOrder] = useState(false)
+
   // Load custom templates from localStorage
   useEffect(() => {
     try {
@@ -199,6 +203,36 @@ export default function AdminOrdersPage() {
       showToast(err.message || 'Action failed, reverted status', 'error')
     } finally {
       setUpdatingStatusId(null)
+    }
+  }
+
+  // Permanently delete order (admin & sub-admins with full audit log)
+  const handlePermanentlyDeleteOrder = async () => {
+    if (!orderToDelete) return
+    setIsDeletingOrder(true)
+    try {
+      const res = await fetch(`/api/orders/${orderToDelete.id}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to delete order')
+      }
+      showToast(data.message || `Order #${orderToDelete.orderNumber || orderToDelete.id.slice(-6)} permanently deleted`, 'success')
+      queryClient.setQueryData(['admin-orders'], (oldOrders: any[] | undefined) => {
+        if (!oldOrders) return []
+        return oldOrders.filter(o => o.id !== orderToDelete.id)
+      })
+      queryClient.invalidateQueries({ queryKey: ['admin-orders'] })
+      setOrderToDelete(null)
+      if (selectedSummaryOrder?.id === orderToDelete.id) {
+        setSelectedSummaryOrder(null)
+      }
+    } catch (err: any) {
+      showToast(err.message || 'Error deleting order', 'error')
+    } finally {
+      setIsDeletingOrder(false)
     }
   }
 
@@ -932,6 +966,15 @@ export default function AdminOrdersPage() {
                             </a>
                           )}
 
+                          {/* 🗑️ Permanent Delete Order */}
+                          <button
+                            onClick={() => setOrderToDelete(order)}
+                            className="p-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-xl transition-all shadow-2xs active:scale-95 flex items-center justify-center cursor-pointer"
+                            title="Permanently Delete Order"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+
                           {/* Single Primary Workflow Button */}
                           {order.status === 'PENDING' && (
                             <button
@@ -1233,10 +1276,20 @@ export default function AdminOrdersPage() {
                   <span>Chat on WhatsApp</span>
                 </button>
 
+                {/* Permanently Delete Order Button in Summary */}
+                <button
+                  onClick={() => setOrderToDelete(selectedSummaryOrder)}
+                  className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 rounded-xl text-xs font-bold transition-all shadow-2xs active:scale-95 cursor-pointer"
+                  title="Permanently Delete Order"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>Delete Order</span>
+                </button>
+
                 {/* Close */}
                 <button
                   onClick={() => setSelectedSummaryOrder(null)}
-                  className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-all"
+                  className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-all cursor-pointer"
                 >
                   Close
                 </button>
@@ -1458,6 +1511,83 @@ export default function AdminOrdersPage() {
               </div>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* ⚠️ Permanent Delete Order Confirmation Dialog */}
+      {orderToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fadeIn">
+          <div className="bg-[#111827] border border-rose-500/30 rounded-2xl w-full max-w-lg p-6 shadow-2xl flex flex-col gap-5 text-white animate-scaleUp">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center shrink-0">
+                <Trash2 className="w-6 h-6 text-rose-400" />
+              </div>
+              <div className="flex flex-col gap-1">
+                <h3 className="text-lg font-black text-white">Permanently Delete Order?</h3>
+                <p className="text-xs text-rose-300/90 font-medium leading-relaxed">
+                  This action is irreversible. All order records, item lines, and dispatch history will be permanently erased.
+                </p>
+              </div>
+            </div>
+
+            {/* Order details snapshot */}
+            <div className="bg-[#0B0F19] border border-slate-800 rounded-xl p-4 flex flex-col gap-2.5 text-xs font-medium">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-800/80">
+                <span className="text-slate-400">Order ID:</span>
+                <span className="font-mono font-bold text-amber-400">#{orderToDelete.orderNumber || orderToDelete.id.slice(-6)}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400">Customer:</span>
+                <span className="font-semibold text-slate-200">{orderToDelete.customerName || orderToDelete.guestName || orderToDelete.user?.name || 'Customer'}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400">Phone:</span>
+                <span className="font-mono text-slate-300">{orderToDelete.customerPhone || orderToDelete.guestPhone || orderToDelete.user?.phone || 'N/A'}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400">Total Amount:</span>
+                <span className="font-bold text-white">₹{orderToDelete.totalAmount}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400">Current Status:</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-800 text-slate-300">{orderToDelete.status}</span>
+              </div>
+            </div>
+
+            <div className="p-3 bg-rose-950/40 border border-rose-500/20 rounded-xl text-xs text-rose-300 flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 shrink-0 text-rose-400 mt-0.5" />
+              <span>An immutable security audit log will be generated recording your admin account details, IP, and timestamp.</span>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setOrderToDelete(null)}
+                disabled={isDeletingOrder}
+                className="px-4 py-2.5 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-all disabled:opacity-50 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handlePermanentlyDeleteOrder}
+                disabled={isDeletingOrder}
+                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-500 hover:to-rose-600 text-white text-xs font-bold transition-all flex items-center gap-2 shadow-lg shadow-rose-600/30 disabled:opacity-50 active:scale-95 cursor-pointer"
+              >
+                {isDeletingOrder ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Deleting Order...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    <span>Yes, Permanently Delete</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

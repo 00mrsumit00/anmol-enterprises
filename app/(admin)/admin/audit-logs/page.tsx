@@ -1,7 +1,7 @@
 'use client'
 
-import React, { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import React, { useState, useEffect } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { 
   Activity, 
   Calendar, 
@@ -11,6 +11,7 @@ import {
   Search,
   Filter
 } from 'lucide-react'
+import { useSocket } from '@/hooks/useSocket'
 
 interface AuditLog {
   id: string
@@ -27,18 +28,32 @@ interface AuditLog {
 export default function AuditLogsPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [actionFilter, setActionFilter] = useState('ALL')
+  const queryClient = useQueryClient()
+  const socket = useSocket()
 
   const { data, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['audit-logs'],
     queryFn: async () => {
-      const res = await fetch('/api/admin/audit-logs?limit=100')
+      const res = await fetch('/api/admin/audit-logs?limit=300')
       if (!res.ok) {
         throw new Error('Failed to load audit logs')
       }
       return res.json() as Promise<{ logs: AuditLog[] }>
     },
-    refetchInterval: 15000, // Live poll every 15s
+    refetchInterval: 10000, // Live poll every 10s
   })
+
+  // Listen for real-time audit log notifications from Socket.io
+  useEffect(() => {
+    if (!socket) return
+    const handleNewLog = () => {
+      queryClient.invalidateQueries({ queryKey: ['audit-logs'] })
+    }
+    socket.on('audit_log_new', handleNewLog)
+    return () => {
+      socket.off('audit_log_new', handleNewLog)
+    }
+  }, [socket, queryClient])
 
   const logs = data?.logs || []
 
@@ -72,37 +87,58 @@ export default function AuditLogsPage() {
     }
   }
 
-  // Render action badge styled identically to screenshot 2
+  // Render action badge styled professionally
   const renderActionBadge = (action: string) => {
     switch (action) {
-      case 'UPDATE_PERMISSIONS':
+      case 'DELETE_ORDER':
+      case 'DELETE_PRODUCT':
+      case 'DELETE_USER':
+      case 'DELETE_SUBADMIN':
+      case 'CANCEL_ORDER':
         return (
-          <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold tracking-wider uppercase bg-[#132238] text-[#38BDF8] border border-[#0284C7]/30 shadow-xs">
-            UPDATE PERMISSIONS
+          <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold tracking-wider uppercase bg-[#2D151B] text-[#F87171] border border-[#DC2626]/30 shadow-xs">
+            {action.replace(/_/g, ' ')}
           </span>
         )
       case 'CREATE_STAFF':
-        return (
-          <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold tracking-wider uppercase bg-[#0E2822] text-[#34D399] border border-[#059669]/30 shadow-xs">
-            CREATE SUBADMIN
-          </span>
-        )
-      case 'DELETE_SUBADMIN':
-        return (
-          <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold tracking-wider uppercase bg-[#2D151B] text-[#F87171] border border-[#DC2626]/30 shadow-xs">
-            DELETE SUBADMIN
-          </span>
-        )
+      case 'CREATE_USER':
+      case 'CREATE_PRODUCT':
+      case 'ACCEPT_ORDER':
       case 'ENABLE_ACCOUNT':
+      case 'RECEIVE_INVENTORY':
         return (
           <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold tracking-wider uppercase bg-[#0E2822] text-[#34D399] border border-[#059669]/30 shadow-xs">
-            ENABLE ACCOUNT
+            {action.replace(/_/g, ' ')}
           </span>
         )
+      case 'UPDATE_PERMISSIONS':
+      case 'UPDATE_PRODUCT':
+      case 'UPDATE_USER':
+        return (
+          <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold tracking-wider uppercase bg-[#132238] text-[#38BDF8] border border-[#0284C7]/30 shadow-xs">
+            {action.replace(/_/g, ' ')}
+          </span>
+        )
+      case 'UPDATE_ORDER_STATUS':
       case 'DISABLE_ACCOUNT':
+      case 'ISSUE_INVENTORY':
         return (
           <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold tracking-wider uppercase bg-[#2E2012] text-[#FBBF24] border border-[#D97706]/30 shadow-xs">
-            DISABLE ACCOUNT
+            {action.replace(/_/g, ' ')}
+          </span>
+        )
+      case 'ASSIGN_DRIVER':
+        return (
+          <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold tracking-wider uppercase bg-[#141C33] text-[#818CF8] border border-[#4F46E5]/30 shadow-xs">
+            ASSIGN DRIVER
+          </span>
+        )
+      case 'VERIFY_B2B':
+      case 'TOGGLE_CREDIT':
+      case 'CREATE_BROADCAST':
+        return (
+          <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold tracking-wider uppercase bg-[#241433] text-[#C084FC] border border-[#9333EA]/30 shadow-xs">
+            {action.replace(/_/g, ' ')}
           </span>
         )
       default:
@@ -116,7 +152,7 @@ export default function AuditLogsPage() {
 
   return (
     <div className="w-full flex flex-col gap-3.5 sm:gap-4.5 font-sans text-white">
-      {/* Header matching Screenshot 2 */}
+      {/* Header */}
       <div className="max-w-7xl mx-auto w-full mb-1">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
@@ -124,7 +160,7 @@ export default function AuditLogsPage() {
               Audit Logs
             </h1>
             <p className="text-slate-400 text-sm mt-1">
-              Security trail and admin activity tracking
+              Live administrative audit trail and security log history
             </p>
           </div>
 
@@ -132,7 +168,7 @@ export default function AuditLogsPage() {
             <button
               onClick={() => refetch()}
               disabled={isFetching}
-              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[#111625] border border-slate-800 hover:border-slate-700 text-slate-300 text-xs font-semibold transition-all"
+              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[#111625] border border-slate-800 hover:border-slate-700 text-slate-300 text-xs font-semibold transition-all cursor-pointer"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isFetching ? 'animate-spin text-amber-400' : ''}`} />
               <span>{isFetching ? 'Refreshing...' : 'Refresh'}</span>
@@ -148,7 +184,7 @@ export default function AuditLogsPage() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search audit trail by admin, sub-admin name, or details..."
+              placeholder="Search audit trail by admin, target, action or details..."
               className="w-full bg-[#111625] border border-slate-800 rounded-xl pl-10 pr-3.5 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
             />
           </div>
@@ -161,11 +197,34 @@ export default function AuditLogsPage() {
               className="bg-[#111625] border border-slate-800 text-slate-300 text-xs rounded-xl px-3 py-2 focus:outline-none focus:border-amber-500"
             >
               <option value="ALL">All Actions</option>
-              <option value="UPDATE_PERMISSIONS">Update Permissions</option>
-              <option value="CREATE_STAFF">Create Subadmin</option>
-              <option value="DELETE_SUBADMIN">Delete Subadmin</option>
-              <option value="ENABLE_ACCOUNT">Enable Account</option>
-              <option value="DISABLE_ACCOUNT">Disable Account</option>
+              <optgroup label="Orders">
+                <option value="DELETE_ORDER">Delete Order</option>
+                <option value="UPDATE_ORDER_STATUS">Update Status</option>
+                <option value="ASSIGN_DRIVER">Assign Driver</option>
+                <option value="ACCEPT_ORDER">Accept Order</option>
+                <option value="CANCEL_ORDER">Cancel Order</option>
+              </optgroup>
+              <optgroup label="Catalog & Inventory">
+                <option value="CREATE_PRODUCT">Create Product</option>
+                <option value="UPDATE_PRODUCT">Update Product</option>
+                <option value="DELETE_PRODUCT">Delete Product</option>
+                <option value="RECEIVE_INVENTORY">Receive Stock</option>
+                <option value="ISSUE_INVENTORY">Issue Stock</option>
+              </optgroup>
+              <optgroup label="Users & B2B">
+                <option value="CREATE_USER">Create User</option>
+                <option value="UPDATE_USER">Update User</option>
+                <option value="DELETE_USER">Delete User</option>
+                <option value="VERIFY_B2B">Verify B2B</option>
+                <option value="TOGGLE_CREDIT">Toggle Credit</option>
+              </optgroup>
+              <optgroup label="Sub-Admins & Security">
+                <option value="CREATE_STAFF">Create Subadmin</option>
+                <option value="DELETE_SUBADMIN">Delete Subadmin</option>
+                <option value="UPDATE_PERMISSIONS">Update Permissions</option>
+                <option value="ENABLE_ACCOUNT">Enable Account</option>
+                <option value="DISABLE_ACCOUNT">Disable Account</option>
+              </optgroup>
             </select>
           </div>
         </div>
@@ -245,11 +304,18 @@ export default function AuditLogsPage() {
 
                     {/* Details */}
                     <td className="py-4 px-6 text-slate-300">
-                      <div className="flex items-center gap-2">
-                        <Activity className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                        <span className="font-normal text-slate-300">
-                          {log.details}
-                        </span>
+                      <div className="flex flex-col gap-0.5">
+                        <div className="flex items-center gap-2">
+                          <Activity className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                          <span className="font-normal text-slate-200">
+                            {log.details}
+                          </span>
+                        </div>
+                        {log.targetName && (
+                          <div className="text-[11px] text-slate-500 pl-5.5 font-mono">
+                            Target: <span className="text-slate-400 font-semibold">{log.targetName}</span>
+                          </div>
+                        )}
                       </div>
                     </td>
                   </tr>

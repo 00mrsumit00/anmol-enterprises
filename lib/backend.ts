@@ -24,6 +24,35 @@ export function setSocketIO(io: SocketIOServer) {
   ioInstance = io
 }
 
+// ─── ADMIN AUDIT LOGGER ───────────────────────────────────────────────────────
+export async function logAdminActivity(
+  req: Request,
+  action: string,
+  targetId: string | null | undefined,
+  targetName: string | null | undefined,
+  details: string
+) {
+  try {
+    if (!req.user) return
+    await prisma.adminAuditLog.create({
+      data: {
+        adminId: req.user.id,
+        adminName: req.user.name || req.user.phone || 'Admin',
+        adminRole: req.user.role,
+        action,
+        targetId: targetId ? String(targetId) : null,
+        targetName: targetName ? String(targetName) : null,
+        details,
+      }
+    })
+    if (ioInstance) {
+      ioInstance.to('admin').emit('audit_log_new')
+    }
+  } catch (err) {
+    console.error(`Failed to record audit log for ${action}:`, err)
+  }
+}
+
 // In-memory IP rate limiter tracker for OTP send requests (max 10 per IP per hour)
 const ipOtpSendTracker = new Map<string, number[]>()
 
@@ -1955,6 +1984,7 @@ apiRouter.post('/products', authMiddleware, requireRole(['ADMIN', 'STAFF']), asy
     })
 
     invalidateCatalogCache()
+    logAdminActivity(req, 'CREATE_PRODUCT', product.id, product.name, `Product created with ${product.variants.length} packaging variants`)
     return res.status(201).json(product)
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -2075,6 +2105,7 @@ apiRouter.put('/products/:id', authMiddleware, requireRole(['ADMIN', 'STAFF']), 
     })
 
     invalidateCatalogCache()
+    logAdminActivity(req, 'UPDATE_PRODUCT', id, finalProduct?.name || existingProduct.name, `Product updated: price/stock/details changed`)
     return res.json(finalProduct)
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -2129,6 +2160,7 @@ apiRouter.delete('/products/:id', authMiddleware, requireRole(['SUPER_ADMIN', 'A
     })
 
     invalidateCatalogCache()
+    logAdminActivity(req, 'DELETE_PRODUCT', productId, target.name, `Product "${target.name}" permanently deleted from catalog with all variants`)
     return res.json({ message: 'Product permanently deleted from database' })
   } catch (error) {
     console.error('Delete product error:', error)
@@ -2721,6 +2753,7 @@ apiRouter.post('/inventory/receive', authMiddleware, requireRole(['ADMIN', 'STAF
     })
 
     invalidateCatalogCache()
+    logAdminActivity(req, 'RECEIVE_INVENTORY', body.variantId, `${result.updatedVariant.product.name} (${result.updatedVariant.packagingType})`, `Received ${body.quantity} units (Batch: ${body.batchNumber}, Supplier: ${body.supplier})`)
     if (ioInstance) {
       ioInstance.emit('stock_update', { variantId: body.variantId, stockCount: result.updatedVariant.stockCount })
       ioInstance.emit('inventory_movement_new', result.movement)
@@ -2806,6 +2839,7 @@ apiRouter.post('/inventory/issue', authMiddleware, requireRole(['ADMIN', 'STAFF'
     })
 
     invalidateCatalogCache()
+    logAdminActivity(req, 'ISSUE_INVENTORY', body.variantId, `${variant.product.name} (${variant.packagingType})`, `Issued/Dispatched ${body.quantity} units (${body.reason})`)
     if (ioInstance) {
       ioInstance.emit('stock_update', { variantId: body.variantId, stockCount: result.updatedVariant.stockCount })
       ioInstance.emit('inventory_movement_new', result.movement)
@@ -4440,6 +4474,15 @@ apiRouter.put('/orders/:id/status', authMiddleware, requireRole(['ADMIN', 'STAFF
       })
     }
 
+    // Record security & admin audit log
+    await logAdminActivity(
+      req,
+      'UPDATE_ORDER_STATUS',
+      id,
+      currentOrder.orderNumber,
+      `Updated Order #${currentOrder.orderNumber} status from "${currentOrder.status}" to "${status}"${note ? ` (Note: ${note})` : ''}`
+    )
+
     return res.json(order)
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -4480,6 +4523,15 @@ apiRouter.put('/orders/:id/assign', authMiddleware, requireRole(['ADMIN', 'STAFF
       ioInstance.emit('order_list_update', order)
     }
 
+    // Record security & admin audit log
+    await logAdminActivity(
+      req,
+      'ASSIGN_DRIVER',
+      id,
+      order.orderNumber,
+      `Assigned driver "${order.driver?.name || 'Driver'}" (${order.driver?.phone || 'N/A'}) to Order #${order.orderNumber}`
+    )
+
     return res.json(order)
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -4489,6 +4541,78 @@ apiRouter.put('/orders/:id/assign', authMiddleware, requireRole(['ADMIN', 'STAFF
     return res.status(500).json({ error: 'Failed to assign driver' })
   }
 })
+
+// ─── PERMANENT DELETE ORDER (Admin, Super Admin & Staff / Sub-Admins) ────────
+const handleDeleteOrder = async (req: Request, res: Response) => {
+  try {
+    const id = req.params.id as string
+    const order = await prisma.order.findUnique({
+      where: { id },
+      include: {
+        items: true,
+        user: true,
+      }
+    })
+
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' })
+    }
+
+    const customerName = order.user?.name || order.businessName || order.guestName || 'Customer'
+    const customerPhone = order.user?.phone || order.guestPhone || 'N/A'
+    const itemsCount = order.items?.length || 0
+    const itemsSummary = order.items?.map(i => `${i.quantity}x ${i.productName}`).join(', ') || 'No items'
+
+    // If order was in progress (not delivered/cancelled/returned), restore inventory stock & B2B credit
+    if (!['DELIVERED', 'CANCELLED', 'RETURNED'].includes(order.status)) {
+      for (const item of order.items) {
+        if (item.variantId) {
+          await prisma.productVariant.update({
+            where: { id: item.variantId },
+            data: { stockCount: { increment: item.quantity } },
+          }).catch(() => {})
+        }
+      }
+
+      if (order.paymentMethod === 'CREDIT_ACCOUNT' && order.userId) {
+        await prisma.user.update({
+          where: { id: order.userId },
+          data: { creditUsed: { decrement: order.totalAmount } },
+        }).catch(() => {})
+      }
+    }
+
+    // Permanently purge order (cascades related items, logs, reviews, complaints, commissions)
+    await prisma.order.delete({
+      where: { id }
+    })
+
+    // Record Security & Admin Audit Log
+    await logAdminActivity(
+      req,
+      'DELETE_ORDER',
+      order.id,
+      order.orderNumber,
+      `Permanently deleted Order #${order.orderNumber} (Customer: ${customerName} | Phone: ${customerPhone} | Amount: ₹${order.totalAmount} | Status: ${order.status} | Items: ${itemsSummary})`
+    )
+
+    if (ioInstance) {
+      ioInstance.to(`order-${id}`).emit('order_deleted', { orderId: id, orderNumber: order.orderNumber })
+      ioInstance.to('admin').emit('order_list_update')
+    }
+
+    return res.json({
+      success: true,
+      message: `Order #${order.orderNumber} has been permanently deleted and audit log recorded.`
+    })
+  } catch (error: any) {
+    console.error('Permanent delete order error:', error)
+    return res.status(500).json({ error: error.message || 'Failed to permanently delete order' })
+  }
+}
+
+apiRouter.delete('/orders/:id', authMiddleware, requireRole(['SUPER_ADMIN', 'ADMIN', 'STAFF']), handleDeleteOrder)
+apiRouter.delete('/admin/orders/:id', authMiddleware, requireRole(['SUPER_ADMIN', 'ADMIN', 'STAFF']), handleDeleteOrder)
 
 // ─── ADMIN B2B BUSINESS ACCOUNTS MANAGEMENT ─────────────────────────────────
 
@@ -4742,6 +4866,7 @@ apiRouter.post('/admin/users', authMiddleware, requireRole(['ADMIN']), async (re
       }
     })
 
+    logAdminActivity(req, 'CREATE_USER', user.id, user.name || user.phone || 'New User', `Created ${user.role} user: ${user.name} (${user.phone || user.email || 'No contact'})${user.isB2B ? ' [B2B]' : ''}`)
     return res.status(201).json({ success: true, message: `User "${name}" (${role}) created successfully.`, user })
   } catch (error: any) {
     if (error instanceof z.ZodError) return res.status(400).json({ error: getZodErrorMessage(error) })
@@ -4808,6 +4933,7 @@ apiRouter.patch('/admin/users/:id', authMiddleware, requireRole(['ADMIN']), asyn
       }
     })
 
+    logAdminActivity(req, 'UPDATE_USER', userId, updated.name || updated.phone || 'User', `Updated details for user ${updated.name || updated.phone}`)
     return res.json({ success: true, message: 'User info updated successfully.', user: updated })
   } catch (error: any) {
     if (error instanceof z.ZodError) return res.status(400).json({ error: getZodErrorMessage(error) })
@@ -4841,6 +4967,8 @@ apiRouter.delete('/admin/users/:id', authMiddleware, requireRole(['ADMIN']), asy
 
     // Delete user (cascades: addresses, otpVerification, businessProfile via Prisma relations)
     await prisma.user.delete({ where: { id: userId } })
+
+    logAdminActivity(req, 'DELETE_USER', userId, user.name || user.phone || 'Deleted User', `Deleted user account "${user.name || user.phone}" (Role: ${user.role})`)
 
     return res.json({ success: true, message: `User "${user.name || user.phone}" has been deleted.` })
   } catch (error: any) {
@@ -4992,6 +5120,8 @@ apiRouter.put('/admin/business-accounts/:id/toggle-credit', authMiddleware, requ
       }
     })
 
+    logAdminActivity(req, 'TOGGLE_CREDIT', user.id, user.businessName || user.name, `Credit facility ${isCreditEnabled ? 'ENABLED' : 'DISABLED'} (Limit: Rs ${updatedUser.creditLimit})`)
+
     return res.json({
       message: `Credit facility ${isCreditEnabled ? 'ENABLED' : 'DISABLED'} for ${user.businessName || user.name}`,
       user: updatedUser
@@ -5064,6 +5194,8 @@ apiRouter.put('/admin/business-accounts/:id/verify', authMiddleware, requireRole
         reason: `Business verification status set to ${data.verificationStatus}`
       }
     })
+
+    logAdminActivity(req, 'VERIFY_B2B', user.id, user.businessName || user.name, `B2B account verification updated to ${data.verificationStatus} (Tier: ${data.creditTier || 'BRONZE'}, Limit: Rs ${updatedUser.creditLimit})`)
 
     // Send SMS notification mock
     if (updatedUser.phone) {
@@ -5459,10 +5591,28 @@ apiRouter.delete('/admin/sub-admins/:id', authMiddleware, requireRole(['SUPER_AD
 })
 
 // GET /admin/audit-logs — fetch security audit logs
-apiRouter.get('/admin/audit-logs', authMiddleware, requireRole(['SUPER_ADMIN', 'ADMIN']), async (req: Request, res: Response) => {
+apiRouter.get('/admin/audit-logs', authMiddleware, requireRole(['SUPER_ADMIN', 'ADMIN', 'STAFF']), async (req: Request, res: Response) => {
   try {
-    const limit = Math.min(100, parseInt(req.query.limit as string) || 50)
+    const limit = Math.min(1000, parseInt(req.query.limit as string) || 200)
+    const { action, search } = req.query
+
+    const where: any = {}
+    if (action && action !== 'ALL') {
+      where.action = String(action)
+    }
+
+    if (search && String(search).trim()) {
+      const q = String(search).trim()
+      where.OR = [
+        { adminName: { contains: q, mode: 'insensitive' } },
+        { targetName: { contains: q, mode: 'insensitive' } },
+        { details: { contains: q, mode: 'insensitive' } },
+        { action: { contains: q, mode: 'insensitive' } },
+      ]
+    }
+
     const logs = await prisma.adminAuditLog.findMany({
+      where,
       orderBy: { createdAt: 'desc' },
       take: limit,
     })
@@ -6304,6 +6454,8 @@ apiRouter.put('/orders/:id/accept', authMiddleware, requireRole(['SUPER_ADMIN', 
       }
     }
 
+    logAdminActivity(req, 'ACCEPT_ORDER', id, `Order #${order.orderNumber || id.slice(-6)}`, `Order accepted & confirmed by admin`)
+
     return res.json(updated)
   } catch (err: any) {
     return res.status(500).json({ error: err.message || 'Failed to accept order' })
@@ -6371,6 +6523,10 @@ apiRouter.post('/orders/:id/cancel', authMiddleware, async (req: Request, res: R
     if (ioInstance) {
       ioInstance.to(`order-${id}`).emit('order_status_update', updated)
       ioInstance.to('admin').emit('order_list_update')
+    }
+
+    if (['SUPER_ADMIN', 'ADMIN', 'STAFF'].includes(req.user!.role)) {
+      logAdminActivity(req, 'CANCEL_ORDER', id, `Order #${order.orderNumber || id.slice(-6)}`, `Order cancelled: ${reason || 'Admin cancelled order'}`)
     }
 
     return res.json({ success: true, order: updated })
