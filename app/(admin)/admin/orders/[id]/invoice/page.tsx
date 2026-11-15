@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { 
   Printer, ArrowLeft, Clock, ShieldCheck, CheckCircle2, Phone, Mail, 
-  MapPin, AlertCircle, RefreshCw, Send, Check, Loader2, QrCode
+  MapPin, AlertCircle, RefreshCw, Send, Check, Loader2, QrCode, MessageCircle
 } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 
@@ -63,17 +63,31 @@ export default function PrintInvoicePage() {
 
   const handleSendEmail = async () => {
     if (!order) return
+    let targetEmail = order.user?.email
+    if (!targetEmail || !targetEmail.includes('@')) {
+      const inputEmail = window.prompt(
+        `Customer has no registered email address on file.\nEnter recipient email to send Tax Invoice for Order #${order.orderNumber}:`
+      )
+      if (!inputEmail || !inputEmail.trim()) {
+        return
+      }
+      targetEmail = inputEmail.trim()
+    }
+
     setIsSendingEmail(true)
     try {
       const res = await fetch(`/api/orders/${order.id}/send-invoice-email`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: order.user?.email })
+        body: JSON.stringify({ email: targetEmail })
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Failed to email invoice')
+      let data: any = {}
+      try {
+        data = await res.json()
+      } catch {}
+      if (!res.ok) throw new Error(data.error || `Failed to email invoice (HTTP ${res.status})`)
       setEmailSent(true)
-      showToast('Tax Invoice successfully emailed to customer!', 'success')
+      showToast(`Tax Invoice successfully emailed to ${targetEmail}!`, 'success')
     } catch (err: any) {
       showToast(err.message || 'Failed to send email', 'error')
     } finally {
@@ -202,6 +216,17 @@ export default function PrintInvoicePage() {
   const buyerFssai = order.user?.businessProfile?.fssaiNumber || ''
   const buyerPhone = order.guestPhone || order.user?.phone || ''
 
+  const handleShareWhatsApp = () => {
+    if (!order) return
+    const cleanPhone = buyerPhone.replace(/\D/g, '').slice(-10)
+    const invoiceUrl = typeof window !== 'undefined' ? window.location.href : `https://anmolenterprisess.in/admin/orders/${order.id}/invoice`
+    const message = `Hello *${buyerName}*,\n\nHere is your official *Tax Invoice* for Order *#${order.orderNumber}* from *M/s Anmol Enterprises*.\n\n*Total Amount:* ₹${netReceivable.toFixed(2)}\n*View & Download Tax Invoice:* ${invoiceUrl}\n\nThank you for choosing Anmol Enterprises!`
+    const url = cleanPhone 
+      ? `https://wa.me/91${cleanPhone}?text=${encodeURIComponent(message)}`
+      : `https://wa.me/?text=${encodeURIComponent(message)}`
+    window.open(url, '_blank')
+  }
+
   return (
     <div className="bg-white min-h-screen text-black p-4 sm:p-8 font-sans max-w-4xl mx-auto border border-gray-300 md:shadow-lg relative print:p-0 print:border-none print:shadow-none text-xs">
       
@@ -209,19 +234,19 @@ export default function PrintInvoicePage() {
       <div className="no-print flex items-center justify-between pb-4 border-b border-gray-200 mb-6 text-sm">
         <button
           onClick={handleBack}
-          className="flex items-center gap-1.5 px-4 py-2 border border-gray-300 bg-gray-50 hover:bg-gray-100 rounded-xl font-bold text-gray-700 transition-all active:scale-95 shadow-xs text-xs"
+          className="flex items-center gap-1.5 px-4 py-2 border border-gray-300 bg-gray-50 hover:bg-gray-100 rounded-xl font-bold text-gray-700 transition-all active:scale-95 shadow-xs text-xs cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Back</span>
         </button>
         
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {/* Email Invoice Button */}
           <button
             type="button"
             onClick={handleSendEmail}
             disabled={isSendingEmail}
-            className="flex items-center gap-1.5 px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl font-bold text-xs transition-all active:scale-95 disabled:opacity-50"
+            className="flex items-center gap-1.5 px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl font-bold text-xs transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
             title="Email Tax Invoice to Customer"
           >
             {isSendingEmail ? (
@@ -234,13 +259,24 @@ export default function PrintInvoicePage() {
             <span>{emailSent ? 'Invoice Emailed' : 'Email Invoice to Customer'}</span>
           </button>
 
+          {/* WhatsApp Share Button */}
+          <button
+            type="button"
+            onClick={handleShareWhatsApp}
+            className="flex items-center gap-1.5 px-4 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl font-bold text-xs transition-all active:scale-95 shadow-2xs cursor-pointer"
+            title={`Share Tax Invoice link via WhatsApp to ${buyerPhone || 'Customer'}`}
+          >
+            <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Share on WhatsApp</span>
+          </button>
+
           <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-xl flex items-center gap-1">
             <CheckCircle2 className="w-3.5 h-3.5" /> Confirmed
           </span>
 
           <button
             onClick={() => window.print()}
-            className="flex items-center gap-2 px-5 py-2 bg-[#0c831f] hover:bg-[#0a6d1a] text-white rounded-xl font-black text-xs transition-all active:scale-95 shadow-md"
+            className="flex items-center gap-2 px-5 py-2 bg-[#0c831f] hover:bg-[#0a6d1a] text-white rounded-xl font-black text-xs transition-all active:scale-95 shadow-md cursor-pointer"
           >
             <Printer className="w-4 h-4" />
             <span>Print Official Bill (PDF)</span>

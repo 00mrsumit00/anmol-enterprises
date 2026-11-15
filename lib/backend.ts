@@ -4614,6 +4614,58 @@ const handleDeleteOrder = async (req: Request, res: Response) => {
 apiRouter.delete('/orders/:id', authMiddleware, requireRole(['SUPER_ADMIN', 'ADMIN', 'STAFF']), handleDeleteOrder)
 apiRouter.delete('/admin/orders/:id', authMiddleware, requireRole(['SUPER_ADMIN', 'ADMIN', 'STAFF']), handleDeleteOrder)
 
+// ─── SEND TAX INVOICE EMAIL (Manual or On-Demand Trigger) ─────────────────────
+apiRouter.post('/orders/:id/send-invoice-email', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const orderId = req.params.id as string
+    const { email } = req.body || {}
+
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: { user: true }
+    })
+
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' })
+    }
+
+    // Role guard: Only admin, staff, or the order owner can trigger invoice email
+    const isStaffOrAdmin = req.user && ['SUPER_ADMIN', 'ADMIN', 'STAFF'].includes(req.user.role)
+    const isOwner = req.user && order.userId === req.user.id
+    if (!isStaffOrAdmin && !isOwner) {
+      return res.status(403).json({ error: 'Unauthorized to request invoice email for this order' })
+    }
+
+    const recipientEmail = (email && typeof email === 'string' && email.trim()) || order.user?.email
+    if (!recipientEmail || !recipientEmail.includes('@')) {
+      return res.status(400).json({ 
+        error: 'Customer has no registered email address. Please enter an email address or share the invoice via WhatsApp.' 
+      })
+    }
+
+    const result = await sendOrderInvoiceEmail(orderId, recipientEmail)
+    if (!result.success) {
+      return res.status(400).json({ error: result.error || 'Failed to send invoice email' })
+    }
+
+    // Audit log
+    if (isStaffOrAdmin) {
+      logAdminActivity(
+        req,
+        'SEND_INVOICE_EMAIL',
+        order.id,
+        order.orderNumber,
+        `Emailed official Tax Invoice for Order #${order.orderNumber} to ${recipientEmail}`
+      )
+    }
+
+    return res.json({ success: true, message: `Tax Invoice successfully sent to ${recipientEmail}` })
+  } catch (error: any) {
+    console.error('Send invoice email endpoint error:', error)
+    return res.status(500).json({ error: error.message || 'Internal server error sending invoice email' })
+  }
+})
+
 // ─── ADMIN B2B BUSINESS ACCOUNTS MANAGEMENT ─────────────────────────────────
 
 // ─── ADMIN REGISTERED USERS MANAGEMENT (RETAIL & BUSINESS) ─────────────
