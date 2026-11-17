@@ -78,7 +78,7 @@ export default function CheckoutPaymentPage() {
     return rounded.toFixed(2).replace(/\.00$/, '')
   }
 
-  const deliveryFee = pricingBreakdown?.delivery?.fee ?? ((isFirstOrder || total > 500) ? 0 : 49)
+  const deliveryFee = pricingBreakdown?.delivery?.fee ?? ((isFirstOrder || total >= (user?.isB2B ? 250 : 500)) ? 0 : 49)
   const convenienceFee = 2
   const campaignDiscount = Math.round((pricingBreakdown?.campaignSavings ?? 0) * 100) / 100
   const couponDiscount = Math.round((appliedCoupon?.discount || 0) * 100) / 100
@@ -513,7 +513,7 @@ export default function CheckoutPaymentPage() {
         <div className="mb-4">
           <CartDeliveryThreshold
             subtotal={pricingBreakdown?.subtotal || total}
-            freeDeliveryThreshold={500}
+            freeDeliveryThreshold={pricingBreakdown?.delivery?.freeDeliveryThreshold ?? (user?.isB2B ? 250 : 500)}
             isFirstOrder={isFirstOrder}
           />
         </div>

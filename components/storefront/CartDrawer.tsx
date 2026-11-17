@@ -155,7 +155,7 @@ export default function CartDrawer() {
   const subtotal = Math.round((pricingData?.subtotal ?? total) * 100) / 100
   const originalSubtotal = Math.round((pricingData?.originalSubtotal ?? total) * 100) / 100
   const mrpTotal = Math.round((pricingData?.mrpTotal ?? total) * 100) / 100
-  const deliveryFee = pricingData?.delivery?.fee ?? (total > 500 ? 0 : 49)
+  const deliveryFee = pricingData?.delivery?.fee ?? (total >= (isB2BMode ? 250 : 500) ? 0 : 49)
   const convenienceFee = pricingData?.convenienceFee ?? 2
   const grandTotal = Math.round((pricingData?.grandTotal ?? (total > 0 ? total + deliveryFee + convenienceFee : 0)) * 100) / 100
   const campaignSavings = Math.round((pricingData?.campaignSavings ?? 0) * 100) / 100
@@ -253,10 +253,10 @@ export default function CartDrawer() {
             </div>
           ) : (
             <>
-              {/* Delivery Threshold Progress Banner (₹500 threshold after discounts) */}
+              {/* Delivery Threshold Progress Banner (₹250 for B2B, ₹500 for Retail) */}
               <CartDeliveryThreshold
                 subtotal={subtotal}
-                freeDeliveryThreshold={500}
+                freeDeliveryThreshold={pricingData?.delivery?.freeDeliveryThreshold ?? (isB2BMode ? 250 : 500)}
                 isFirstOrder={isFirstOrder}
               />
 

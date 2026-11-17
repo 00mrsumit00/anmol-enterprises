@@ -117,8 +117,8 @@ export default function CheckoutDeliveryPage() {
     setPincode('')
   }
 
-  const minOrderValue = isB2BCheckout ? 1500 : 199
-  const isBelowMinOrder = total < minOrderValue
+  const minOrderValue = isB2BCheckout ? 0 : 199
+  const isBelowMinOrder = isB2BCheckout ? false : total < minOrderValue
   const [showSaveAddressModal, setShowSaveAddressModal] = useState(false)
   const [isSavingAddress, setIsSavingAddress] = useState(false)
 

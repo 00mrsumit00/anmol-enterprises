@@ -330,7 +330,8 @@ export async function calculatePricing(options: CalculatePricingOptions): Promis
   }
 
   // 5. Evaluate Delivery Fee & Threshold Nudge
-  const FREE_DELIVERY_THRESHOLD = 500
+  // B2B: Free delivery at ₹250 or above, Retail: Free delivery at ₹500 or above
+  const FREE_DELIVERY_THRESHOLD = isB2B ? 250 : 500
   let isFirstOrderFree = false
 
   // Check if first order free applies (verified user with 0 previous orders)
@@ -370,10 +371,10 @@ export async function calculatePricing(options: CalculatePricingOptions): Promis
   const discountedSubtotal = Math.max(0, subtotal - appliedCouponDiscount)
   const grandTotal = subtotal > 0 ? Math.round((discountedSubtotal + deliveryFee + convenienceFee) * 100) / 100 : 0
 
-  // Minimum Order Check (199 for retail, 1500 for B2B)
-  const minOrderRequired = isB2B ? 1500 : 199
-  const isBelowMinOrder = subtotal < minOrderRequired
-  const minOrderShortfall = Math.max(0, minOrderRequired - subtotal)
+  // Minimum Order Check (199 for retail, no minimum order barrier for B2B)
+  const minOrderRequired = isB2B ? 0 : 199
+  const isBelowMinOrder = isB2B ? false : subtotal < minOrderRequired
+  const minOrderShortfall = isB2B ? 0 : Math.max(0, minOrderRequired - subtotal)
 
   // Overall Total Savings (Real savings from active campaign, coupon, and free delivery)
   const savedDeliveryFee = isFreeDelivery ? 49 : 0
