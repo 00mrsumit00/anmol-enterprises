@@ -3097,7 +3097,7 @@ const addressSchema = z.object({
   label: z.string().default('Home'),
   flatNo: z.string().min(1, 'Flat/House/Shop number is required'),
   street: z.string().min(1, 'Street/Area is required'),
-  landmark: z.string().optional(),
+  landmark: z.string().nullish(),
   city: z.string().default('Latur'),
   pincode: z.string().length(6, 'Pincode must be 6 digits'),
   isDefault: z.boolean().optional().default(false),
@@ -3172,6 +3172,48 @@ apiRouter.delete('/addresses/:id', authMiddleware, async (req: Request, res: Res
 apiRouter.put('/addresses/:id', authMiddleware, async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string
+    const userId = req.user!.id
+    const data = addressSchema.parse(req.body)
+
+    const existing = await prisma.address.findFirst({
+      where: { id, userId }
+    })
+    if (!existing) return res.status(404).json({ error: 'Address not found' })
+
+    if (data.isDefault) {
+      await prisma.address.updateMany({
+        where: { userId, id: { not: id } },
+        data: { isDefault: false }
+      })
+    }
+
+    const updated = await prisma.address.update({
+      where: { id },
+      data: {
+        label: data.label,
+        flatNo: data.flatNo,
+        street: data.street,
+        landmark: data.landmark || null,
+        city: data.city,
+        pincode: data.pincode,
+        isDefault: data.isDefault,
+      }
+    })
+
+    return res.json(updated)
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: getZodErrorMessage(error) })
+    }
+    console.error('Update address error:', error)
+    return res.status(500).json({ error: 'Failed to update address' })
+  }
+})
+
+apiRouter.put('/addresses', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const id = (req.query.id as string) || (req.body?.id as string)
+    if (!id) return res.status(400).json({ error: 'Address ID required' })
     const userId = req.user!.id
     const data = addressSchema.parse(req.body)
 

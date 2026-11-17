@@ -150,15 +150,14 @@ export default function CheckoutDeliveryPage() {
 
     setIsUpdatingSavedAddress(true)
     try {
-      const res = await fetch(`/api/addresses?id=${editingAddressId}`, {
+      const res = await fetch(`/api/addresses/${editingAddressId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          id: editingAddressId,
           label: addressLabel,
           flatNo: flatNo.trim(),
           street: street.trim(),
-          landmark: landmark.trim() || null,
+          landmark: landmark.trim() || undefined,
           city: city.trim() || 'Latur',
           pincode: pincode.trim(),
         })
@@ -571,56 +570,58 @@ export default function CheckoutDeliveryPage() {
         {/* Form */}
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           
-          {/* WHEN USER HAS SAVED ADDRESS SELECTED (AND NOT EDITING): HIDE DETAILED ADDRESS FORM */}
-          {user && savedAddresses.length > 0 && selectedAddressId !== 'NEW' && !isEditingSavedAddress ? (
-            <div className="flex flex-col gap-4">
-              <div className="p-3.5 bg-emerald-50/80 border border-emerald-200 rounded-2xl flex items-center justify-between text-xs text-emerald-900">
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span className="font-bold">Delivering to your selected saved address</span>
+          {/* WHEN USER HAS SAVED ADDRESS SELECTED: */}
+          {user && savedAddresses.length > 0 && selectedAddressId !== 'NEW' ? (
+            !isEditingSavedAddress && (
+              <div className="flex flex-col gap-4">
+                <div className="p-3.5 bg-emerald-50/80 border border-emerald-200 rounded-2xl flex items-center justify-between text-xs text-emerald-900">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span className="font-bold">Delivering to your selected saved address</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const cur = savedAddresses.find(a => a.id === selectedAddressId)
+                      if (cur) handleStartEditAddress(cur)
+                    }}
+                    className="text-[11px] font-black text-emerald-700 hover:underline flex items-center gap-1"
+                  >
+                    <Pencil className="w-3 h-3" />
+                    <span>Edit</span>
+                  </button>
                 </div>
+
+                {/* Minimum Order Value Notice */}
+                {isBelowMinOrder && (
+                  <div className="bg-amber-50 border border-amber-200 p-3.5 rounded-2xl flex items-center gap-3 text-amber-900">
+                    <span className="text-xl">⚠️</span>
+                    <div className="text-xs">
+                      <p className="font-bold">
+                        Minimum order value is ₹{minOrderValue} for cold-chain frozen express.
+                      </p>
+                      <p className="text-amber-700 text-[11px] mt-0.5">
+                        Current cart total: ₹{total}. Please add ₹{minOrderValue - total} more to proceed to payment.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Submit button: Directly proceeds to Payment! */}
                 <button
-                  type="button"
-                  onClick={() => {
-                    const cur = savedAddresses.find(a => a.id === selectedAddressId)
-                    if (cur) handleStartEditAddress(cur)
-                  }}
-                  className="text-[11px] font-black text-emerald-700 hover:underline flex items-center gap-1"
+                  type="submit"
+                  disabled={isBelowMinOrder}
+                  className={`w-full font-display text-sm font-extrabold py-3.5 rounded-pill shadow-lg flex items-center justify-center gap-2 tap-scale mt-1 transition-all ${
+                    isBelowMinOrder 
+                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed shadow-none' 
+                      : 'bg-brand-orange hover:bg-brand-orange-dark text-white hover:shadow-brand-orange/20'
+                  }`}
                 >
-                  <Pencil className="w-3 h-3" />
-                  <span>Edit</span>
+                  <span>Proceed to Payment</span>
+                  <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
-
-              {/* Minimum Order Value Notice */}
-              {isBelowMinOrder && (
-                <div className="bg-amber-50 border border-amber-200 p-3.5 rounded-2xl flex items-center gap-3 text-amber-900">
-                  <span className="text-xl">⚠️</span>
-                  <div className="text-xs">
-                    <p className="font-bold">
-                      Minimum order value is ₹{minOrderValue} for cold-chain frozen express.
-                    </p>
-                    <p className="text-amber-700 text-[11px] mt-0.5">
-                      Current cart total: ₹{total}. Please add ₹{minOrderValue - total} more to proceed to payment.
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Submit button: Directly proceeds to Payment! */}
-              <button
-                type="submit"
-                disabled={isBelowMinOrder}
-                className={`w-full font-display text-sm font-extrabold py-3.5 rounded-pill shadow-lg flex items-center justify-center gap-2 tap-scale mt-1 transition-all ${
-                  isBelowMinOrder 
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed shadow-none' 
-                    : 'bg-brand-orange hover:bg-brand-orange-dark text-white hover:shadow-brand-orange/20'
-                }`}
-              >
-                <span>Proceed to Payment</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
-            </div>
+            )
           ) : (
             <>
               {/* NEW ADDRESS OR MANUAL ADDRESS ENTRY FORM */}
