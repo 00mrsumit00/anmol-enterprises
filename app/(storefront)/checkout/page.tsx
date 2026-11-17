@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { MapPin, ArrowRight, Building2, User, Home, Plus, CheckCircle2, BookmarkPlus, Trash2 } from 'lucide-react'
+import { MapPin, ArrowRight, Building2, User, Home, Plus, CheckCircle2, BookmarkPlus, Trash2, Pencil, Check, X } from 'lucide-react'
 import { useCart } from '@/hooks/useCart'
 import { useToast } from '@/components/ui/Toast'
 import { getLaturDeliveryEstimate } from '@/lib/deliverySchedule'
@@ -29,6 +29,9 @@ export default function CheckoutDeliveryPage() {
   // Saved Addresses state
   const [savedAddresses, setSavedAddresses] = useState<any[]>([])
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null)
+  const [isEditingSavedAddress, setIsEditingSavedAddress] = useState(false)
+  const [editingAddressId, setEditingAddressId] = useState<string | null>(null)
+  const [isUpdatingSavedAddress, setIsUpdatingSavedAddress] = useState(false)
   const [user, setUser] = useState<any>(null)
   const [loadingAddresses, setLoadingAddresses] = useState(true)
 
@@ -100,6 +103,8 @@ export default function CheckoutDeliveryPage() {
   // Helper to apply saved address into form fields
   const selectSavedAddress = (addr: any) => {
     setSelectedAddressId(addr.id)
+    setIsEditingSavedAddress(false)
+    setEditingAddressId(null)
     setFlatNo(addr.flatNo || '')
     setStreet(addr.street || '')
     setLandmark(addr.landmark || '')
@@ -111,10 +116,79 @@ export default function CheckoutDeliveryPage() {
   // Handle switching to enter a new address
   const handleAddNewAddressOption = () => {
     setSelectedAddressId('NEW')
+    setIsEditingSavedAddress(false)
+    setEditingAddressId(null)
     setFlatNo('')
     setStreet('')
     setLandmark('')
     setPincode('')
+    setAddressLabel('Home')
+  }
+
+  // Start editing a specific saved address
+  const handleStartEditAddress = (addr: any) => {
+    setSelectedAddressId(addr.id)
+    setEditingAddressId(addr.id)
+    setIsEditingSavedAddress(true)
+    setFlatNo(addr.flatNo || '')
+    setStreet(addr.street || '')
+    setLandmark(addr.landmark || '')
+    setCity(addr.city || 'Latur')
+    setPincode(addr.pincode || '')
+    setAddressLabel(addr.label || 'Home')
+  }
+
+  // Save the edited address
+  const handleSaveEditedAddress = async () => {
+    if (!flatNo.trim()) return showToast('Please enter Flat / House / Shop number', 'error')
+    if (!street.trim()) return showToast('Please enter Street / Area', 'error')
+    if (!pincode.trim() || !/^[1-9][0-9]{5}$/.test(pincode.trim())) {
+      return showToast('Please enter a valid 6-digit Indian pincode (e.g. 413512)', 'error')
+    }
+
+    if (!editingAddressId) return
+
+    setIsUpdatingSavedAddress(true)
+    try {
+      const res = await fetch(`/api/addresses?id=${editingAddressId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: editingAddressId,
+          label: addressLabel,
+          flatNo: flatNo.trim(),
+          street: street.trim(),
+          landmark: landmark.trim() || null,
+          city: city.trim() || 'Latur',
+          pincode: pincode.trim(),
+        })
+      })
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || 'Failed to update address')
+      }
+
+      const updated = await res.json()
+      setSavedAddresses(prev => prev.map(a => a.id === editingAddressId ? { ...a, ...updated } : a))
+      setIsEditingSavedAddress(false)
+      setEditingAddressId(null)
+      showToast('Address updated successfully! 🎉', 'success')
+    } catch (err: any) {
+      showToast(err.message || 'Failed to update address', 'error')
+    } finally {
+      setIsUpdatingSavedAddress(false)
+    }
+  }
+
+  const handleCancelEditAddress = () => {
+    const curAddr = savedAddresses.find(a => a.id === selectedAddressId)
+    if (curAddr) {
+      selectSavedAddress(curAddr)
+    } else {
+      setIsEditingSavedAddress(false)
+      setEditingAddressId(null)
+    }
   }
 
   const minOrderValue = isB2BCheckout ? 0 : 199
@@ -124,7 +198,7 @@ export default function CheckoutDeliveryPage() {
 
   const executeProceed = async (shouldSave: boolean) => {
     setIsSavingAddress(true)
-    if (user && shouldSave) {
+    if (user && shouldSave && selectedAddressId === 'NEW') {
       try {
         await fetch('/api/addresses', {
           method: 'POST',
@@ -144,17 +218,22 @@ export default function CheckoutDeliveryPage() {
       }
     }
 
+    const effectiveName = name || user?.name || ''
+    const effectivePhone = phone || user?.phone || ''
+    const effectiveBusinessName = isB2BCheckout ? (businessName || user?.businessName || user?.businessProfile?.businessName || user?.name || 'B2B Customer') : null
+
     const deliveryInfo = {
-      name,
-      phone,
+      name: effectiveName,
+      phone: effectivePhone,
       flatNo,
       street,
       landmark,
       city,
       pincode,
       isB2BCheckout,
-      businessName: isB2BCheckout ? businessName : null,
-      fullAddress: `${flatNo}, ${street}${landmark ? `, Near ${landmark}` : ''}, ${city} - ${pincode}`
+      businessName: effectiveBusinessName,
+      fullAddress: `${flatNo}, ${street}${landmark ? `, Near ${landmark}` : ''}, ${city} - ${pincode}`,
+      addressId: selectedAddressId !== 'NEW' ? selectedAddressId : undefined
     }
 
     // Save dynamic Latur local slot automatically behind the scenes
@@ -177,8 +256,19 @@ export default function CheckoutDeliveryPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!name.trim()) return showToast('Please enter your name', 'error')
-    if (!phone.trim() || phone.length < 10) return showToast('Please enter a valid 10-digit phone number', 'error')
+    // If currently editing saved address, save it first
+    if (isEditingSavedAddress) {
+      await handleSaveEditedAddress()
+      return
+    }
+
+    const effectiveName = name || user?.name || ''
+    const effectivePhone = phone || user?.phone || ''
+
+    if (!effectiveName.trim()) return showToast('Please enter your name', 'error')
+    if (!effectivePhone.trim() || effectivePhone.replace(/\D/g, '').length < 10) {
+      return showToast('Please enter a valid 10-digit phone number', 'error')
+    }
     if (!flatNo.trim()) return showToast('Please enter house/flat/shop number', 'error')
     if (!street.trim()) return showToast('Please enter street/area name', 'error')
     if (!pincode.trim() || !/^[1-9][0-9]{5}$/.test(pincode.trim())) {
@@ -187,7 +277,6 @@ export default function CheckoutDeliveryPage() {
     if (isBelowMinOrder) {
       return showToast(`Minimum order amount is ₹${minOrderValue}. Please add ₹${minOrderValue - total} more to place your order.`, 'warning')
     }
-    if (isB2BCheckout && !businessName.trim()) return showToast('Please enter your business name', 'error')
 
     // If first-time ordering (no saved addresses) or new address added, prompt user with Save or Later
     if (savedAddresses.length === 0 || selectedAddressId === 'NEW') {
@@ -270,12 +359,12 @@ export default function CheckoutDeliveryPage() {
                         : 'bg-gray-50/70 border-gray-200 hover:border-gray-300'
                     }`}
                   >
-                    <div className="flex items-start gap-3">
-                      <div className={`p-2 rounded-xl mt-0.5 ${isSelected ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-600'}`}>
+                    <div className="flex items-start gap-3 flex-1 min-w-0">
+                      <div className={`p-2 rounded-xl mt-0.5 shrink-0 ${isSelected ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-600'}`}>
                         {addr.label === 'Office' ? <Building2 className="w-4 h-4" /> : <Home className="w-4 h-4" />}
                       </div>
-                      <div>
-                        <div className="flex items-center gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-display text-xs font-black text-brand-charcoal">
                             {addr.label || 'Saved Address'}
                           </span>
@@ -288,6 +377,21 @@ export default function CheckoutDeliveryPage() {
                         <p className="text-xs text-gray-600 font-semibold mt-1 leading-snug">
                           {addr.flatNo}, {addr.street}{addr.landmark ? `, Near ${addr.landmark}` : ''}, {addr.city} - {addr.pincode}
                         </p>
+
+                        {/* Edit Address Button for this saved address */}
+                        <div className="mt-2.5">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleStartEditAddress(addr)
+                            }}
+                            className="px-2.5 py-1 rounded-lg border border-purple-200 hover:border-purple-600 bg-white hover:bg-purple-50 text-purple-700 text-[11px] font-bold shadow-2xs flex items-center gap-1.5 transition-all"
+                          >
+                            <Pencil className="w-3 h-3 text-purple-600" />
+                            <span>Edit Address</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
 
@@ -314,255 +418,413 @@ export default function CheckoutDeliveryPage() {
                 <span>+ Add / Use New Delivery Address</span>
               </button>
             </div>
+
+            {/* Inline Editor when user clicks Edit Address on a saved address */}
+            {isEditingSavedAddress && (
+              <div className="mt-3 p-4 bg-purple-50/70 rounded-2xl border border-purple-200 flex flex-col gap-3.5 animate-in fade-in duration-200">
+                <div className="flex items-center justify-between pb-2 border-b border-purple-200/60">
+                  <div className="flex items-center gap-2 text-purple-950 font-extrabold text-xs">
+                    <Pencil className="w-3.5 h-3.5 text-purple-600" />
+                    <span>Edit Saved Address</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCancelEditAddress}
+                    className="p-1 text-gray-400 hover:text-gray-700 rounded-lg transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Address Label / Type */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-brand-charcoal uppercase tracking-wider">
+                    Address Label / Type
+                  </label>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {['Home', 'Office', 'Hotel/Cafe Outlet', 'Warehouse'].map((lbl) => (
+                      <button
+                        type="button"
+                        key={lbl}
+                        onClick={() => setAddressLabel(lbl)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
+                          addressLabel === lbl
+                            ? 'bg-brand-charcoal text-white border-brand-charcoal shadow-xs'
+                            : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                        }`}
+                      >
+                        {lbl}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Flat / House No */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-brand-charcoal uppercase tracking-wider">
+                    Flat / House / Shop Number *
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Shop No. 4 / Flat 102, Building Name"
+                    value={flatNo}
+                    onChange={(e) => setFlatNo(e.target.value)}
+                    className="w-full bg-white border border-gray-200 text-sm rounded-card px-4 py-2.5 focus:outline-none focus:border-brand-orange"
+                    required
+                  />
+                </div>
+
+                {/* Street / Landmark */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold text-brand-charcoal uppercase tracking-wider">
+                      Street / Area *
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Gandhi Nagar / MIDC Area"
+                      value={street}
+                      onChange={(e) => setStreet(e.target.value)}
+                      className="w-full bg-white border border-gray-200 text-sm rounded-card px-4 py-2.5 focus:outline-none focus:border-brand-orange"
+                      required
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold text-brand-charcoal uppercase tracking-wider">
+                      Landmark (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Near City Market / Bus Stand"
+                      value={landmark}
+                      onChange={(e) => setLandmark(e.target.value)}
+                      className="w-full bg-white border border-gray-200 text-sm rounded-card px-4 py-2.5 focus:outline-none focus:border-brand-orange"
+                    />
+                  </div>
+                </div>
+
+                {/* City / Pincode */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold text-brand-charcoal uppercase tracking-wider">
+                      City *
+                    </label>
+                    <select
+                      value={city}
+                      onChange={(e) => setCity(e.target.value)}
+                      className="w-full bg-white border border-gray-200 text-sm rounded-card px-4 py-2.5 focus:outline-none focus:border-brand-orange font-semibold"
+                      required
+                    >
+                      <option value="Latur">Latur (Free express delivery)</option>
+                      <option value="Osmanabad">Osmanabad</option>
+                      <option value="Nanded">Nanded</option>
+                      <option value="Bidar">Bidar</option>
+                      <option value="Other">Other (Regional Express)</option>
+                    </select>
+                  </div>
+                  
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold text-brand-charcoal uppercase tracking-wider">
+                      Pincode *
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="6-digit pincode"
+                      value={pincode}
+                      onChange={(e) => setPincode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      className="w-full bg-white border border-gray-200 text-sm rounded-card px-4 py-2.5 focus:outline-none focus:border-brand-orange font-mono"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 pt-2">
+                  <button
+                    type="button"
+                    disabled={isUpdatingSavedAddress}
+                    onClick={handleSaveEditedAddress}
+                    className="flex-1 py-3 bg-[#0c831f] hover:bg-[#096918] text-white font-extrabold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
+                  >
+                    {isUpdatingSavedAddress ? (
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <>
+                        <Check className="w-4 h-4" />
+                        <span>Save Address Changes</span>
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isUpdatingSavedAddress}
+                    onClick={handleCancelEditAddress}
+                    className="py-3 px-5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-xl transition cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           
-          {/* B2B Checkout Toggle */}
-          <div className="bg-purple-50/60 border border-purple-200/80 p-3.5 rounded-card flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <Building2 className="w-5 h-5 text-purple-700" />
-              <div>
-                <span className="text-xs font-bold text-brand-charcoal block leading-tight">
-                  Ordering for Business / Hotel / Cafe?
-                </span>
-                <span className="text-[10px] text-gray-500 font-semibold leading-none">
-                  Check this for GST Tax Invoice & commercial tags.
-                </span>
-              </div>
-            </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input 
-                type="checkbox" 
-                checked={isB2BCheckout} 
-                onChange={(e) => setIsB2BCheckout(e.target.checked)}
-                className="sr-only peer" 
-              />
-              <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-700" />
-            </label>
-          </div>
-
-          {/* Business Name Field */}
-          {isB2BCheckout && (
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-bold text-brand-charcoal uppercase tracking-wider">
-                Business / Outlet Name *
-              </label>
-              <div className="relative flex items-center">
-                <Building2 className="w-4.5 h-4.5 text-gray-400 absolute left-3" />
-                <input
-                  type="text"
-                  placeholder="Hotel / Cafe / Bakery / Restaurant Name"
-                  value={businessName}
-                  onChange={(e) => setBusinessName(e.target.value)}
-                  className="w-full bg-white border border-gray-200 text-sm rounded-card pl-10 pr-4 py-2.5 focus:outline-none focus:border-brand-orange"
-                  required={isB2BCheckout}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Customer Name Field */}
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-bold text-brand-charcoal uppercase tracking-wider">
-              {isB2BCheckout ? 'Contact Manager Name *' : 'Full Name *'}
-            </label>
-            <div className="relative flex items-center">
-              <User className="w-4.5 h-4.5 text-gray-400 absolute left-3" />
-              <input
-                type="text"
-                placeholder="Enter recipient full name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full bg-white border border-gray-200 text-sm rounded-card pl-10 pr-4 py-2.5 focus:outline-none focus:border-brand-orange"
-                required
-              />
-            </div>
-          </div>
-
-          {/* Mobile Phone Field */}
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-bold text-brand-charcoal uppercase tracking-wider">
-              Mobile Number for Delivery Call *
-            </label>
-            <div className="flex rounded-card border border-gray-200 overflow-hidden focus-within:border-brand-orange">
-              <span className="bg-gray-100 text-gray-500 text-sm font-bold px-3.5 flex items-center border-r border-gray-200 select-none">
-                +91
-              </span>
-              <input
-                type="tel"
-                placeholder="10-digit phone number"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                className="w-full bg-white text-sm px-4 py-2.5 focus:outline-none"
-                required
-              />
-            </div>
-            <p className="text-[11px] text-gray-500 font-medium">
-              Mandatory: Delivery driver will call on this number for handover and navigation.
-            </p>
-          </div>
-
-          {/* Address Label (Home / Office / Hotel Outlet) */}
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-bold text-brand-charcoal uppercase tracking-wider">
-              Address Label / Type
-            </label>
-            <div className="flex items-center gap-2">
-              {['Home', 'Office', 'Hotel/Cafe Outlet', 'Warehouse'].map((lbl) => (
+          {/* WHEN USER HAS SAVED ADDRESS SELECTED (AND NOT EDITING): HIDE DETAILED ADDRESS FORM */}
+          {user && savedAddresses.length > 0 && selectedAddressId !== 'NEW' && !isEditingSavedAddress ? (
+            <div className="flex flex-col gap-4">
+              <div className="p-3.5 bg-emerald-50/80 border border-emerald-200 rounded-2xl flex items-center justify-between text-xs text-emerald-900">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span className="font-bold">Delivering to your selected saved address</span>
+                </div>
                 <button
                   type="button"
-                  key={lbl}
-                  onClick={() => setAddressLabel(lbl)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
-                    addressLabel === lbl
-                      ? 'bg-brand-charcoal text-white border-brand-charcoal shadow-xs'
-                      : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
-                  }`}
+                  onClick={() => {
+                    const cur = savedAddresses.find(a => a.id === selectedAddressId)
+                    if (cur) handleStartEditAddress(cur)
+                  }}
+                  className="text-[11px] font-black text-emerald-700 hover:underline flex items-center gap-1"
                 >
-                  {lbl}
+                  <Pencil className="w-3 h-3" />
+                  <span>Edit</span>
                 </button>
-              ))}
-            </div>
-          </div>
+              </div>
 
-          {/* Flat / House No */}
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-bold text-brand-charcoal uppercase tracking-wider">
-              Flat / House / Shop Number *
-            </label>
-            <input
-              type="text"
-              placeholder="e.g. Shop No. 4 / Flat 102, Building Name"
-              value={flatNo}
-              onChange={(e) => setFlatNo(e.target.value)}
-              className="w-full bg-white border border-gray-200 text-sm rounded-card px-4 py-2.5 focus:outline-none focus:border-brand-orange"
-              required
-            />
-          </div>
-
-          {/* Street / Landmark */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-bold text-brand-charcoal uppercase tracking-wider">
-                Street / Area *
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. Gandhi Nagar / MIDC Area"
-                value={street}
-                onChange={(e) => setStreet(e.target.value)}
-                className="w-full bg-white border border-gray-200 text-sm rounded-card px-4 py-2.5 focus:outline-none focus:border-brand-orange"
-                required
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-bold text-brand-charcoal uppercase tracking-wider">
-                Landmark (Optional)
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. Near City Market / Bus Stand"
-                value={landmark}
-                onChange={(e) => setLandmark(e.target.value)}
-                className="w-full bg-white border border-gray-200 text-sm rounded-card px-4 py-2.5 focus:outline-none focus:border-brand-orange"
-              />
-            </div>
-          </div>
-
-          {/* City / Pincode */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-bold text-brand-charcoal uppercase tracking-wider">
-                City *
-              </label>
-              <select
-                value={city}
-                onChange={(e) => setCity(e.target.value)}
-                className="w-full bg-white border border-gray-200 text-sm rounded-card px-4 py-2.5 focus:outline-none focus:border-brand-orange font-semibold"
-                required
-              >
-                <option value="Latur">Latur (Free express delivery)</option>
-                <option value="Osmanabad">Osmanabad</option>
-                <option value="Nanded">Nanded</option>
-                <option value="Bidar">Bidar</option>
-                <option value="Other">Other (Regional Express)</option>
-              </select>
-            </div>
-            
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-bold text-brand-charcoal uppercase tracking-wider">
-                Pincode *
-              </label>
-              <input
-                type="text"
-                placeholder="6-digit pincode"
-                value={pincode}
-                onChange={(e) => setPincode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                className="w-full bg-white border border-gray-200 text-sm rounded-card px-4 py-2.5 focus:outline-none focus:border-brand-orange font-mono"
-                required
-              />
-              {pincode.length === 6 && (
-                <div className={`mt-1 p-2 rounded-xl text-[11px] font-bold flex items-center gap-1.5 ${
-                  pincode.startsWith('413')
-                    ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                    : 'bg-amber-50 text-amber-900 border border-amber-200'
-                }`}>
-                  {pincode.startsWith('413') ? (
-                    <>⚡ <strong>Latur Cold-Chain Zone:</strong> 10-30 Min Express Delivery (-18°C Guarantee)</>
-                  ) : (
-                    <>🚚 <strong>Regional Zone:</strong> Scheduled Cold-Chain Freight Available</>
-                  )}
+              {/* Minimum Order Value Notice */}
+              {isBelowMinOrder && (
+                <div className="bg-amber-50 border border-amber-200 p-3.5 rounded-2xl flex items-center gap-3 text-amber-900">
+                  <span className="text-xl">⚠️</span>
+                  <div className="text-xs">
+                    <p className="font-bold">
+                      Minimum order value is ₹{minOrderValue} for cold-chain frozen express.
+                    </p>
+                    <p className="text-amber-700 text-[11px] mt-0.5">
+                      Current cart total: ₹{total}. Please add ₹{minOrderValue - total} more to proceed to payment.
+                    </p>
+                  </div>
                 </div>
               )}
+
+              {/* Submit button: Directly proceeds to Payment! */}
+              <button
+                type="submit"
+                disabled={isBelowMinOrder}
+                className={`w-full font-display text-sm font-extrabold py-3.5 rounded-pill shadow-lg flex items-center justify-center gap-2 tap-scale mt-1 transition-all ${
+                  isBelowMinOrder 
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed shadow-none' 
+                    : 'bg-brand-orange hover:bg-brand-orange-dark text-white hover:shadow-brand-orange/20'
+                }`}
+              >
+                <span>Proceed to Payment</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
             </div>
-          </div>
+          ) : (
+            <>
+              {/* NEW ADDRESS OR MANUAL ADDRESS ENTRY FORM */}
+              {/* Customer Name Field */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-brand-charcoal uppercase tracking-wider">
+                  {isB2BCheckout ? 'Contact Manager Name *' : 'Full Name *'}
+                </label>
+                <div className="relative flex items-center">
+                  <User className="w-4.5 h-4.5 text-gray-400 absolute left-3" />
+                  <input
+                    type="text"
+                    placeholder="Enter recipient full name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="w-full bg-white border border-gray-200 text-sm rounded-card pl-10 pr-4 py-2.5 focus:outline-none focus:border-brand-orange"
+                    required
+                  />
+                </div>
+              </div>
 
-          {/* Save Address Checkbox */}
-          {user && selectedAddressId === 'NEW' && (
-            <label className="flex items-center gap-2 mt-1 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={saveAddressToAccount}
-                onChange={(e) => setSaveAddressToAccount(e.target.checked)}
-                className="w-4 h-4 accent-brand-orange rounded"
-              />
-              <span className="text-xs font-bold text-gray-600">
-                Save this address to my account for 1-click future orders
-              </span>
-            </label>
-          )}
-
-          {/* Minimum Order Value Notice */}
-          {isBelowMinOrder && (
-            <div className="bg-amber-50 border border-amber-200 p-3.5 rounded-2xl flex items-center gap-3 text-amber-900 mt-2">
-              <span className="text-xl">⚠️</span>
-              <div className="text-xs">
-                <p className="font-bold">
-                  Minimum order value is ₹{minOrderValue} for cold-chain frozen express.
-                </p>
-                <p className="text-amber-700 text-[11px] mt-0.5">
-                  Current cart total: ₹{total}. Please add ₹{minOrderValue - total} more to proceed to payment.
+              {/* Mobile Phone Field */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-brand-charcoal uppercase tracking-wider">
+                  Mobile Number for Delivery Call *
+                </label>
+                <div className="flex rounded-card border border-gray-200 overflow-hidden focus-within:border-brand-orange">
+                  <span className="bg-gray-100 text-gray-500 text-sm font-bold px-3.5 flex items-center border-r border-gray-200 select-none">
+                    +91
+                  </span>
+                  <input
+                    type="tel"
+                    placeholder="10-digit phone number"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                    className="w-full bg-white text-sm px-4 py-2.5 focus:outline-none"
+                    required
+                  />
+                </div>
+                <p className="text-[11px] text-gray-500 font-medium">
+                  Mandatory: Delivery driver will call on this number for handover and navigation.
                 </p>
               </div>
-            </div>
-          )}
 
-          {/* Submit button: Directly proceeds to Payment! */}
-          <button
-            type="submit"
-            disabled={isBelowMinOrder}
-            className={`w-full font-display text-sm font-extrabold py-3.5 rounded-pill shadow-lg flex items-center justify-center gap-2 tap-scale mt-4 transition-all ${
-              isBelowMinOrder 
-                ? 'bg-gray-300 text-gray-500 cursor-not-allowed shadow-none' 
-                : 'bg-brand-orange hover:bg-brand-orange-dark text-white hover:shadow-brand-orange/20'
-            }`}
-          >
-            <span>Proceed to Payment</span>
-            <ArrowRight className="w-4 h-4" />
-          </button>
+              {/* Address Label (Home / Office / Hotel Outlet) */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-brand-charcoal uppercase tracking-wider">
+                  Address Label / Type
+                </label>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {['Home', 'Office', 'Hotel/Cafe Outlet', 'Warehouse'].map((lbl) => (
+                    <button
+                      type="button"
+                      key={lbl}
+                      onClick={() => setAddressLabel(lbl)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
+                        addressLabel === lbl
+                          ? 'bg-brand-charcoal text-white border-brand-charcoal shadow-xs'
+                          : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                      }`}
+                    >
+                      {lbl}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Flat / House No */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-brand-charcoal uppercase tracking-wider">
+                  Flat / House / Shop Number *
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Shop No. 4 / Flat 102, Building Name"
+                  value={flatNo}
+                  onChange={(e) => setFlatNo(e.target.value)}
+                  className="w-full bg-white border border-gray-200 text-sm rounded-card px-4 py-2.5 focus:outline-none focus:border-brand-orange"
+                  required
+                />
+              </div>
+
+              {/* Street / Landmark */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-brand-charcoal uppercase tracking-wider">
+                    Street / Area *
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Gandhi Nagar / MIDC Area"
+                    value={street}
+                    onChange={(e) => setStreet(e.target.value)}
+                    className="w-full bg-white border border-gray-200 text-sm rounded-card px-4 py-2.5 focus:outline-none focus:border-brand-orange"
+                    required
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-brand-charcoal uppercase tracking-wider">
+                    Landmark (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Near City Market / Bus Stand"
+                    value={landmark}
+                    onChange={(e) => setLandmark(e.target.value)}
+                    className="w-full bg-white border border-gray-200 text-sm rounded-card px-4 py-2.5 focus:outline-none focus:border-brand-orange"
+                  />
+                </div>
+              </div>
+
+              {/* City / Pincode */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-brand-charcoal uppercase tracking-wider">
+                    City *
+                  </label>
+                  <select
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    className="w-full bg-white border border-gray-200 text-sm rounded-card px-4 py-2.5 focus:outline-none focus:border-brand-orange font-semibold"
+                    required
+                  >
+                    <option value="Latur">Latur (Free express delivery)</option>
+                    <option value="Osmanabad">Osmanabad</option>
+                    <option value="Nanded">Nanded</option>
+                    <option value="Bidar">Bidar</option>
+                    <option value="Other">Other (Regional Express)</option>
+                  </select>
+                </div>
+                
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-brand-charcoal uppercase tracking-wider">
+                    Pincode *
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="6-digit pincode"
+                    value={pincode}
+                    onChange={(e) => setPincode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    className="w-full bg-white border border-gray-200 text-sm rounded-card px-4 py-2.5 focus:outline-none focus:border-brand-orange font-mono"
+                    required
+                  />
+                  {pincode.length === 6 && (
+                    <div className={`mt-1 p-2 rounded-xl text-[11px] font-bold flex items-center gap-1.5 ${
+                      pincode.startsWith('413')
+                        ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                        : 'bg-amber-50 text-amber-900 border border-amber-200'
+                    }`}>
+                      {pincode.startsWith('413') ? (
+                        <>⚡ <strong>Latur Cold-Chain Zone:</strong> 10-30 Min Express Delivery (-18°C Guarantee)</>
+                      ) : (
+                        <>🚚 <strong>Regional Zone:</strong> Scheduled Cold-Chain Freight Available</>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Save Address Checkbox */}
+              {user && selectedAddressId === 'NEW' && (
+                <label className="flex items-center gap-2 mt-1 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={saveAddressToAccount}
+                    onChange={(e) => setSaveAddressToAccount(e.target.checked)}
+                    className="w-4 h-4 accent-brand-orange rounded"
+                  />
+                  <span className="text-xs font-bold text-gray-600">
+                    Save this address to my account for 1-click future orders
+                  </span>
+                </label>
+              )}
+
+              {/* Minimum Order Value Notice */}
+              {isBelowMinOrder && (
+                <div className="bg-amber-50 border border-amber-200 p-3.5 rounded-2xl flex items-center gap-3 text-amber-900 mt-2">
+                  <span className="text-xl">⚠️</span>
+                  <div className="text-xs">
+                    <p className="font-bold">
+                      Minimum order value is ₹{minOrderValue} for cold-chain frozen express.
+                    </p>
+                    <p className="text-amber-700 text-[11px] mt-0.5">
+                      Current cart total: ₹{total}. Please add ₹{minOrderValue - total} more to proceed to payment.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Submit button: Directly proceeds to Payment! */}
+              <button
+                type="submit"
+                disabled={isBelowMinOrder}
+                className={`w-full font-display text-sm font-extrabold py-3.5 rounded-pill shadow-lg flex items-center justify-center gap-2 tap-scale mt-4 transition-all ${
+                  isBelowMinOrder 
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed shadow-none' 
+                    : 'bg-brand-orange hover:bg-brand-orange-dark text-white hover:shadow-brand-orange/20'
+                }`}
+              >
+                <span>Proceed to Payment</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </>
+          )}
 
         </form>
       </div>

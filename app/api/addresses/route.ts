@@ -101,3 +101,54 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: 'Failed to delete address' }, { status: 500 })
   }
 }
+
+export async function PUT(request: Request) {
+  try {
+    const userId = await getAuthUserId()
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { searchParams } = new URL(request.url)
+    const body = await request.json()
+    const id = searchParams.get('id') || body.id
+
+    if (!id) {
+      return NextResponse.json({ error: 'Address ID required' }, { status: 400 })
+    }
+
+    const { label, flatNo, street, landmark, city, pincode, isDefault } = body
+
+    const existing = await prisma.address.findFirst({
+      where: { id, userId }
+    })
+    if (!existing) {
+      return NextResponse.json({ error: 'Address not found' }, { status: 404 })
+    }
+
+    if (isDefault) {
+      await prisma.address.updateMany({
+        where: { userId, id: { not: id } },
+        data: { isDefault: false }
+      })
+    }
+
+    const updated = await prisma.address.update({
+      where: { id },
+      data: {
+        label: label || existing.label,
+        flatNo: flatNo || existing.flatNo,
+        street: street || existing.street,
+        landmark: landmark !== undefined ? landmark : existing.landmark,
+        city: city || existing.city,
+        pincode: pincode || existing.pincode,
+        isDefault: isDefault !== undefined ? Boolean(isDefault) : existing.isDefault,
+      }
+    })
+
+    return NextResponse.json(updated)
+  } catch (error) {
+    console.error('Update address error:', error)
+    return NextResponse.json({ error: 'Failed to update address' }, { status: 500 })
+  }
+}
