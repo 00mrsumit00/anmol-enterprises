@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useRef } from 'react'
+import React, { useRef, useState, useEffect } from 'react'
 import { Star, ShieldCheck, Quote, ChevronLeft, ChevronRight, ThumbsUp } from 'lucide-react'
 
 interface ReviewItem {
@@ -117,6 +117,30 @@ const REVIEWS: ReviewItem[] = [
 
 export default function CustomerReviewsMarquee() {
   const scrollRef = useRef<HTMLDivElement>(null)
+  const [reviewsList, setReviewsList] = useState<ReviewItem[]>(REVIEWS)
+
+  useEffect(() => {
+    let isMounted = true
+    fetch('/api/reviews')
+      .then((res) => {
+        if (!res.ok) throw new Error('Failed to fetch reviews')
+        return res.json()
+      })
+      .then((data) => {
+        if (isMounted && Array.isArray(data) && data.length > 0) {
+          // Prepend latest verified customer reviews from DB, keeping static ones as complement
+          const dbIds = new Set(data.map((r: ReviewItem) => r.id))
+          const remainingCurated = REVIEWS.filter((r) => !dbIds.has(r.id))
+          setReviewsList([...data, ...remainingCurated])
+        }
+      })
+      .catch(() => {
+        // Fallback cleanly to static reviews
+      })
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   const handleManualScroll = (direction: 'left' | 'right') => {
     if (scrollRef.current) {
@@ -181,7 +205,7 @@ export default function CustomerReviewsMarquee() {
       >
         <div className="flex gap-4 w-max animate-reviews-scroll hover:[animation-play-state:paused]">
           {/* Double array to create seamless infinite loop effect */}
-          {[...REVIEWS, ...REVIEWS].map((item, idx) => (
+          {[...reviewsList, ...reviewsList].map((item, idx) => (
             <div
               key={`${item.id}-${idx}`}
               className="w-[310px] sm:w-[340px] shrink-0 bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/90 shadow-sm hover:shadow-md hover:border-amber-400/50 transition-all flex flex-col justify-between select-none group"
